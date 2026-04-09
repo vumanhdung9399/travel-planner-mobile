@@ -1,24 +1,22 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
-
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+import { AppToast } from "@/src/components/AppToast";
+import CustomDrawer from "@/src/components/layout/CustomDrawer";
+import { Drawer } from "expo-router/drawer";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <Drawer
+        drawerContent={(props) => <CustomDrawer {...props} />}
+        screenOptions={{
+          headerShown: false,
+          drawerStyle: { width: 280 },
+        }}
+      >
+        <Drawer.Screen name="(tabs)" />
+      </Drawer>
+
+      <AppToast />
+    </GestureHandlerRootView>
   );
 }
