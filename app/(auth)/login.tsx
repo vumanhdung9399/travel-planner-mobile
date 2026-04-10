@@ -44,7 +44,6 @@ export default function LoginScreen() {
   const onSubmit = async (data: any) => {
     try {
       const res = await api.post("/auth/login", data);
-      console.log(res);
       const { access_token, refresh_token, user } = res.data;
 
       setAuth({

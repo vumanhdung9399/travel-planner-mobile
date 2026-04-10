@@ -7,8 +7,10 @@ import { showSuccess } from "@/src/utils/errorHandler";
 import { formatTimeAgo } from "@/src/utils/helper";
 import ActionSheet from "@components/ActionSheet";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import { useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   StyleSheet,
   Text,
@@ -19,19 +21,24 @@ import {
 export default function NotificationScreen() {
   const {
     fetchNotifications,
+    count,
     setCount,
     listNotification,
     setListNotification,
+    hasMore,
+    loading,
   } = useNotificationStore();
   const navigateNoti = useNotificationNavigate();
   const [selected, setSelected] = useState<Notification | null>(null);
   const [open, setOpen] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await fetchNotifications();
-    setRefreshing(false);
+  const renderFooter = () => {
+    if (!loading) return null;
+    return (
+      <View style={{ paddingVertical: 20 }}>
+        <ActivityIndicator size="small" color="#007AFF" />
+      </View>
+    );
   };
 
   const handleReadAll = async () => {
@@ -80,9 +87,25 @@ export default function NotificationScreen() {
   const renderHeader = () => (
     <View style={styles.header}>
       <Text style={styles.headerTitle}>Thông báo</Text>
-      <TouchableOpacity onPress={handleReadAll}>
-        <Text style={styles.readAllBtn}>Đánh dấu đã đọc</Text>
-      </TouchableOpacity>
+      {count > 0 && (
+        <TouchableOpacity onPress={handleReadAll}>
+          <Text style={styles.readAllBtn}>Đánh dấu đã đọc</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
+  const EmptyState = () => (
+    <View style={styles.emptyContainer}>
+      <MaterialCommunityIcons
+        name="bell-off-outline"
+        size={80}
+        color="#e0e0e0"
+      />
+      <Text style={styles.emptyTitle}>Chưa có thông báo nào</Text>
+      <Text style={styles.emptySubtitle}>
+        Chúng tôi sẽ thông báo cho bạn khi có tin tức mới nhất.
+      </Text>
     </View>
   );
 
@@ -121,11 +144,19 @@ export default function NotificationScreen() {
       {renderHeader()}
       <FlatList
         data={listNotification}
-        keyExtractor={(item) => String(item.id)}
-        refreshing={refreshing}
-        onRefresh={onRefresh}
+        keyExtractor={(item, index) => `${item.id}-${index}`}
+        refreshing={loading && listNotification.length === 0}
+        onRefresh={() => fetchNotifications(true)}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 20 }}
+        onEndReached={() => {
+          if (!loading && hasMore && listNotification.length > 0) {
+            fetchNotifications();
+          }
+        }}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={renderFooter}
+        ListEmptyComponent={!loading ? <EmptyState /> : null}
         renderItem={({ item }) => (
           <TouchableOpacity
             activeOpacity={0.7}
@@ -135,6 +166,7 @@ export default function NotificationScreen() {
               // navigateNoti(item);
             }}
             onLongPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               setSelected(item);
               setOpen(true);
             }}
@@ -223,5 +255,25 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: "#007AFF",
+  },
+  emptyContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 100,
+    paddingHorizontal: 40,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#444",
+    marginTop: 16,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: "#888",
+    textAlign: "center",
+    marginTop: 8,
+    lineHeight: 20,
   },
 });
