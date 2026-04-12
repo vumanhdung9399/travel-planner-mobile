@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons"; // Hoặc Lucide-react-native
 import { useRouter } from "expo-router";
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface CommonHeaderProps {
   title?: string;
@@ -16,7 +15,6 @@ export const CommonHeader = ({
   rightElement,
 }: CommonHeaderProps) => {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
 
   const handleBack = () => {
     if (onBack) {
@@ -27,7 +25,7 @@ export const CommonHeader = ({
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container]}>
       <View style={styles.content}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
           <Ionicons name="chevron-back" size={28} color="#000" />

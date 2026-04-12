@@ -21,7 +21,7 @@ export interface ExpenseItem {
   userId: string;
   createdBy: UserGroup;
   paidBy: UserGroup;
-  participants: UserGroup[];
+  participants: UserGroupRole[];
 }
 
 export interface Trip {
@@ -31,11 +31,11 @@ export interface Trip {
   location?: string;
   infor?: string;
   startDate: string; // YYYY-MM-DD
-  endDate: string;   // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
   timelines: TimelineItemType[];
   expenses: ExpenseItem[];
   isLeader: boolean;
-  group: Group,
+  group: Group;
   isCloseTrip: boolean;
 }
 
@@ -46,6 +46,6 @@ interface Group {
   members: UserGroupRole[];
 }
 
-interface UserGroupRole extends UserGroup {
+export interface UserGroupRole extends UserGroup {
   role?: string;
 }

@@ -8,23 +8,25 @@ import { Drawer } from "expo-router/drawer";
 import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
+// Notifications.setNotificationHandler({
+//   handleNotification: async () => ({
+//     shouldShowAlert: true,
+//     shouldPlaySound: true,
+//     shouldSetBadge: false,
 
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+//     shouldShowBanner: true,
+//     shouldShowList: true,
+//   }),
+// });
 
 const initNotification = async () => {
   await Notifications.setNotificationChannelAsync("default", {
     name: "default",
     importance: Notifications.AndroidImportance.MAX,
+    sound: "default",
+    vibrationPattern: [0, 250, 250, 250],
+    enableVibrate: true,
   });
-
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowAlert: true,
@@ -47,20 +49,20 @@ export default function RootLayout() {
     initNotification();
   }, []);
 
-  useEffect(() => {
-    const sub = Notifications.addNotificationResponseReceivedListener(
-      (response) => {
-        const data = response.notification.request.content.data;
-        if (data?.type === "chat") {
-          router.push(`/chat/${data.conversationId}`);
-        }
-        if (data?.type === "trip") {
-          router.push(`/trip/${data.tripId}`);
-        }
-      },
-    );
-    return () => sub.remove();
-  }, []);
+  // useEffect(() => {
+  //   const sub = Notifications.addNotificationResponseReceivedListener(
+  //     (response) => {
+  //       const data = response.notification.request.content.data;
+  //       if (data?.type === "chat") {
+  //         router.push(`/chat/${data.conversationId}`);
+  //       }
+  //       if (data?.type === "trip") {
+  //         router.push(`/trip/${data.tripId}`);
+  //       }
+  //     },
+  //   );
+  //   return () => sub.remove();
+  // }, []);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

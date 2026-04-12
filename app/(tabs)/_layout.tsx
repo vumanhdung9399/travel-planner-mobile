@@ -4,14 +4,19 @@ import { useUserStore } from "@/src/store/user.store";
 import { UserProfile } from "@/src/type/user";
 import { Ionicons } from "@expo/vector-icons";
 import { DrawerActions, useNavigation } from "@react-navigation/native";
-import { Tabs } from "expo-router";
+import { Tabs, useSegments } from "expo-router";
 import { useEffect } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function TabLayout() {
   const navigation = useNavigation();
   const { setUser } = useUserStore();
+  const segments = useSegments();
   const { fetchNotifications, count } = useNotificationStore();
+
+  const hideTab =
+    segments.includes("groups") ||
+    (segments.includes("trips") && segments.length > 2);
 
   useEffect(() => {
     getProfile();
@@ -28,8 +33,10 @@ export default function TabLayout() {
   return (
     <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
       <Tabs
+        backBehavior="history"
         screenOptions={{
           headerShown: false,
+          tabBarStyle: hideTab ? { display: "none" } : {},
         }}
       >
         <Tabs.Screen
@@ -87,6 +94,19 @@ export default function TabLayout() {
               e.preventDefault();
               navigation.dispatch(DrawerActions.openDrawer());
             },
+          }}
+        />
+        <Tabs.Screen
+          name="groups"
+          options={{
+            href: null,
+          }}
+        />
+
+        <Tabs.Screen
+          name="trips"
+          options={{
+            href: null,
           }}
         />
       </Tabs>

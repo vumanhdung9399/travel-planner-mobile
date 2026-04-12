@@ -2,7 +2,7 @@ import dayjs from "dayjs";
 import "dayjs/locale/vi";
 import relativeTime from "dayjs/plugin/relativeTime";
 import type { Notification } from "../type/notification";
-import { NOTIFICATION_TYPE } from "./constants";
+import { GROUP_ROLE, NOTIFICATION_TYPE } from "./constants";
 
 dayjs.extend(relativeTime);
 dayjs.locale("vi");
@@ -99,5 +99,30 @@ export const getNotificationRoute = (noti: Notification): NotificationRoute => {
 
     default:
       return { screen: "Home" };
+  }
+};
+
+export const getGreeting = () => {
+  const hour = new Date().getHours(); // Lấy giờ hiện tại (0-23)
+  let greeting;
+
+  if (hour < 12) {
+    greeting = "Chào buổi sáng ✨";
+  } else if (hour < 18) {
+    greeting = "Chào buổi chiều ✨";
+  } else {
+    greeting = "Chào buổi tối ✨";
+  }
+
+  return greeting;
+};
+
+export const getTextRole = (role: string) => {
+  if (role === GROUP_ROLE.LEADER || role === GROUP_ROLE.OWNER) {
+    return "Trưởng nhóm";
+  } else if (role === GROUP_ROLE.MEMBER) {
+    return "Thành viên";
+  } else {
+    return "";
   }
 };

@@ -133,10 +133,7 @@ export default function LoginScreen() {
           <Divider style={{ marginVertical: 20 }} />
 
           {/* Register */}
-          <Button
-            mode="outlined"
-            onPress={() => navigation.navigate("Register" as never)}
-          >
+          <Button mode="outlined" onPress={() => router.push("/register")}>
             Create Account
           </Button>
 

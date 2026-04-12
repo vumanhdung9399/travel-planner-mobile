@@ -4,6 +4,8 @@ export interface UserGroup {
   avatar: string | null;
   bank?: string;
   bankAccNumber?: string;
+  phone?: string;
+  email?: string;
 }
 
 export interface UserProfile {
