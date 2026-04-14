@@ -7,11 +7,6 @@ import { GROUP_ROLE, NOTIFICATION_TYPE } from "./constants";
 dayjs.extend(relativeTime);
 dayjs.locale("vi");
 
-export type NotificationRoute = {
-  screen: string;
-  params?: Record<string, any>;
-};
-
 export const getDayFromTime = (time: string, startDate: string) => {
   const t = new Date(time);
   const s = new Date(startDate);
@@ -62,43 +57,33 @@ export const getNameFirstLetterUpper = (name: string | undefined) => {
   return lastName?.charAt(0).toUpperCase() || "";
 };
 
-export const getNotificationRoute = (noti: Notification): NotificationRoute => {
-  if (noti.link) return { screen: "WebView", params: { url: noti.link } };
+export const getNotificationRoute = (noti: Notification) => {
+  if (noti.link) return noti.link;
 
   const { type, metadata } = noti;
 
+  if (!metadata) {
+    return "";
+  }
+
   switch (type) {
     case NOTIFICATION_TYPE.INVITE:
-      return metadata?.groupId
-        ? { screen: "GroupDetail", params: { groupId: metadata.groupId } }
-        : { screen: "GroupList" };
+      return `/groups/${noti.group.id}`;
 
     case NOTIFICATION_TYPE.TRIP:
-    case NOTIFICATION_TYPE.MANUAL:
-      return metadata?.tripId
-        ? { screen: "TripDetail", params: { tripId: metadata.tripId } }
-        : { screen: "Home" };
+      return `/trips/${metadata.tripId}`;
 
     case NOTIFICATION_TYPE.EXPENSE:
-      return {
-        screen: "TripDetail",
-        params: { tripId: metadata?.tripId, tab: "expenses" },
-      };
+      return `/trips/${metadata.tripId}?tab=${NOTIFICATION_TYPE.EXPENSE}`;
 
     case NOTIFICATION_TYPE.TIMELINE:
-      return {
-        screen: "TripDetail",
-        params: { tripId: metadata?.tripId, tab: "timeline" },
-      };
+      return `/trips/${metadata.tripId}?tab=${NOTIFICATION_TYPE.TIMELINE}`;
 
     case NOTIFICATION_TYPE.BALANCE:
-      return {
-        screen: "TripDetail",
-        params: { tripId: metadata?.tripId, tab: "balance" },
-      };
+      return `/trips/${metadata.tripId}?tab=${NOTIFICATION_TYPE.BALANCE}`;
 
     default:
-      return { screen: "Home" };
+      return "";
   }
 };
 

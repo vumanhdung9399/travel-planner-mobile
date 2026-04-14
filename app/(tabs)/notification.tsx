@@ -46,7 +46,6 @@ export default function NotificationScreen() {
       await api.patch("/notifications/read-all");
       setListNotification((prev) => prev.map((n) => ({ ...n, isRead: true })));
       setCount(0);
-      showSuccess("Đã đánh dấu tất cả là đã đọc");
     } catch (error) {
       console.error(error);
     }
@@ -163,7 +162,7 @@ export default function NotificationScreen() {
             style={[styles.item, !item.isRead && styles.unreadItem]}
             onPress={() => {
               markRead(item);
-              // navigateNoti(item);
+              navigateNoti(item);
             }}
             onLongPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);

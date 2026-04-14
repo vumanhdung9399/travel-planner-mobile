@@ -3,14 +3,14 @@ import { COLORS } from "@/src/utils/constants";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    SafeAreaView,
-    StyleSheet,
-    TouchableOpacity,
-    useWindowDimensions,
-    View,
+  ActivityIndicator,
+  SafeAreaView,
+  StyleSheet,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import { IconButton, Text } from "react-native-paper";
 import { SceneMap, TabView } from "react-native-tab-view";
@@ -24,13 +24,24 @@ import TripInfo from "@/src/components/trip/TripInfo";
 import { useTripStore } from "@/src/store/trip.store";
 import { LinearGradient } from "expo-linear-gradient";
 
+const tabKeyToIndex: Record<string, number> = {
+  info: 0,
+  timeline: 1,
+  expense: 2,
+  balance: 3,
+  leader: 4,
+};
+
 const TripDetailScreen = () => {
   const router = useRouter();
   const layout = useWindowDimensions();
   const { loading, trip, setTrip, fetchTrip } = useTripStore();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, tab } = useLocalSearchParams<{ id: string; tab?: string }>();
 
   const [tabIndex, setTabIndex] = useState(0);
+
+  const hasProcessedInitialTab = useRef(false);
+  const pendingTab = useRef<string | undefined>(tab);
 
   const [routes, setRoutes] = useState([
     { key: "info", title: "Thông tin", icon: "information-circle-outline" },
@@ -41,9 +52,35 @@ const TripDetailScreen = () => {
 
   useFocusEffect(
     useCallback(() => {
+      hasProcessedInitialTab.current = false;
+      pendingTab.current = tab;
       fetchTrip(id);
-    }, [id]),
+    }, [id, tab]),
   );
+
+  useEffect(() => {
+    if (!loading && trip.id && !hasProcessedInitialTab.current) {
+      hasProcessedInitialTab.current = true;
+
+      if (
+        pendingTab.current &&
+        tabKeyToIndex[pendingTab.current] !== undefined
+      ) {
+        const targetIndex = tabKeyToIndex[pendingTab.current];
+
+        if (
+          pendingTab.current === "leader" &&
+          (!trip.isLeader || trip.isCloseTrip)
+        ) {
+          setTabIndex(0);
+        } else {
+          setTabIndex(targetIndex);
+        }
+
+        pendingTab.current = undefined;
+      }
+    }
+  }, [loading, trip.id, trip.isLeader, trip.isCloseTrip]);
 
   useEffect(() => {
     if (trip.id) {
@@ -62,10 +99,6 @@ const TripDetailScreen = () => {
       } else {
         setRoutes(baseRoutes);
       }
-
-      if (trip.isCloseTrip) {
-        setTabIndex(0);
-      }
     }
   }, [trip]);
 
@@ -77,9 +110,7 @@ const TripDetailScreen = () => {
     leader: () => <Leader trip={trip} setTrip={setTrip} />,
   });
 
-  // Kiểm tra có nên hiển thị nút thêm trên header không
   const shouldShowHeaderButton = () => {
-    // Trip đã close thì không hiển thị gì
     if (trip.isCloseTrip) return false;
 
     switch (tabIndex) {

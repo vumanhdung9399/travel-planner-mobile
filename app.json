@@ -32,6 +32,16 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/logo.png",
+          "color": "#ffffff",
+          "defaultChannel": "default",
+          "sounds": ["./assets/notification.mp3", "./assets/notification.mp3"],
+          "enableBackgroundRemoteNotifications": false
+        }
+      ],
       "expo-router",
       [
         "expo-splash-screen",

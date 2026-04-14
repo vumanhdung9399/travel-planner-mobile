@@ -1,15 +1,15 @@
-import { useNavigation } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 import type { Notification } from "../type/notification";
 import { getNotificationRoute } from "../utils/helper";
 
 export const useNotificationNavigate = () => {
-  const navigation = useNavigation<any>();
+  const router = useRouter();
 
   return (noti: Notification) => {
     const route = getNotificationRoute(noti);
 
-    if (route.screen) {
-      navigation.navigate(route.screen, route.params);
+    if (route) {
+      router.push(route);
     }
   };
 };

@@ -2,9 +2,9 @@ import type { ExpenseItem, Trip } from "@/src/type/trip";
 import type { UserGroup } from "@/src/type/user";
 import { COLORS, EXPENSE_STATUS } from "@/src/utils/constants";
 import {
-    formatMoney,
-    formatTime,
-    getNameFirstLetterUpper,
+  formatMoney,
+  formatTime,
+  getNameFirstLetterUpper,
 } from "@/src/utils/helper";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";

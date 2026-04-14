@@ -4,8 +4,8 @@ import { useUserStore } from "@/src/store/user.store";
 import { UserProfile } from "@/src/type/user";
 import { Ionicons } from "@expo/vector-icons";
 import { DrawerActions, useNavigation } from "@react-navigation/native";
-import { Tabs, useSegments } from "expo-router";
-import { useEffect } from "react";
+import { Tabs, useFocusEffect, useSegments } from "expo-router";
+import { useCallback } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function TabLayout() {
@@ -14,14 +14,27 @@ export default function TabLayout() {
   const segments = useSegments();
   const { fetchNotifications, count } = useNotificationStore();
 
+  const openDrawer = () => {
+    // Tìm drawer navigator bằng cách đi lên đến root
+    let root = navigation;
+    while (root.getParent()) {
+      root = root.getParent();
+    }
+
+    // Dispatch từ root
+    root.dispatch(DrawerActions.openDrawer());
+  };
+
   const hideTab =
     segments.includes("groups") ||
     (segments.includes("trips") && segments.length > 2);
 
-  useEffect(() => {
-    getProfile();
-    fetchNotifications();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      getProfile();
+      fetchNotifications();
+    }, []),
+  );
 
   const getProfile = async () => {
     try {

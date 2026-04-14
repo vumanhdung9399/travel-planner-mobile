@@ -1,10 +1,11 @@
 import { api } from "@/src/services/api";
 import { useAuthStore } from "@/src/store/auth.store";
-import type { ExpenseItem, Trip } from "@/src/type/trip";
+import type { ExpenseItem, Trip, UserGroupRole } from "@/src/type/trip";
 import { COLORS, EXPENSE_STATUS, GROUP_ROLE } from "@/src/utils/constants";
 import { formatMoney, getNameFirstLetterUpper } from "@/src/utils/helper";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useMemo, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -34,19 +35,39 @@ const BalanceList = ({ trip }: Props) => {
   const [listExpenses, setListExpenses] = useState<ExpenseItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [members, setMembers] = useState<UserGroupRole[]>([]);
 
-  const users = trip.group?.members || [];
   const leader = useMemo(() => {
     return (
-      users.find(
+      members.find(
         (u) => u.role === GROUP_ROLE.LEADER || u.role === GROUP_ROLE.OWNER,
-      ) || users[0]
+      ) || members[0]
     );
-  }, [users]);
+  }, [members]);
 
   useEffect(() => {
     getExpenses();
+    getMember();
   }, [trip.id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!trip.id) return;
+      getExpenses();
+      getMember();
+    }, [trip.id]),
+  );
+
+  const getMember = async () => {
+    try {
+      const res = await api.get<UserGroupRole[]>(
+        `groups/${trip.group.id}/members/with-deleted-paid`,
+      );
+      setMembers(res.data);
+    } catch (error) {
+      console.log(error);
+    }
+  };
 
   const getExpenses = async () => {
     try {
@@ -116,10 +137,10 @@ const BalanceList = ({ trip }: Props) => {
 
   const validBalances = useMemo(() => {
     return balances.filter((balance) => {
-      const user = users.find((u) => u.id === balance.userId);
+      const user = members.find((u) => u.id === balance.userId);
       return !!user;
     });
-  }, [balances, users]);
+  }, [balances, members]);
 
   if (loading) {
     return (
@@ -159,7 +180,7 @@ const BalanceList = ({ trip }: Props) => {
         data={validBalances}
         keyExtractor={(item) => item.userId}
         renderItem={({ item }) => {
-          const user = users.find((u) => u.id === item.userId);
+          const user = members.find((u) => u.id === item.userId);
 
           if (!user) {
             console.warn(`User not found for userId: ${item.userId}`);
@@ -173,7 +194,7 @@ const BalanceList = ({ trip }: Props) => {
               items={item.items}
               isCurrent={item.userId === currentUserId}
               leader={leader!}
-              users={users}
+              users={members}
             />
           );
         }}

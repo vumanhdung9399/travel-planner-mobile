@@ -1,20 +1,20 @@
 import { api } from "@/src/services/api";
 import { useAuthStore } from "@/src/store/auth.store";
-import type { ExpenseItem, Trip } from "@/src/type/trip";
+import type { ExpenseItem, Trip, UserGroupRole } from "@/src/type/trip";
 import { COLORS, EXPENSE_STATUS, categories } from "@/src/utils/constants";
 import { formatMoney, getDayFromTime } from "@/src/utils/helper";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    FlatList,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { Surface, Text } from "react-native-paper";
 import ConfirmDialog from "../ConfirmDialog";
@@ -34,6 +34,7 @@ const ExpenseList = ({ trip }: ExpenseListProps) => {
   const [refreshing, setRefreshing] = useState(false);
   const [showPending, setShowPending] = useState(false);
   const [countPending, setCountPending] = useState(0);
+  const [members, setMembers] = useState<UserGroupRole[]>([]);
 
   // Confirm dialog
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -117,10 +118,13 @@ const ExpenseList = ({ trip }: ExpenseListProps) => {
     setCountPending(count);
   }, [listExpenses, trip.isLeader, currentUserId]);
 
-  useEffect(() => {
-    if (!trip.id) return;
-    getExpenses();
-  }, [trip.id]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!trip.id) return;
+      getExpenses();
+      getMember();
+    }, [trip.id]),
+  );
 
   const getExpenses = async () => {
     try {
@@ -132,6 +136,17 @@ const ExpenseList = ({ trip }: ExpenseListProps) => {
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  const getMember = async () => {
+    try {
+      const res = await api.get<UserGroupRole[]>(
+        `groups/${trip.group.id}/members/with-deleted-paid`,
+      );
+      setMembers(res.data);
+    } catch (error) {
+      console.log(error);
     }
   };
 
@@ -273,7 +288,7 @@ const ExpenseList = ({ trip }: ExpenseListProps) => {
             item={item}
             currentUserId={currentUserId}
             categories={categories}
-            users={trip.group?.members || []}
+            users={members || []}
             onEdit={handleEdit}
             onDelete={handleDelete}
             onApproval={handleApproval}
