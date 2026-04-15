@@ -28,7 +28,7 @@ export default {
       googleServicesFile: "./google-services.json",
       notification: {
         icon: "./assets/logo.png",
-        color: "#4CAF50",
+        color: "#ffffff",
         defaultChannel: {
           name: "default",
           importance: 5,
@@ -86,8 +86,8 @@ export default {
     },
 
     extra: {
-      API_URL: process.env.API_URL || "http://10.225.202.4:3000/api",
-      SOCKET_URL: process.env.SOCKET_URL || "http://localhost:3000",
+      API_URL: process.env.API_URL || "https://api-travel.vmdung.vn/api",
+      SOCKET_URL: process.env.SOCKET_URL || "https://api-travel.vmdung.vn",
       eas: {
         projectId: "833e807d-7197-4ae9-8c52-b8c1e7257e3e",
       },

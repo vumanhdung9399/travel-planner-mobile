@@ -15,10 +15,18 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "API_URL": "https://api-travel.vmdung.vn/api",
+        "SOCKET_URL": "https://api-travel.vmdung.vn"
       }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "API_URL": "https://api-travel.vmdung.vn/api",
+        "SOCKET_URL": "https://api-travel.vmdung.vn"
+      }
     }
   },
   "submit": {
