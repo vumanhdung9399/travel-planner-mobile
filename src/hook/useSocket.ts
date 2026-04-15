@@ -35,6 +35,7 @@ export const useSocket = () => {
         content: {
           title: data.title,
           body: data.content,
+          sound: "notification.mp3",
           data: { ...data },
         },
         trigger: null,
