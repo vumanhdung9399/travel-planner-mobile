@@ -8,28 +8,16 @@ import { Drawer } from "expo-router/drawer";
 import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
-
 const initNotification = async () => {
   await Notifications.setNotificationChannelAsync("default", {
     name: "default",
     importance: Notifications.AndroidImportance.MAX,
-    sound: "notification",
+    sound: "notification.mp3",
     vibrationPattern: [0, 250, 250, 250],
     enableVibrate: true,
   });
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
-      shouldShowAlert: true,
       shouldPlaySound: true,
       shouldSetBadge: false,
       shouldShowBanner: true,

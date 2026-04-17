@@ -38,7 +38,12 @@ export const useSocket = () => {
           sound: "notification.mp3",
           data: { ...data },
         },
-        trigger: null,
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds: 5,
+          repeats: false,
+          channelId: "default",
+        },
       });
     };
 
