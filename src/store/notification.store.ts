@@ -10,21 +10,32 @@ interface NotificationStore {
   hasMore: boolean;
   total: number;
   listNotification: Notification[];
+
+  // Actions
   setCount: (count: number | ((prev: number) => number)) => void;
   setListNotification: (
     data: Notification[] | ((prev: Notification[]) => Notification[]),
   ) => void;
   fetchNotifications: (isRefresh?: boolean) => Promise<void>;
   addOneNotification: (data: Notification) => void;
+  markAsRead: (notificationId: string) => Promise<void>;
+  markAllAsRead: () => Promise<void>;
+  reset: () => void;
 }
 
-export const useNotificationStore = create<NotificationStore>((set, get) => ({
+const initialState = {
   count: 0,
   loading: false,
   page: 1,
   hasMore: true,
   total: 0,
   listNotification: [],
+};
+
+export const useNotificationStore = create<NotificationStore>((set, get) => ({
+  ...initialState,
+
+  reset: () => set(initialState),
 
   setCount: (c) =>
     set((state) => {
@@ -33,14 +44,18 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
         count: nextCount < 0 ? 0 : nextCount,
       };
     }),
-  fetchNotifications: async (isRefresh = false) => {
-    if (get().loading) return;
 
-    const nextPage = isRefresh ? 1 : get().page;
+  fetchNotifications: async (isRefresh = false) => {
+    const state = get();
+
+    if (state.loading) return;
+
+    const nextPage = isRefresh ? 1 : state.page;
+
     if (
       !isRefresh &&
-      get().listNotification.length >= get().total &&
-      get().total !== 0
+      state.listNotification.length >= state.total &&
+      state.total !== 0
     ) {
       set({ hasMore: false });
       return;
@@ -60,17 +75,18 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
         const updatedData = isRefresh
           ? newData
           : [...state.listNotification, ...newData];
+
         return {
-          listNotification: isRefresh
-            ? newData
-            : [...state.listNotification, ...newData],
-          count: res.data.unreadTotal,
+          listNotification: updatedData,
+          count: res.data.unreadTotal ?? 0,
           total: totalFromServer,
           page: nextPage + 1,
           hasMore: updatedData.length < totalFromServer,
+          loading: false,
         };
       });
-    } finally {
+    } catch (error) {
+      console.error("Failed to fetch notifications:", error);
       set({ loading: false });
     }
   },
@@ -84,6 +100,42 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
   addOneNotification: (newNoti: Notification) =>
     set((state) => ({
       listNotification: [newNoti, ...state.listNotification],
+      total: state.total + 1,
       count: state.count + 1,
     })),
+
+  markAsRead: async (notificationId: string) => {
+    try {
+      await api.patch(`/notifications/${notificationId}/read`);
+
+      set((state) => {
+        const updatedList = state.listNotification.map((n) =>
+          n.id === notificationId ? { ...n, read: true } : n,
+        );
+
+        return {
+          listNotification: updatedList,
+          count: Math.max(0, state.count - 1),
+        };
+      });
+    } catch (error) {
+      console.error("Failed to mark notification as read:", error);
+    }
+  },
+
+  markAllAsRead: async () => {
+    try {
+      await api.patch("/notifications/read-all");
+
+      set((state) => ({
+        listNotification: state.listNotification.map((n) => ({
+          ...n,
+          read: true,
+        })),
+        count: 0,
+      }));
+    } catch (error) {
+      console.error("Failed to mark all notifications as read:", error);
+    }
+  },
 }));

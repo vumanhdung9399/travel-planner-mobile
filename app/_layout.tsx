@@ -41,12 +41,7 @@ export default function RootLayout() {
     const sub = Notifications.addNotificationResponseReceivedListener(
       (response) => {
         const data = response.notification.request.content.data;
-        if (data?.type === "chat") {
-          router.push(`/chat/${data.conversationId}`);
-        }
-        if (data?.type === "trip") {
-          router.push(`/trip/${data.tripId}`);
-        }
+        console.log(data);
       },
     );
     return () => sub.remove();

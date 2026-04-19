@@ -11,19 +11,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export default function TabLayout() {
   const navigation = useNavigation();
   const { setUser } = useUserStore();
-  const segments = useSegments();
+  const segments = useSegments() as string[];
   const { fetchNotifications, count } = useNotificationStore();
-
-  const openDrawer = () => {
-    // Tìm drawer navigator bằng cách đi lên đến root
-    let root = navigation;
-    while (root.getParent()) {
-      root = root.getParent();
-    }
-
-    // Dispatch từ root
-    root.dispatch(DrawerActions.openDrawer());
-  };
 
   const hideTab =
     segments.includes("groups") ||
@@ -31,8 +20,11 @@ export default function TabLayout() {
 
   useFocusEffect(
     useCallback(() => {
-      getProfile();
-      fetchNotifications();
+      const init = async () => {
+        await getProfile();
+        await fetchNotifications();
+      };
+      init();
     }, []),
   );
 
@@ -58,6 +50,17 @@ export default function TabLayout() {
             title: "Nhóm",
             tabBarIcon: ({ color }) => (
               <Ionicons name="people-outline" size={20} color={color} />
+            ),
+          }}
+        />
+
+        <Tabs.Screen
+          name="trips"
+          options={{
+            title: "Chuyến đi",
+            headerShown: false,
+            tabBarIcon: ({ color }) => (
+              <Ionicons name="airplane-outline" size={22} color={color} />
             ),
           }}
         />
@@ -117,7 +120,7 @@ export default function TabLayout() {
         />
 
         <Tabs.Screen
-          name="trips"
+          name="change-profile"
           options={{
             href: null,
           }}

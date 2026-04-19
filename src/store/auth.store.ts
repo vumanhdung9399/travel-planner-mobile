@@ -1,6 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { useNotificationStore } from "./notification.store";
 
 type AuthState = {
   user: any | null;
@@ -39,12 +40,14 @@ export const useAuthStore = create<AuthState>()(
       setAuth: ({ user, accessToken, refreshToken }) =>
         set({ user, accessToken, refreshToken }),
 
-      logout: () =>
-        set({
+      logout: () => {
+        (set({
           user: null,
           accessToken: null,
           refreshToken: null,
         }),
+          useNotificationStore.getState().reset());
+      },
     }),
     {
       name: "auth-storage",

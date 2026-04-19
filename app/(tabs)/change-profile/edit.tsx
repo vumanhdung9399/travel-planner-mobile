@@ -10,14 +10,15 @@ import * as ImagePicker from "expo-image-picker";
 import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
-    FlatList,
-    Modal,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  FlatList,
+  Modal,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 type FormValues = {
   name: string;
@@ -162,39 +163,41 @@ export default function EditProfileScreen() {
                 animationType="slide"
                 onRequestClose={() => setOpenBank(false)}
               >
-                <View style={{ flex: 1 }}>
-                  <View style={styles.modalHeader}>
-                    <Text style={styles.modalTitle}>Danh sách ngân hàng</Text>
-                    <TouchableOpacity onPress={() => setOpenBank(false)}>
-                      <Text style={styles.closeBtn}>Đóng</Text>
-                    </TouchableOpacity>
-                  </View>
+                <SafeAreaView style={{ flex: 1 }}>
+                  <View style={{ flex: 1 }}>
+                    <View style={styles.modalHeader}>
+                      <Text style={styles.modalTitle}>Danh sách ngân hàng</Text>
+                      <TouchableOpacity onPress={() => setOpenBank(false)}>
+                        <Text style={styles.closeBtn}>Đóng</Text>
+                      </TouchableOpacity>
+                    </View>
 
-                  <FlatList
-                    data={banks}
-                    keyExtractor={(item) => item.bin}
-                    renderItem={({ item }) => (
-                      <TouchableOpacity
-                        style={styles.menuItem}
-                        onPress={() => {
-                          field.onChange(String(item.bin));
-                          setOpenBank(false);
-                        }}
-                      >
-                        <Text
-                          style={{
-                            fontWeight:
-                              field.value === String(item.bin)
-                                ? "bold"
-                                : "normal",
+                    <FlatList
+                      data={banks}
+                      keyExtractor={(item) => item.bin}
+                      renderItem={({ item }) => (
+                        <TouchableOpacity
+                          style={styles.menuItem}
+                          onPress={() => {
+                            field.onChange(String(item.bin));
+                            setOpenBank(false);
                           }}
                         >
-                          {item.shortName} - {item.name}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                  />
-                </View>
+                          <Text
+                            style={{
+                              fontWeight:
+                                field.value === String(item.bin)
+                                  ? "bold"
+                                  : "normal",
+                            }}
+                          >
+                            {item.shortName} - {item.name}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    />
+                  </View>
+                </SafeAreaView>
               </Modal>
             </View>
           )}

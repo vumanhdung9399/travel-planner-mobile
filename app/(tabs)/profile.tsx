@@ -57,7 +57,7 @@ export default function ProfileScreen() {
         <View style={styles.row}>
           <TouchableOpacity
             style={styles.btnPrimary}
-            onPress={() => router.push("/profile/edit")}
+            onPress={() => router.push("/change-profile/edit")}
           >
             <Text style={styles.btnText}>Chỉnh sửa</Text>
           </TouchableOpacity>
@@ -76,12 +76,12 @@ export default function ProfileScreen() {
         />
         <MenuItem
           text="Thông báo"
-          onPress={() => router.push("/notifications")}
+          onPress={() => router.push("/notification")}
         />
-        <MenuItem text="Cài đặt" onPress={() => router.push("/settings")} />
+        <MenuItem text="Cài đặt" onPress={() => {}} />
         <MenuItem
           text="Đổi mật khẩu"
-          onPress={() => router.push("/profile/change-password")}
+          onPress={() => router.push("/change-profile/change-password")}
         />
       </View>
 

@@ -49,3 +49,29 @@ interface Group {
 export interface UserGroupRole extends UserGroup {
   role?: string;
 }
+
+export interface ListTrip {
+  id: string;
+  name: string;
+  description?: string;
+  location?: string;
+  infor?: string;
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+  timelines: TimelineItemType[];
+  expenses: ExpenseItem[];
+  isLeader: boolean;
+  group: {
+    id: string;
+    name: string;
+  };
+  members: {
+    id: string;
+    user: {
+      id: string;
+      name: string;
+      avatar: string;
+    };
+  }[];
+  isCloseTrip: boolean;
+}
