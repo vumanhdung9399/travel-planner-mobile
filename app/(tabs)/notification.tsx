@@ -115,7 +115,7 @@ export default function NotificationScreen() {
 
     switch (type) {
       case NOTIFICATION_TYPE.EXPENSE:
-        iconName = "receipt";
+        iconName = "wallet";
         break;
       case NOTIFICATION_TYPE.TIMELINE:
         iconName = "calendar-clock";
