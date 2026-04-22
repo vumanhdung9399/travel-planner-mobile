@@ -27,7 +27,7 @@ import { LinearGradient } from "expo-linear-gradient";
 const tabKeyToIndex: Record<string, number> = {
   info: 0,
   timeline: 1,
-  expense: 2,
+  expenses: 2,
   balance: 3,
   leader: 4,
 };

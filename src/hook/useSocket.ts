@@ -6,6 +6,7 @@ import type { Notification } from "@src/type/notification";
 import * as Haptics from "expo-haptics";
 import * as Notifications from "expo-notifications";
 import { useEffect } from "react";
+import { AppState } from "react-native";
 import { useAuthStore } from "../store/auth.store";
 
 export const useSocket = () => {
@@ -30,21 +31,24 @@ export const useSocket = () => {
         message: data.content,
       });
 
-      // 👉 push local
-      Notifications.scheduleNotificationAsync({
-        content: {
-          title: data.title,
-          body: data.content,
-          sound: "notification.mp3",
-          data: { ...data },
-        },
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-          seconds: 5,
-          repeats: false,
-          channelId: "default",
-        },
-      });
+      const appState = AppState.currentState;
+      if (appState !== "active") {
+        // 👉 push local
+        Notifications.scheduleNotificationAsync({
+          content: {
+            title: data.title,
+            body: data.content,
+            sound: "notification.mp3",
+            data: { ...data },
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+            seconds: 5,
+            repeats: false,
+            channelId: "default",
+          },
+        });
+      }
     };
 
     socket.on("connect", () => {

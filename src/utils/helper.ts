@@ -1,7 +1,6 @@
 import dayjs from "dayjs";
 import "dayjs/locale/vi";
 import relativeTime from "dayjs/plugin/relativeTime";
-import type { Notification } from "../type/notification";
 import { GROUP_ROLE, NOTIFICATION_TYPE } from "./constants";
 
 dayjs.extend(relativeTime);
@@ -57,33 +56,50 @@ export const getNameFirstLetterUpper = (name: string | undefined) => {
   return lastName?.charAt(0).toUpperCase() || "";
 };
 
-export const getNotificationRoute = (noti: Notification) => {
-  if (noti.link) return noti.link;
+export const getNotificationRedirect = (data: any): string => {
+  if (!data.groupId || !data.tripId) return "/";
 
-  const { type, metadata } = noti;
-
-  if (!metadata) {
-    return "";
-  }
+  const { type, groupId, tripId } = data;
 
   switch (type) {
     case NOTIFICATION_TYPE.INVITE:
-      return `/groups/${noti.group.id}`;
+      if (groupId) {
+        return `/groups/${groupId}`;
+      }
+      return "/groups";
 
     case NOTIFICATION_TYPE.TRIP:
-      return `/trips/${metadata.tripId}`;
+      if (groupId) {
+        return `/trips/${tripId}`;
+      }
+      return "/";
 
     case NOTIFICATION_TYPE.EXPENSE:
-      return `/trips/${metadata.tripId}?tab=${NOTIFICATION_TYPE.EXPENSE}`;
+      if (tripId) {
+        return `/trips/${tripId}?tab=expenses`;
+      }
+      return "/";
 
     case NOTIFICATION_TYPE.TIMELINE:
-      return `/trips/${metadata.tripId}?tab=${NOTIFICATION_TYPE.TIMELINE}`;
+      if (tripId) {
+        return `/trips/${tripId}?tab=timeline`;
+      }
+      return "/";
 
     case NOTIFICATION_TYPE.BALANCE:
-      return `/trips/${metadata.tripId}?tab=${NOTIFICATION_TYPE.BALANCE}`;
+      if (tripId) {
+        return `/trips/${tripId}?tab=balance`;
+      }
+      return "/";
+
+    case NOTIFICATION_TYPE.MANUAL:
+      if (tripId) {
+        return `/trips/${tripId}`;
+      }
+      return "/";
 
     default:
-      return "";
+      return "/";
   }
 };
 

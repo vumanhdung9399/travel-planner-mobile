@@ -17,4 +17,11 @@ export const initSocket = (userId: string, token: string) => {
   return socket;
 };
 
+export const disconnectSocket = () => {
+  if (socket) {
+    socket.disconnect();
+    socket = null;
+  }
+};
+
 export const getSocket = () => socket;

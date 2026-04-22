@@ -1,6 +1,7 @@
 import { AppToastContainer } from "@/src/components/AppToast";
 import CustomDrawer from "@/src/components/layout/CustomDrawer";
 import { usePushNotification } from "@/src/hook/usePushNotification";
+import { getNotificationRedirect } from "@/src/utils/helper";
 import { useSocket } from "@src/hook/useSocket";
 import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
@@ -40,8 +41,9 @@ export default function RootLayout() {
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener(
       (response) => {
-        const data = response.notification.request.content.data;
-        console.log(data);
+        const data = response.notification.request.content.data as any;
+        const route = getNotificationRedirect(data);
+        if (route) router.push(route as any);
       },
     );
     return () => sub.remove();
