@@ -21,6 +21,7 @@ import ExpenseList from "@/src/components/expense/ExpenseList";
 import Leader from "@/src/components/leader/Leader";
 import TimelineList from "@/src/components/timeline/TimelineList";
 import TripInfo from "@/src/components/trip/TripInfo";
+import TripFundList from "@/src/components/tripfund/TripFundList";
 import { useTripStore } from "@/src/store/trip.store";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -29,7 +30,8 @@ const tabKeyToIndex: Record<string, number> = {
   timeline: 1,
   expenses: 2,
   balance: 3,
-  leader: 4,
+  fund: 4,
+  leader: 5,
 };
 
 const TripDetailScreen = () => {
@@ -48,6 +50,7 @@ const TripDetailScreen = () => {
     { key: "timeline", title: "Lịch trình", icon: "calendar-outline" },
     { key: "expenses", title: "Chi phí", icon: "wallet-outline" },
     { key: "balance", title: "Thanh toán", icon: "card-outline" },
+    { key: "fund", title: "Quỹ", icon: "analytics-outline" },
   ]);
 
   useFocusEffect(
@@ -89,6 +92,7 @@ const TripDetailScreen = () => {
         { key: "timeline", title: "Lịch trình", icon: "calendar-outline" },
         { key: "expenses", title: "Chi phí", icon: "wallet-outline" },
         { key: "balance", title: "Thanh toán", icon: "card-outline" },
+        { key: "fund", title: "Quỹ", icon: "analytics-outline" },
       ];
 
       if (trip.isLeader && !trip.isCloseTrip) {
@@ -107,6 +111,7 @@ const TripDetailScreen = () => {
     timeline: () => <TimelineList trip={trip} />,
     expenses: () => <ExpenseList trip={trip} />,
     balance: () => <BalanceList trip={trip} />,
+    fund: () => <TripFundList trip={trip} />,
     leader: () => <Leader trip={trip} setTrip={setTrip} />,
   });
 
@@ -127,6 +132,9 @@ const TripDetailScreen = () => {
         return false;
 
       case 4:
+        return trip.isLeader;
+
+      case 5:
         return false;
 
       default:
@@ -141,6 +149,8 @@ const TripDetailScreen = () => {
       case 1:
         return "plus";
       case 2:
+        return "plus";
+      case 4:
         return "plus";
       default:
         return "plus";
@@ -161,6 +171,10 @@ const TripDetailScreen = () => {
 
       case 2:
         router.push(`/trips/${trip.id}/expense-form`);
+        break;
+
+      case 4:
+        router.push(`/trips/${trip.id}/fund-form`);
         break;
 
       default:

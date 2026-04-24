@@ -16,17 +16,41 @@ import {
 import { Avatar, Surface, Text } from "react-native-paper";
 import BalanceCard from "./BalanceCard";
 
-type Props = {
-  trip: Trip;
-};
+// ← THÊM: Interface cho TripFund
+interface TripFund {
+  id: string;
+  amount: number;
+  note?: string;
+  createdAt: string;
+  user: {
+    id: string;
+    name: string;
+    avatar: string | null;
+    email: string;
+    phone: string;
+  };
+}
+
+interface BalanceItem {
+  id: string;
+  category: string;
+  title: string;
+  amount: number;
+  payerId: string;
+  type: "debt" | "credit";
+}
 
 interface BalanceMember {
   userId: string;
   name: string;
   avatar: string | null;
   total: number;
-  items: any[];
+  items: BalanceItem[];
 }
+
+type Props = {
+  trip: Trip;
+};
 
 const BalanceList = ({ trip }: Props) => {
   const { user: currentUser } = useAuthStore();
@@ -36,6 +60,7 @@ const BalanceList = ({ trip }: Props) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [members, setMembers] = useState<UserGroupRole[]>([]);
+  const [tripFunds, setTripFunds] = useState<TripFund[]>([]); // ← THÊM: state for funds
 
   const leader = useMemo(() => {
     return (
@@ -48,6 +73,7 @@ const BalanceList = ({ trip }: Props) => {
   useEffect(() => {
     getExpenses();
     getMember();
+    getTripFunds(); // ← THÊM: fetch funds
   }, [trip.id]);
 
   useFocusEffect(
@@ -55,6 +81,7 @@ const BalanceList = ({ trip }: Props) => {
       if (!trip.id) return;
       getExpenses();
       getMember();
+      getTripFunds(); // ← THÊM
     }, [trip.id]),
   );
 
@@ -84,6 +111,26 @@ const BalanceList = ({ trip }: Props) => {
       setRefreshing(false);
     }
   };
+
+  // ← THÊM: fetch trip funds
+  const getTripFunds = async () => {
+    try {
+      const res = await api.get<TripFund[]>(`/trips/${trip.id}/funds`);
+      setTripFunds(res.data || []);
+    } catch (error) {
+      console.log("Error fetching funds:", error);
+      setTripFunds([]);
+    }
+  };
+
+  // ← THÊM: Tạo map funds cho lookup dễ dàng
+  const fundMap = useMemo(() => {
+    const map: Record<string, TripFund> = {};
+    tripFunds.forEach((fund) => {
+      map[fund.user.id] = fund;
+    });
+    return map;
+  }, [tripFunds]);
 
   const balances = useMemo(() => {
     const map: Record<string, Omit<BalanceMember, "userId">> = {};
@@ -134,6 +181,9 @@ const BalanceList = ({ trip }: Props) => {
   const totalToReceive = balances
     .filter((b) => b.total > 0)
     .reduce((sum, b) => sum + b.total, 0);
+
+  // ← THÊM: Tính tổng tiền quỹ
+  const totalFunds = tripFunds.reduce((sum, f) => sum + Number(f.amount), 0);
 
   const validBalances = useMemo(() => {
     return balances.filter((balance) => {
@@ -195,6 +245,7 @@ const BalanceList = ({ trip }: Props) => {
               isCurrent={item.userId === currentUserId}
               leader={leader!}
               users={members}
+              funds={tripFunds} // ← THÊM: pass funds vào
             />
           );
         }}
@@ -206,6 +257,7 @@ const BalanceList = ({ trip }: Props) => {
             onRefresh={() => {
               setRefreshing(true);
               getExpenses();
+              getTripFunds(); // ← THÊM
             }}
             tintColor={COLORS.primary}
           />
@@ -232,9 +284,30 @@ const BalanceList = ({ trip }: Props) => {
             {/* Divider */}
             <View style={styles.divider} />
 
-            {/* Total */}
+            {/* ← THÊM: Fund Summary */}
+            {totalFunds > 0 && (
+              <View style={styles.fundSummary}>
+                <View style={styles.summaryRow}>
+                  <View style={styles.summaryItem}>
+                    <Text style={styles.summaryLabel}>💰 Quỹ</Text>
+                    <Text style={styles.summaryValue}>
+                      {formatMoney(totalFunds)}
+                    </Text>
+                  </View>
+                  <View style={styles.summaryDivider} />
+                  <View style={styles.summaryItem}>
+                    <Text style={styles.summaryLabel}>
+                      👥 {tripFunds.length}
+                    </Text>
+                    <Text style={styles.summaryValue}>người</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* ← THÊM: Balance Summary */}
             <View style={styles.totalContainer}>
-              <Text style={styles.totalLabel}>Tổng cần thu</Text>
+              <Text style={styles.totalLabel}>💳 Cần thanh toán</Text>
               <LinearGradient
                 colors={["#10B981", "#059669"]}
                 start={{ x: 0, y: 0 }}
@@ -246,6 +319,15 @@ const BalanceList = ({ trip }: Props) => {
                 </Text>
               </LinearGradient>
             </View>
+
+            {/* ← THÊM: Note */}
+            {totalToReceive > 0 && totalFunds > 0 && (
+              <View style={styles.noteContainer}>
+                <Text style={styles.noteText}>
+                  💡 Quỹ có thể được dùng để thanh toán
+                </Text>
+              </View>
+            )}
           </Surface>
         }
         ListEmptyComponent={
@@ -341,6 +423,38 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.border,
     marginVertical: 16,
   },
+
+  // ← THÊM: Fund summary styles
+  fundSummary: {
+    backgroundColor: "#F0F9FF",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
+  summaryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  summaryItem: {
+    flex: 1,
+    alignItems: "center",
+  },
+  summaryLabel: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginBottom: 4,
+  },
+  summaryValue: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: COLORS.primary,
+  },
+  summaryDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: COLORS.border,
+  },
+
   totalContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -361,6 +475,20 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#fff",
   },
+
+  // ← THÊM: Note container
+  noteContainer: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  noteText: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    fontStyle: "italic",
+  },
+
   emptyContainer: {
     backgroundColor: COLORS.surface,
     borderRadius: 20,
