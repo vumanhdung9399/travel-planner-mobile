@@ -8,6 +8,7 @@ type AuthState = {
   user: any | null;
   accessToken: string | null;
   refreshToken: string | null;
+  isFirstTime: boolean;
 
   setAuth: (data: {
     user: any;
@@ -15,10 +16,10 @@ type AuthState = {
     refreshToken: string | null;
   }) => void;
 
+  completeFirstTime: () => void;
   logout: () => void;
 };
 
-// 👇 custom storage dùng SecureStore
 const secureStorage = {
   getItem: async (name: string) => {
     return await SecureStore.getItemAsync(name);
@@ -37,9 +38,17 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       accessToken: null,
       refreshToken: null,
+      isFirstTime: true,
 
       setAuth: ({ user, accessToken, refreshToken }) =>
-        set({ user, accessToken, refreshToken }),
+        set({
+          user,
+          accessToken,
+          refreshToken,
+          isFirstTime: false,
+        }),
+
+      completeFirstTime: () => set({ isFirstTime: false }),
 
       logout: () => {
         disconnectSocket();
@@ -50,6 +59,7 @@ export const useAuthStore = create<AuthState>()(
     {
       name: "auth-storage",
       storage: createJSONStorage(() => secureStorage),
+      onRehydrateStorage: () => (state) => {},
     },
   ),
 );

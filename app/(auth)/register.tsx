@@ -152,14 +152,6 @@ const RegisterScreen = () => {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Header với back button */}
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
-          </TouchableOpacity>
-
           {/* Title */}
           <Text style={styles.title}>Tạo tài khoản</Text>
           <Text style={styles.subtitle}>

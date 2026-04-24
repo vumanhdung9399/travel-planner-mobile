@@ -2,15 +2,22 @@ import * as Application from "expo-application";
 import Constants from "expo-constants";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Platform } from "react-native";
 import { api } from "../services/api";
+import { useAuthStore } from "../store/auth.store";
 import { ANDROID, IOS } from "../utils/constants";
 
 export const usePushNotification = () => {
+  const user = useAuthStore((state) => state.user);
+  const token = useAuthStore((state) => state.accessToken);
+  const hasRegistered = useRef(false);
   useEffect(() => {
+    if (!user?.id || !token) return;
+    if (hasRegistered.current) return;
     register();
-  }, []);
+    hasRegistered.current = true;
+  }, [user?.id, token]);
 
   const getDeviceId = async () => {
     if (Platform.OS === ANDROID) {

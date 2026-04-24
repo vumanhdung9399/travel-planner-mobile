@@ -1,6 +1,5 @@
 import { showSuccess } from "@/src/utils/errorHandler";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { useNavigation } from "@react-navigation/native";
 import { api } from "@services/api";
 import { useAuthStore } from "@store/auth.store";
 import { router } from "expo-router";
@@ -24,14 +23,14 @@ type LoginForm = {
 
 const schema = yup.object({
   email: yup.string().email("Email không hợp lệ").required("Nhập email"),
-  password: yup.string().min(6, "Tối thiểu 6 ký tự").required("Nhập mật khẩu"),
+  password: yup.string().min(8, "Tối thiểu 8 ký tự").required("Nhập mật khẩu"),
 });
 
 export default function LoginScreen() {
-  const navigation = useNavigation();
   const { setAuth } = useAuthStore();
 
   const [secureText, setSecureText] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   const {
     control,
@@ -43,6 +42,7 @@ export default function LoginScreen() {
 
   const onSubmit = async (data: any) => {
     try {
+      setLoading(true);
       const res = await api.post("/auth/login", data);
 
       const { access_token, refresh_token, user } = res.data;
@@ -56,7 +56,11 @@ export default function LoginScreen() {
       showSuccess("Đăng nhập thành công");
 
       router.replace("/(tabs)");
-    } catch (err) {}
+    } catch (err) {
+      console.log(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -127,6 +131,8 @@ export default function LoginScreen() {
             mode="contained"
             onPress={handleSubmit(onSubmit)}
             style={styles.button}
+            loading={loading}
+            disabled={loading}
           >
             Login
           </Button>
