@@ -1,5 +1,6 @@
 import { api } from "@/src/services/api";
 import { COLORS } from "@/src/utils/constants";
+import { showError, showSuccess } from "@/src/utils/errorHandler";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
@@ -7,7 +8,6 @@ import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -15,7 +15,7 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { Surface, Text } from "react-native-paper";
 
@@ -108,26 +108,20 @@ const RegisterScreen = () => {
         phone: form.phone.trim(),
         email: form.email.trim().toLowerCase(),
         password: form.password,
+        confirmPassword: form.confirmPassword,
       });
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(
-        "Đăng ký thành công",
-        "Tài khoản của bạn đã được tạo. Vui lòng đăng nhập để tiếp tục.",
-        [
-          {
-            text: "Đăng nhập",
-            onPress: () => router.replace("/login"),
-          },
-        ],
+      showSuccess(
+        "Đăng ký thành công, Tài khoản của bạn đã được tạo. Vui lòng đăng nhập để tiếp tục.",
       );
+      router.replace("/login");
     } catch (err: any) {
       console.error(err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-
-      const message =
-        err?.response?.data?.message || "Đăng ký thất bại, vui lòng thử lại";
-      Alert.alert("Lỗi", message);
+      showError(
+        err?.response?.data?.message || "Đăng ký thất bại, vui lòng thử lại",
+      );
     } finally {
       setLoading(false);
     }

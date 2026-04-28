@@ -9,16 +9,16 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { IconButton, Text } from "react-native-paper";
@@ -150,6 +150,7 @@ const TimelineFormScreen = () => {
     }
 
     try {
+      setLoading(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
       const data = {
@@ -173,6 +174,7 @@ const TimelineFormScreen = () => {
       console.error(err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
+      setLoading(false);
     }
   };
 

@@ -1,30 +1,72 @@
+import { COLORS } from "@/src/utils/constants";
+import { getNameFirstLetterUpper } from "@/src/utils/helper";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
-import { Image, StyleSheet, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+
+interface AvatarPickerProps {
+  uri: string;
+  onPickImage: () => void;
+  loading?: boolean;
+  name?: string;
+}
 
 export const AvatarPicker = ({
   uri,
   onPickImage,
-}: {
-  uri: string;
-  onPickImage: () => void;
-}) => {
+  loading = false,
+  name = "",
+}: AvatarPickerProps) => {
   return (
     <View style={styles.container}>
-      <View style={styles.avatarWrapper}>
-        <Image
-          source={{ uri: uri || "/assets/avatar-default.svg" }}
-          style={styles.avatar}
-        />
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={onPickImage}
+        disabled={loading}
+        style={styles.avatarWrapper}
+      >
+        {/* Avatar Image hoặc Placeholder */}
+        {uri ? (
+          <Image source={{ uri }} style={styles.avatar} />
+        ) : (
+          <View style={styles.avatarPlaceholder}>
+            <Text style={styles.avatarPlaceholderText}>
+              {getNameFirstLetterUpper(name || "U")}
+            </Text>
+          </View>
+        )}
 
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={onPickImage}
-          style={styles.cameraButton}
-        >
-          <Ionicons name="camera" size={20} color="#1c1e21" />
-        </TouchableOpacity>
-      </View>
+        {/* Loading Indicator hoặc Camera Button */}
+        <View style={styles.cameraButton}>
+          {loading ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <LinearGradient
+              colors={COLORS.primaryGradient as readonly [string, string]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.cameraButtonGradient}
+            >
+              <Ionicons name="camera" size={16} color="#fff" />
+            </LinearGradient>
+          )}
+        </View>
+      </TouchableOpacity>
+
+      {/* Hint text */}
+      <TouchableOpacity onPress={onPickImage} disabled={loading}>
+        <Text style={styles.hint}>
+          {loading ? "Đang tải lên..." : "Thay đổi ảnh đại diện"}
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -44,22 +86,45 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: "#fff",
   },
+  avatarPlaceholder: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 3,
+    borderColor: "#fff",
+    backgroundColor: COLORS.primary,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarPlaceholderText: {
+    fontSize: 48,
+    fontWeight: "bold",
+    color: "#fff",
+  },
   cameraButton: {
     position: "absolute",
     bottom: 0,
     right: 5,
-    backgroundColor: "#E4E6EB",
     width: 36,
     height: 36,
     borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 2,
+    borderWidth: 3,
     borderColor: "#fff",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 4,
+    overflow: "hidden",
+  },
+  cameraButtonGradient: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  hint: {
+    marginTop: 12,
+    fontSize: 14,
+    color: COLORS.primary,
+    fontWeight: "500",
   },
 });

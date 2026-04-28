@@ -11,25 +11,25 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    FlatList,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import {
-    Avatar,
-    Checkbox,
-    IconButton,
-    Surface,
-    Text,
+  Avatar,
+  Checkbox,
+  IconButton,
+  Surface,
+  Text,
 } from "react-native-paper";
 
 const ExpenseFormScreen = () => {
@@ -124,8 +124,6 @@ const ExpenseFormScreen = () => {
     if (!finalParticipants.includes(paidBy)) {
       finalParticipants = [...finalParticipants, paidBy];
     }
-    console.log(participants);
-    console.log(finalParticipants);
 
     const data = {
       title: title.trim(),

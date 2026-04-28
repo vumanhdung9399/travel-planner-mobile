@@ -233,7 +233,7 @@ const GroupDetailScreen = () => {
               <Button
                 mode="text"
                 onPress={() => {
-                  router.push(`groups/${group.id}/trip-form`);
+                  router.push(`/groups/${group.id}/trip-form`);
                 }}
                 textColor={COLORS.primary}
                 icon="plus"
@@ -250,7 +250,9 @@ const GroupDetailScreen = () => {
               {canEdit && (
                 <Button
                   mode="contained"
-                  onPress={() => {}}
+                  onPress={() => {
+                    router.push(`/groups/${group.id}/trip-form`);
+                  }}
                   buttonColor={COLORS.primary}
                   style={styles.createTripButton}
                 >
@@ -292,7 +294,7 @@ const GroupDetailScreen = () => {
                         iconColor={COLORS.textSecondary}
                         onPress={() => {
                           router.push(
-                            `groups/${group.id}/trip-form?tripId=${trip.id}`,
+                            `/groups/${group.id}/trip-form?tripId=${trip.id}`,
                           );
                         }}
                       />
