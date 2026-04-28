@@ -16,7 +16,8 @@ export default function TabLayout() {
 
   const hideTab =
     segments.includes("groups") ||
-    (segments.includes("trips") && segments.length > 2);
+    (segments.includes("trips") && segments.length > 2) ||
+    segments.includes("change-profile");
 
   useFocusEffect(
     useCallback(() => {
