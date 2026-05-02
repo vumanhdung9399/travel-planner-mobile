@@ -179,7 +179,7 @@ const Leader = ({ trip, setTrip, onUpdate }: LeaderProps) => {
           style={styles.endTripButton}
           textColor="#fff"
         >
-          Kết thúc chuyến đi
+          Kết thúc chuyến đii
         </Button>
       </Surface>
 

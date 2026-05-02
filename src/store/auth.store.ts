@@ -9,6 +9,7 @@ type AuthState = {
   accessToken: string | null;
   refreshToken: string | null;
   isFirstTime: boolean;
+  hasHydrated: boolean;
 
   setAuth: (data: {
     user: any;
@@ -18,6 +19,7 @@ type AuthState = {
 
   completeFirstTime: () => void;
   logout: () => void;
+  setHasHydrated: (state: boolean) => void;
 };
 
 const secureStorage = {
@@ -39,6 +41,9 @@ export const useAuthStore = create<AuthState>()(
       accessToken: null,
       refreshToken: null,
       isFirstTime: true,
+      hasHydrated: false,
+
+      setHasHydrated: (state) => set({ hasHydrated: state }),
 
       setAuth: ({ user, accessToken, refreshToken }) =>
         set({
@@ -59,7 +64,9 @@ export const useAuthStore = create<AuthState>()(
     {
       name: "auth-storage",
       storage: createJSONStorage(() => secureStorage),
-      onRehydrateStorage: () => (state) => {},
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     },
   ),
 );

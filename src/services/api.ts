@@ -39,7 +39,20 @@ export const api = axios.create({
 
 // Request interceptor: attach access token
 api.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
+  async (config) => {
+    const state = useAuthStore.getState();
+
+    if (!state.hasHydrated) {
+      await new Promise((resolve) => {
+        const unsub = useAuthStore.subscribe((s) => {
+          if (s.hasHydrated) {
+            unsub();
+            resolve(true);
+          }
+        });
+      });
+    }
+
     const { accessToken } = useAuthStore.getState();
 
     if (accessToken && config.headers) {
