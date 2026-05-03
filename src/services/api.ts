@@ -4,17 +4,14 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { router } from "expo-router";
 import { handleApiError } from "../utils/errorHandler";
 
-// Queue item type
 interface QueuedRequest {
   resolve: (value: string | null) => void;
   reject: (reason?: any) => void;
 }
 
-// Flag để tránh refresh token nhiều lần
 let isRefreshing = false;
 let failedQueue: QueuedRequest[] = [];
 
-// Xử lý queue
 const processQueue = (
   error: AxiosError | null,
   token: string | null = null,
@@ -29,6 +26,12 @@ const processQueue = (
   failedQueue = [];
 };
 
+const navigateToLogin = () => {
+  setTimeout(() => {
+    router.replace("/(auth)/login");
+  }, 100);
+};
+
 export const api = axios.create({
   baseURL: ENV.API_URL,
   timeout: 30000,
@@ -37,36 +40,34 @@ export const api = axios.create({
   },
 });
 
-// Request interceptor: attach access token
 api.interceptors.request.use(
   async (config) => {
     const state = useAuthStore.getState();
 
     if (!state.hasHydrated) {
-      await new Promise((resolve) => {
-        const unsub = useAuthStore.subscribe((s) => {
-          if (s.hasHydrated) {
-            unsub();
-            resolve(true);
-          }
-        });
-      });
+      await Promise.race([
+        new Promise<void>((resolve) => {
+          const unsub = useAuthStore.subscribe((s) => {
+            if (s.hasHydrated) {
+              unsub();
+              resolve();
+            }
+          });
+        }),
+        new Promise<void>((resolve) => setTimeout(resolve, 3000)),
+      ]);
     }
 
     const { accessToken } = useAuthStore.getState();
-
     if (accessToken && config.headers) {
       config.headers.Authorization = `Bearer ${accessToken}`;
     }
 
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  },
+  (error) => Promise.reject(error),
 );
 
-// Response interceptor: handle 401 + refresh token
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
@@ -74,21 +75,21 @@ api.interceptors.response.use(
       _retry?: boolean;
     };
 
-    // Không phải 401 hoặc đã retry rồi
-    if (error.response?.status !== 401 || originalRequest._retry) {
+    if (error.response?.status !== 401) {
       handleApiError(error);
       return Promise.reject(error);
     }
 
-    // Kiểm tra URL không phải refresh token (tránh loop)
+    if (originalRequest._retry) {
+      return Promise.reject(error);
+    }
+
     if (originalRequest.url?.includes("/auth/refresh")) {
-      handleApiError(error);
       useAuthStore.getState().logout();
-      router.replace("/(auth)/login");
+      navigateToLogin();
       return Promise.reject(error);
     }
 
-    // Nếu đang refresh, thêm vào queue
     if (isRefreshing) {
       return new Promise<string | null>((resolve, reject) => {
         failedQueue.push({ resolve, reject });
@@ -108,50 +109,37 @@ api.interceptors.response.use(
     try {
       const { refreshToken, user } = useAuthStore.getState();
 
-      // Kiểm tra refresh token tồn tại
       if (!refreshToken) {
-        throw new Error("No refresh token available");
+        throw new Error("No refresh token");
       }
 
-      console.log("[API] Refreshing token...");
-
-      // Gọi API refresh token
       const response = await axios.post(`${ENV.API_URL}/auth/refresh`, {
-        refresh_token: refreshToken,
+        refreshToken: refreshToken,
       });
 
-      const { access_token, refresh_token } = response.data;
-
-      if (!access_token) {
+      if (!response.data.accessToken) {
         throw new Error("Invalid refresh response");
       }
 
-      // Cập nhật token mới
       useAuthStore.getState().setAuth({
-        user: user,
-        accessToken: access_token,
-        refreshToken: refresh_token || refreshToken,
+        user,
+        accessToken: response.data.accessToken,
+        refreshToken: response.data.refreshToken || refreshToken,
       });
 
-      // Xử lý các request đang chờ
-      processQueue(null, access_token);
+      processQueue(null, response.data.accessToken);
 
-      // Retry request ban đầu
       if (originalRequest.headers) {
-        originalRequest.headers.Authorization = `Bearer ${access_token}`;
+        originalRequest.headers.Authorization = `Bearer ${response.data.accessToken}`;
       }
 
       return api(originalRequest);
     } catch (refreshError) {
       console.error("[API] Refresh token failed:", refreshError);
-
-      // Xử lý queue với lỗi
       processQueue(refreshError as AxiosError, null);
 
-      // Logout và chuyển về login
       useAuthStore.getState().logout();
-      router.replace("/(auth)/login");
-
+      navigateToLogin();
       return Promise.reject(refreshError);
     } finally {
       isRefreshing = false;

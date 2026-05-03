@@ -4,7 +4,6 @@ import { useAuthStore } from "@/src/store/auth.store";
 import { COLORS } from "@/src/utils/constants";
 import { getGreeting } from "@/src/utils/helper";
 import ActionSheet from "@components/ActionSheet";
-import { useNavigation } from "@react-navigation/native";
 import type { Group } from "@src/type/group";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient"; // Cần cài expo-linear-gradient
@@ -22,7 +21,6 @@ import {
 import { IconButton, Surface, Text } from "react-native-paper";
 
 const HomeScreen = () => {
-  const navigation = useNavigation<any>();
   const { user } = useAuthStore();
   const [groups, setGroups] = useState<Group[]>([]);
   const [refreshing, setRefreshing] = useState(false);

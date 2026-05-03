@@ -1,7 +1,9 @@
 import type { Notification } from "@/src/type/notification";
+import axios from "axios";
 import { create } from "zustand";
-import { api } from "../services/api";
+import { ENV } from "../constants/env";
 import { LIMIT_LOAD_MORE } from "../utils/constants";
+import { useAuthStore } from "./auth.store";
 
 interface NotificationStore {
   count: number;
@@ -22,6 +24,12 @@ interface NotificationStore {
   markAllAsRead: () => Promise<void>;
   reset: () => void;
 }
+
+// Helper để lấy headers có token
+const getAuthHeaders = () => {
+  const token = useAuthStore.getState().accessToken;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
 const initialState = {
   count: 0,
@@ -64,8 +72,11 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     set({ loading: true });
 
     try {
-      const res = await api.get(
-        `/notifications?page=${nextPage}&limit=${LIMIT_LOAD_MORE}`,
+      const res = await axios.get(
+        `${ENV.API_URL}/notifications?page=${nextPage}&limit=${LIMIT_LOAD_MORE}`,
+        {
+          headers: getAuthHeaders(),
+        },
       );
 
       const newData = res.data.data;
@@ -106,7 +117,13 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
 
   markAsRead: async (notificationId: string) => {
     try {
-      await api.patch(`/notifications/${notificationId}/read`);
+      await axios.patch(
+        `${ENV.API_URL}/notifications/${notificationId}/read`,
+        {},
+        {
+          headers: getAuthHeaders(),
+        },
+      );
 
       set((state) => {
         const updatedList = state.listNotification.map((n) =>
@@ -125,7 +142,13 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
 
   markAllAsRead: async () => {
     try {
-      await api.patch("/notifications/read-all");
+      await axios.patch(
+        `${ENV.API_URL}/notifications/read-all`,
+        {},
+        {
+          headers: getAuthHeaders(),
+        },
+      );
 
       set((state) => ({
         listNotification: state.listNotification.map((n) => ({

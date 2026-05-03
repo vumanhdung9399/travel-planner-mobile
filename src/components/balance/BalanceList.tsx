@@ -16,7 +16,6 @@ import {
 import { Avatar, Surface, Text } from "react-native-paper";
 import BalanceCard from "./BalanceCard";
 
-// ← THÊM: Interface cho TripFund
 interface TripFund {
   id: string;
   amount: number;
@@ -37,15 +36,17 @@ interface BalanceItem {
   title: string;
   amount: number;
   payerId: string;
-  type: "debt" | "credit";
+  payerName: string;
+  type: "debt" | "paid";
+  userShare?: number;
 }
 
-interface BalanceMember {
-  userId: string;
+interface UserBalance {
+  balance: number;
   name: string;
   avatar: string | null;
-  total: number;
-  items: BalanceItem[];
+  paidItems: BalanceItem[];
+  debtItems: BalanceItem[];
 }
 
 type Props = {
@@ -60,7 +61,7 @@ const BalanceList = ({ trip }: Props) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [members, setMembers] = useState<UserGroupRole[]>([]);
-  const [tripFunds, setTripFunds] = useState<TripFund[]>([]); // ← THÊM: state for funds
+  const [tripFunds, setTripFunds] = useState<TripFund[]>([]);
 
   const leader = useMemo(() => {
     return (
@@ -73,7 +74,7 @@ const BalanceList = ({ trip }: Props) => {
   useEffect(() => {
     getExpenses();
     getMember();
-    getTripFunds(); // ← THÊM: fetch funds
+    getTripFunds();
   }, [trip.id]);
 
   useFocusEffect(
@@ -81,7 +82,7 @@ const BalanceList = ({ trip }: Props) => {
       if (!trip.id) return;
       getExpenses();
       getMember();
-      getTripFunds(); // ← THÊM
+      getTripFunds();
     }, [trip.id]),
   );
 
@@ -112,7 +113,6 @@ const BalanceList = ({ trip }: Props) => {
     }
   };
 
-  // ← THÊM: fetch trip funds
   const getTripFunds = async () => {
     try {
       const res = await api.get<TripFund[]>(`/trips/${trip.id}/funds`);
@@ -123,74 +123,140 @@ const BalanceList = ({ trip }: Props) => {
     }
   };
 
-  // ← THÊM: Tạo map funds cho lookup dễ dàng
   const fundMap = useMemo(() => {
-    const map: Record<string, TripFund> = {};
+    const map: Record<string, number> = {};
     tripFunds.forEach((fund) => {
-      map[fund.user.id] = fund;
+      map[fund.user.id] = (map[fund.user.id] || 0) + Number(fund.amount);
     });
     return map;
   }, [tripFunds]);
 
-  const balances = useMemo(() => {
-    const map: Record<string, Omit<BalanceMember, "userId">> = {};
+  // Tính số dư từ chi tiêu (dương = được nhận, âm = phải trả)
+  const expenseBalances = useMemo(() => {
+    const balanceMap = new Map<string, UserBalance>();
 
     listExpenses.forEach((exp) => {
       const amount = Number(exp.amount || 0);
       const participants = exp.participants || [];
-      if (participants.length === 0) return;
-
-      const share = amount / participants.length;
       const payer = exp.paidBy;
 
-      participants.forEach((p) => {
-        if (!map[p.id]) {
-          map[p.id] = { total: 0, items: [], name: p.name, avatar: p.avatar };
+      if (participants.length === 0 || !payer?.id) return;
+
+      const share = amount / participants.length;
+
+      const getUserBalance = (
+        userId: string,
+        name: string,
+        avatar: string | null,
+      ) => {
+        if (!balanceMap.has(userId)) {
+          balanceMap.set(userId, {
+            balance: 0,
+            name,
+            avatar,
+            paidItems: [],
+            debtItems: [],
+          });
         }
-        map[p.id].total += share;
-        map[p.id].items.push({
-          id: exp.id,
-          category: exp.category,
-          title: exp.title,
-          amount: share,
-          payerId: exp.paidBy?.id,
-          type: "debt",
-        });
+        return balanceMap.get(userId)!;
+      };
+
+      // 1. Xử lý người tham gia (nợ)
+      participants.forEach((participant) => {
+        if (!participant?.id) return;
+
+        const userBalance = getUserBalance(
+          participant.id,
+          participant.name,
+          participant.avatar,
+        );
+        userBalance.balance -= share;
+
+        if (participant.id !== payer.id) {
+          userBalance.debtItems.push({
+            id: exp.id,
+            category: exp.category,
+            title: exp.title,
+            amount: share,
+            payerId: payer.id,
+            payerName: payer.name,
+            type: "debt",
+            userShare: share,
+          });
+        }
       });
 
-      if (payer && !map[payer.id]) {
-        map[payer.id] = {
-          total: 0,
-          items: [],
-          name: payer.name,
-          avatar: payer.avatar,
-        };
-      }
-      if (payer) {
-        map[payer.id].total -= amount;
-      }
+      // 2. Xử lý người trả tiền
+      const payerBalance = getUserBalance(payer.id, payer.name, payer.avatar);
+      payerBalance.balance += amount;
+
+      payerBalance.paidItems.push({
+        id: exp.id,
+        category: exp.category,
+        title: exp.title,
+        amount: amount,
+        payerId: payer.id,
+        payerName: payer.name,
+        type: "paid",
+        userShare: amount,
+      });
     });
 
-    return Object.entries(map).map(([userId, value]) => ({
+    return Array.from(balanceMap.entries()).map(([userId, data]) => ({
       userId,
-      ...value,
-      total: Math.round(value.total),
+      name: data.name,
+      avatar: data.avatar,
+      balanceFromExpense: Number(data.balance.toFixed(2)),
+      paidItems: data.paidItems,
+      debtItems: data.debtItems,
     }));
   }, [listExpenses]);
 
-  const totalToReceive = balances
-    .filter((b) => b.total > 0)
-    .reduce((sum, b) => sum + b.total, 0);
+  // Tính final balance (bao gồm quỹ)
+  const finalBalances = useMemo(() => {
+    return expenseBalances.map((balance) => {
+      const fundAmount = fundMap[balance.userId] || 0;
+      const finalBalance = balance.balanceFromExpense + fundAmount;
 
-  // ← THÊM: Tính tổng tiền quỹ
+      let paymentStatus: "receive" | "pay" | "settled" = "settled";
+      let paymentAmount = 0;
+
+      if (finalBalance > 0) {
+        paymentStatus = "receive";
+        paymentAmount = Math.round(finalBalance);
+      } else if (finalBalance < 0) {
+        paymentStatus = "pay";
+        paymentAmount = -Math.round(finalBalance);
+      }
+
+      return {
+        ...balance,
+        fundAmount,
+        finalBalance: Number(finalBalance.toFixed(2)),
+        paymentStatus,
+        paymentAmount,
+      };
+    });
+  }, [expenseBalances, fundMap]);
+
+  const totalToPay = Math.round(
+    finalBalances
+      .filter((b) => b.paymentStatus === "pay")
+      .reduce((sum, b) => sum + b.paymentAmount, 0),
+  );
+
   const totalFunds = tripFunds.reduce((sum, f) => sum + Number(f.amount), 0);
+  const totalExpenses = listExpenses.reduce(
+    (sum, e) => sum + (Number(e.amount) || 0),
+    0,
+  );
 
   const validBalances = useMemo(() => {
-    return balances.filter((balance) => {
+    return finalBalances.filter((balance) => {
       const user = members.find((u) => u.id === balance.userId);
       return !!user;
     });
-  }, [balances, members]);
+  }, [finalBalances, members]);
 
   if (loading) {
     return (
@@ -200,7 +266,6 @@ const BalanceList = ({ trip }: Props) => {
     );
   }
 
-  // Nếu trip chưa kết thúc
   if (!trip.isCloseTrip) {
     return (
       <View style={styles.notFinishedContainer}>
@@ -231,21 +296,21 @@ const BalanceList = ({ trip }: Props) => {
         keyExtractor={(item) => item.userId}
         renderItem={({ item }) => {
           const user = members.find((u) => u.id === item.userId);
-
-          if (!user) {
-            console.warn(`User not found for userId: ${item.userId}`);
-            return null;
-          }
+          if (!user) return null;
 
           return (
             <BalanceCard
-              user={user!}
-              total={item.total}
-              items={item.items}
+              user={user}
+              balanceFromExpense={item.balanceFromExpense}
+              fundAmount={item.fundAmount}
+              finalBalance={item.finalBalance}
+              paymentStatus={item.paymentStatus}
+              paymentAmount={item.paymentAmount}
+              paidItems={item.paidItems}
+              debtItems={item.debtItems}
               isCurrent={item.userId === currentUserId}
               leader={leader!}
               users={members}
-              funds={tripFunds} // ← THÊM: pass funds vào
             />
           );
         }}
@@ -257,14 +322,13 @@ const BalanceList = ({ trip }: Props) => {
             onRefresh={() => {
               setRefreshing(true);
               getExpenses();
-              getTripFunds(); // ← THÊM
+              getTripFunds();
             }}
             tintColor={COLORS.primary}
           />
         }
         ListHeaderComponent={
           <Surface style={styles.header} elevation={0}>
-            {/* Leader Info */}
             <View style={styles.leaderRow}>
               {leader?.avatar ? (
                 <Avatar.Image source={{ uri: leader.avatar }} size={56} />
@@ -281,33 +345,28 @@ const BalanceList = ({ trip }: Props) => {
               </View>
             </View>
 
-            {/* Divider */}
             <View style={styles.divider} />
 
-            {/* ← THÊM: Fund Summary */}
-            {totalFunds > 0 && (
-              <View style={styles.fundSummary}>
-                <View style={styles.summaryRow}>
-                  <View style={styles.summaryItem}>
-                    <Text style={styles.summaryLabel}>💰 Quỹ</Text>
-                    <Text style={styles.summaryValue}>
-                      {formatMoney(totalFunds)}
-                    </Text>
-                  </View>
-                  <View style={styles.summaryDivider} />
-                  <View style={styles.summaryItem}>
-                    <Text style={styles.summaryLabel}>
-                      👥 {tripFunds.length}
-                    </Text>
-                    <Text style={styles.summaryValue}>người</Text>
-                  </View>
-                </View>
+            <View style={styles.statsRow}>
+              <View style={styles.statItem}>
+                <Text style={styles.statLabel}>Tổng chi phí</Text>
+                <Text style={styles.statValue}>
+                  {formatMoney(totalExpenses)}
+                </Text>
               </View>
-            )}
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statLabel}>Tổng quỹ</Text>
+                <Text style={[styles.statValue, { color: COLORS.primary }]}>
+                  {formatMoney(totalFunds)}
+                </Text>
+              </View>
+            </View>
 
-            {/* ← THÊM: Balance Summary */}
+            <View style={styles.divider} />
+
             <View style={styles.totalContainer}>
-              <Text style={styles.totalLabel}>💳 Cần thanh toán</Text>
+              <Text style={styles.totalLabel}>Tổng cần thu</Text>
               <LinearGradient
                 colors={["#10B981", "#059669"]}
                 start={{ x: 0, y: 0 }}
@@ -315,19 +374,14 @@ const BalanceList = ({ trip }: Props) => {
                 style={styles.totalBadge}
               >
                 <Text style={styles.totalAmount}>
-                  {formatMoney(totalToReceive)}
+                  {formatMoney(totalToPay)}
                 </Text>
               </LinearGradient>
             </View>
 
-            {/* ← THÊM: Note */}
-            {totalToReceive > 0 && totalFunds > 0 && (
-              <View style={styles.noteContainer}>
-                <Text style={styles.noteText}>
-                  💡 Quỹ có thể được dùng để thanh toán
-                </Text>
-              </View>
-            )}
+            <Text style={styles.noteText}>
+              * Đã bao gồm điều chỉnh từ quỹ chuyến đi
+            </Text>
           </Surface>
         }
         ListEmptyComponent={
@@ -423,42 +477,34 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.border,
     marginVertical: 16,
   },
-
-  // ← THÊM: Fund summary styles
-  fundSummary: {
-    backgroundColor: "#F0F9FF",
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-  },
-  summaryRow: {
+  statsRow: {
     flexDirection: "row",
     alignItems: "center",
   },
-  summaryItem: {
+  statItem: {
     flex: 1,
     alignItems: "center",
   },
-  summaryLabel: {
+  statLabel: {
     fontSize: 12,
     color: COLORS.textSecondary,
     marginBottom: 4,
   },
-  summaryValue: {
+  statValue: {
     fontSize: 16,
     fontWeight: "700",
-    color: COLORS.primary,
+    color: COLORS.textPrimary,
   },
-  summaryDivider: {
+  statDivider: {
     width: 1,
     height: 30,
     backgroundColor: COLORS.border,
   },
-
   totalContainer: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    marginBottom: 12,
   },
   totalLabel: {
     fontSize: 16,
@@ -475,20 +521,12 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#fff",
   },
-
-  // ← THÊM: Note container
-  noteContainer: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-  },
   noteText: {
-    fontSize: 12,
+    fontSize: 11,
     color: COLORS.textSecondary,
     fontStyle: "italic",
+    marginTop: 8,
   },
-
   emptyContainer: {
     backgroundColor: COLORS.surface,
     borderRadius: 20,

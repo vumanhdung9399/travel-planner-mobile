@@ -1,6 +1,7 @@
+import { useAuthStore } from "@/src/store/auth.store";
 import type { UserGroup } from "@/src/type/user";
 import { COLORS } from "@/src/utils/constants";
-import { getNameFirstLetterUpper } from "@/src/utils/helper";
+import { formatMoney, getNameFirstLetterUpper } from "@/src/utils/helper";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
@@ -13,15 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Avatar, Button, IconButton, Surface, Text } from "react-native-paper";
-
-interface TripFund {
-  id: string;
-  amount: number;
-  note?: string;
-  createdAt: string;
-  user: UserGroup;
-}
+import { Avatar, Button, Surface, Text } from "react-native-paper";
 
 interface BalanceItem {
   id: string;
@@ -29,15 +22,21 @@ interface BalanceItem {
   title: string;
   amount: number;
   payerId: string;
-  type: "debt" | "credit";
+  payerName: string;
+  type: "debt" | "paid";
+  userShare?: number;
 }
 
 type Props = {
   user: UserGroup;
   leader: UserGroup;
-  total: number;
-  items: BalanceItem[];
-  funds: TripFund[]; // ← THÊM: dữ liệu quỹ
+  balanceFromExpense: number;
+  fundAmount: number;
+  finalBalance: number;
+  paymentStatus: "receive" | "pay" | "settled";
+  paymentAmount: number;
+  paidItems: BalanceItem[];
+  debtItems: BalanceItem[];
   users: UserGroup[];
   isCurrent?: boolean;
 };
@@ -45,29 +44,27 @@ type Props = {
 const BalanceCard = ({
   user,
   leader,
-  total,
-  items,
-  funds, // ← THÊM
-  users,
+  balanceFromExpense,
+  fundAmount,
+  paymentStatus,
+  paymentAmount,
+  paidItems,
+  debtItems,
   isCurrent,
 }: Props) => {
+  const currentUser = useAuthStore((state) => state.user);
+
   const [expanded, setExpanded] = useState(false);
   const [qrModalVisible, setQrModalVisible] = useState(false);
   const [qrError, setQrError] = useState(false);
-  const [showFundDetails, setShowFundDetails] = useState(false); // ← THÊM
 
-  const isDebt = total > 0;
-  const isLeader = user.id === leader.id;
-  const displayAmount = Math.abs(total);
+  const isNeedToPay = paymentStatus === "pay";
+  const isNeedToReceive = paymentStatus === "receive";
+  const isSettled = paymentStatus === "settled";
 
-  const receiver = isDebt ? leader : user;
-  const sender = isDebt ? user : leader;
-
-  const userFund = funds.find((f) => f.user.id === user.id);
-  const fundAmount = Number(userFund?.amount) || 0;
-
-  const totalWithFund = total - Number(fundAmount);
-  const displayTotalWithFund = Math.abs(totalWithFund);
+  const receiver = isNeedToPay ? leader : user;
+  const sender = isNeedToPay ? user : leader;
+  const isLeader = leader.id === currentUser.id;
 
   const isValidQR =
     receiver?.bankAccNumber &&
@@ -91,7 +88,7 @@ const BalanceCard = ({
   };
 
   const handleCopyContent = async () => {
-    const content = `Thanh toan ${sender.name}`;
+    const content = `Thanh toan ${sender.name} cho ${receiver.name}`;
     await Clipboard.setStringAsync(content);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     Alert.alert("Thành công", "Đã sao chép nội dung thanh toán");
@@ -112,8 +109,26 @@ const BalanceCard = ({
     }
   };
 
-  const formatMoney = (amount: number) => {
-    return amount.toLocaleString("vi-VN") + " đ";
+  const getStatusColor = () => {
+    if (isNeedToPay) return COLORS.error;
+    if (isNeedToReceive) return COLORS.success;
+    return COLORS.textSecondary;
+  };
+
+  const getDescriptionText = () => {
+    if (isNeedToPay) {
+      if (fundAmount > 0) {
+        return `Đã đóng quỹ ${formatMoney(fundAmount)}, cần trả thêm ${formatMoney(paymentAmount)} cho ${leader.name}`;
+      }
+      return `Cần trả ${formatMoney(paymentAmount)} cho ${leader.name}`;
+    }
+    if (isNeedToReceive) {
+      if (fundAmount > 0) {
+        return `Đã đóng quỹ ${formatMoney(fundAmount)}, được nhận lại ${formatMoney(paymentAmount)} từ ${leader.name}`;
+      }
+      return `Được nhận ${formatMoney(paymentAmount)} từ ${leader.name}`;
+    }
+    return "Đã cân bằng, không cần thanh toán thêm";
   };
 
   return (
@@ -122,7 +137,7 @@ const BalanceCard = ({
         style={[styles.container, isCurrent && styles.containerActive]}
         elevation={isCurrent ? 2 : 0}
       >
-        {/* HEADER */}
+        {/* Header */}
         <View style={styles.header}>
           <View style={styles.userInfo}>
             {user?.avatar ? (
@@ -146,102 +161,31 @@ const BalanceCard = ({
                 )}
               </View>
 
-              {/* Hiển thị chi phí */}
-              <View style={styles.amountBreakdown}>
-                <Text
-                  style={[
-                    styles.amountLabel,
-                    { color: isDebt ? COLORS.error : COLORS.success },
-                  ]}
-                >
-                  {isDebt ? `Nợ ${leader.name}` : `${leader.name} nợ bạn`}
+              <View style={styles.amountRow}>
+                <Text style={[styles.amountLabel, { color: getStatusColor() }]}>
+                  {isNeedToPay
+                    ? `Cần trả ${leader.name}`
+                    : isNeedToReceive
+                      ? `${leader.name} trả bạn`
+                      : "Đã cân bằng"}
                 </Text>
-                <Text
-                  style={[
-                    styles.amount,
-                    { color: isDebt ? COLORS.error : COLORS.success },
-                  ]}
-                >
-                  {formatMoney(displayAmount)}
+                <Text style={[styles.amount, { color: getStatusColor() }]}>
+                  {isNeedToPay && `-${formatMoney(paymentAmount)}`}
+                  {isNeedToReceive && `+${formatMoney(paymentAmount)}`}
+                  {isSettled && "0đ"}
                 </Text>
               </View>
             </View>
           </View>
         </View>
 
-        {/* Hiển thị quỹ đóng góp */}
-        {fundAmount > 0 && (
-          <View style={styles.fundSection}>
-            <View style={styles.fundRow}>
-              <View style={styles.fundIcon}>
-                <Ionicons
-                  name="analytics-outline"
-                  size={16}
-                  color={COLORS.primary}
-                />
-              </View>
-              <View style={styles.fundInfo}>
-                <Text style={styles.fundLabel}>Quỹ đóng góp</Text>
-                <Text style={styles.fundAmount}>{formatMoney(fundAmount)}</Text>
-              </View>
-              <IconButton
-                icon={showFundDetails ? "chevron-up" : "chevron-down"}
-                size={18}
-                iconColor={COLORS.textSecondary}
-                onPress={() => setShowFundDetails(!showFundDetails)}
-                style={styles.expandButton}
-              />
-            </View>
-
-            {/* Chi tiết quỹ */}
-            {showFundDetails && userFund && (
-              <View style={styles.fundDetails}>
-                <View style={styles.fundDetailRow}>
-                  <Text style={styles.fundDetailLabel}>Ghi chú:</Text>
-                  <Text style={styles.fundDetailValue}>
-                    {userFund.note || "Không có ghi chú"}
-                  </Text>
-                </View>
-                <View style={styles.fundDetailRow}>
-                  <Text style={styles.fundDetailLabel}>Ngày:</Text>
-                  <Text style={styles.fundDetailValue}>
-                    {new Date(userFund.createdAt).toLocaleDateString("vi-VN")}
-                  </Text>
-                </View>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Tổng cộng (nếu có quỹ) */}
-        {fundAmount > 0 && totalWithFund !== total && (
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Tổng cộng:</Text>
-            <Text
-              style={[
-                styles.totalAmount,
-                {
-                  color:
-                    totalWithFund > 0
-                      ? COLORS.error
-                      : totalWithFund < 0
-                        ? COLORS.success
-                        : COLORS.textSecondary,
-                },
-              ]}
-            >
-              {formatMoney(displayTotalWithFund)}
-            </Text>
-          </View>
-        )}
-
-        {/* SUB LINE */}
+        {/* Description */}
         <View style={styles.subLine}>
-          <Text style={styles.subText}>
-            {isDebt ? `Bạn trả ${leader.name}` : `${leader.name} trả bạn`}
+          <Text style={styles.subText} numberOfLines={2}>
+            {getDescriptionText()}
           </Text>
           <View style={styles.actions}>
-            {!isLeader && (
+            {(isLeader || isCurrent) && (
               <TouchableOpacity
                 style={styles.qrButton}
                 onPress={() => {
@@ -249,7 +193,7 @@ const BalanceCard = ({
                   setQrModalVisible(true);
                 }}
               >
-                <Ionicons name="qr-code" size={18} color={COLORS.primary} />
+                <Ionicons name="qr-code" size={20} color={COLORS.primary} />
               </TouchableOpacity>
             )}
             <TouchableOpacity
@@ -265,52 +209,148 @@ const BalanceCard = ({
           </View>
         </View>
 
-        {/* DETAILS - CHI PHÍ */}
+        {/* Expanded Details */}
         {expanded && (
           <View style={styles.details}>
-            {items.length > 0 ? (
-              <>
-                <Text style={styles.detailsTitle}>Chi phí liên quan:</Text>
-                {items.map((item: BalanceItem, index: number) => {
-                  const payer = users.find((u) => u.id === item.payerId);
-                  return (
-                    <View
-                      key={item.id}
-                      style={[
-                        styles.detailItem,
-                        index === items.length - 1 && styles.lastDetailItem,
-                      ]}
-                    >
-                      <View style={styles.detailLeft}>
-                        <Text style={styles.categoryIcon}>
-                          {getCategoryIcon(item.category)}
+            {/* Fund Information */}
+            {fundAmount > 0 && (
+              <View style={styles.fundSection}>
+                <View style={styles.fundHeader}>
+                  <Ionicons
+                    name="briefcase-outline"
+                    size={16}
+                    color={COLORS.primary}
+                  />
+                  <Text style={styles.fundTitle}>Thông tin quỹ</Text>
+                </View>
+                <View style={styles.fundRow}>
+                  <Text style={styles.fundLabel}>Đã đóng quỹ:</Text>
+                  <Text style={styles.fundValue}>
+                    {formatMoney(fundAmount)}
+                  </Text>
+                </View>
+                <View style={styles.fundRow}>
+                  <Text style={styles.fundLabel}>Số dư từ chi tiêu:</Text>
+                  <Text
+                    style={[
+                      styles.fundValue,
+                      {
+                        color:
+                          balanceFromExpense > 0
+                            ? COLORS.success
+                            : balanceFromExpense < 0
+                              ? COLORS.error
+                              : COLORS.textSecondary,
+                      },
+                    ]}
+                  >
+                    {balanceFromExpense > 0
+                      ? `+${formatMoney(balanceFromExpense)}`
+                      : formatMoney(balanceFromExpense)}
+                  </Text>
+                </View>
+                <View style={styles.fundTotalRow}>
+                  <Text style={styles.fundTotalLabel}>Tổng kết:</Text>
+                  <Text
+                    style={[styles.fundTotalValue, { color: getStatusColor() }]}
+                  >
+                    {isNeedToPay && `Cần trả ${formatMoney(paymentAmount)}`}
+                    {isNeedToReceive &&
+                      `Được nhận ${formatMoney(paymentAmount)}`}
+                    {isSettled && "Đã cân bằng"}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Paid Items */}
+            {paidItems.length > 0 && (
+              <View style={styles.itemsSection}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>💸 Khoản đã trả</Text>
+                  <View style={styles.sectionBadge}>
+                    <Text style={styles.sectionBadgeText}>
+                      {formatMoney(
+                        paidItems.reduce((sum, i) => sum + i.amount, 0),
+                      )}
+                    </Text>
+                  </View>
+                </View>
+
+                {paidItems.map((item) => (
+                  <View key={`paid-${item.id}`} style={styles.paidItem}>
+                    <View style={styles.itemLeft}>
+                      <Text style={styles.categoryIcon}>
+                        {getCategoryIcon(item.category)}
+                      </Text>
+                      <View style={styles.itemInfo}>
+                        <Text style={styles.itemTitle} numberOfLines={1}>
+                          {item.title}
                         </Text>
-                        <View style={styles.detailInfo}>
-                          <Text style={styles.detailTitle} numberOfLines={1}>
-                            {item.title}
-                          </Text>
-                          <View style={styles.payerChip}>
-                            <Text style={styles.payerChipText}>
-                              {payer?.name} trả
-                            </Text>
-                          </View>
+                        <View style={styles.paidChip}>
+                          <Text style={styles.paidChipText}>Bạn đã trả</Text>
                         </View>
                       </View>
-                      <Text style={styles.detailAmount}>
-                        {formatMoney(item.amount)}
-                      </Text>
                     </View>
-                  );
-                })}
-              </>
-            ) : (
-              <Text style={styles.emptyDetails}>Không có chi phí nào</Text>
+                    <Text style={styles.paidAmount}>
+                      -{formatMoney(item.amount)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
             )}
+
+            {/* Debt Items */}
+            {debtItems.length > 0 && (
+              <View style={styles.itemsSection}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>📝 Khoản đang nợ</Text>
+                  <View style={[styles.sectionBadge, styles.debtBadge]}>
+                    <Text style={styles.debtBadgeText}>
+                      {formatMoney(
+                        debtItems.reduce((sum, i) => sum + i.amount, 0),
+                      )}
+                    </Text>
+                  </View>
+                </View>
+
+                {debtItems.map((item) => (
+                  <View key={`debt-${item.id}`} style={styles.debtItem}>
+                    <View style={styles.itemLeft}>
+                      <Text style={styles.categoryIcon}>
+                        {getCategoryIcon(item.category)}
+                      </Text>
+                      <View style={styles.itemInfo}>
+                        <Text style={styles.itemTitle} numberOfLines={1}>
+                          {item.title}
+                        </Text>
+                        <View style={styles.debtChip}>
+                          <Text style={styles.debtChipText}>
+                            Nợ {item.payerName}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                    <Text style={styles.debtAmount}>
+                      +{formatMoney(item.amount)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {paidItems.length === 0 &&
+              debtItems.length === 0 &&
+              fundAmount === 0 && (
+                <Text style={styles.emptyDetails}>
+                  Không có chi tiêu nào liên quan
+                </Text>
+              )}
           </View>
         )}
       </Surface>
 
-      {/* QR MODAL */}
+      {/* QR Modal */}
       <Modal
         visible={qrModalVisible}
         transparent
@@ -321,20 +361,14 @@ const BalanceCard = ({
           <Surface style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Thanh toán</Text>
-              <IconButton
-                icon="close"
-                size={24}
-                onPress={() => setQrModalVisible(false)}
-              />
+              <TouchableOpacity onPress={() => setQrModalVisible(false)}>
+                <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+              </TouchableOpacity>
             </View>
 
             <View style={styles.modalBody}>
               {receiver?.avatar ? (
-                <Avatar.Image
-                  source={{ uri: receiver.avatar }}
-                  size={72}
-                  style={styles.receiverAvatar}
-                />
+                <Avatar.Image source={{ uri: receiver.avatar }} size={72} />
               ) : (
                 <Avatar.Text
                   size={72}
@@ -347,7 +381,7 @@ const BalanceCard = ({
                 Thanh toán cho {receiver?.name}
               </Text>
               <Text style={styles.receiverAmount}>
-                {formatMoney(displayAmount)}
+                {formatMoney(paymentAmount)}
               </Text>
 
               <View style={styles.qrContainer}>
@@ -362,8 +396,8 @@ const BalanceCard = ({
                   <Image
                     source={{
                       uri: generateQRUrl({
-                        amount: displayAmount,
-                        content: `Thanh toan ${sender.name}`,
+                        amount: paymentAmount,
+                        content: `Thanh toan ${sender.name} cho ${receiver.name}`,
                         accountNo: receiver.bankAccNumber ?? "",
                         bankCode: receiver.bank ?? "",
                       }),
@@ -413,7 +447,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FEF2F2",
   },
   header: {
-    marginBottom: 8,
+    marginBottom: 12,
   },
   userInfo: {
     flexDirection: "row",
@@ -429,7 +463,7 @@ const styles = StyleSheet.create({
   nameRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 4,
+    marginBottom: 6,
   },
   userName: {
     fontSize: 16,
@@ -449,120 +483,37 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#fff",
   },
-
-  // ← THÊM: New styles cho amount breakdown
-  amountBreakdown: {
-    marginTop: 4,
+  amountRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "space-between",
   },
   amountLabel: {
     fontSize: 12,
-    marginBottom: 2,
+    flex: 1,
   },
   amount: {
     fontSize: 18,
     fontWeight: "700",
   },
-
-  // ← THÊM: Fund section styles
-  fundSection: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-  },
-  fundRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  fundIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: "#F0F9FF",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-  fundInfo: {
-    flex: 1,
-  },
-  fundLabel: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    marginBottom: 2,
-  },
-  fundAmount: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: COLORS.primary,
-  },
-  expandButton: {
-    margin: 0,
-  },
-
-  // ← THÊM: Fund details styles
-  fundDetails: {
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    backgroundColor: "#F8FAFC",
-    borderRadius: 8,
-    padding: 8,
-  },
-  fundDetailRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 4,
-  },
-  fundDetailLabel: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    fontWeight: "500",
-  },
-  fundDetailValue: {
-    fontSize: 12,
-    color: COLORS.textPrimary,
-    fontWeight: "500",
-    flex: 1,
-    textAlign: "right",
-  },
-
-  // ← THÊM: Total row styles
-  totalRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    paddingHorizontal: 4,
-  },
-  totalLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: COLORS.textSecondary,
-  },
-  totalAmount: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
-
   subLine: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 4,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
   },
   subText: {
-    fontSize: 13,
+    fontSize: 12,
     color: COLORS.textSecondary,
     flex: 1,
+    marginRight: 12,
   },
   actions: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 4,
   },
   qrButton: {
     width: 36,
@@ -571,71 +522,178 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 4,
+  },
+  expandButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.surface,
+    justifyContent: "center",
+    alignItems: "center",
   },
   details: {
     marginTop: 16,
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
+    gap: 16,
   },
-  detailsTitle: {
-    fontSize: 12,
+  fundSection: {
+    backgroundColor: "#F0F9FF",
+    borderRadius: 12,
+    padding: 12,
+  },
+  fundHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
+  },
+  fundTitle: {
+    fontSize: 13,
     fontWeight: "600",
-    color: COLORS.textSecondary,
+    color: COLORS.primary,
+  },
+  fundRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 8,
   },
-  detailItem: {
+  fundLabel: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+  },
+  fundValue: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: COLORS.textPrimary,
+  },
+  fundTotalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#BFDBFE",
+  },
+  fundTotalLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: COLORS.textPrimary,
+  },
+  fundTotalValue: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  itemsSection: {
+    gap: 8,
+  },
+  sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    marginBottom: 4,
   },
-  lastDetailItem: {
-    borderBottomWidth: 0,
-    paddingBottom: 0,
+  sectionTitle: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: COLORS.textSecondary,
   },
-  detailLeft: {
+  sectionBadge: {
+    backgroundColor: "#DCFCE7",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  sectionBadgeText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#16A34A",
+  },
+  debtBadge: {
+    backgroundColor: "#FEE2E2",
+  },
+  debtBadgeText: {
+    color: "#DC2626",
+  },
+  paidItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: "#F0FDF4",
+    borderWidth: 1,
+    borderColor: "#BBF7D0",
+  },
+  debtItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: "#FEF2F2",
+    borderWidth: 1,
+    borderColor: "#FECACA",
+  },
+  itemLeft: {
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
+    gap: 10,
   },
   categoryIcon: {
-    fontSize: 20,
-    marginRight: 12,
+    fontSize: 22,
   },
-  detailInfo: {
+  itemInfo: {
     flex: 1,
+    gap: 4,
   },
-  detailTitle: {
-    fontSize: 14,
+  itemTitle: {
+    fontSize: 13,
     fontWeight: "500",
     color: COLORS.textPrimary,
-    marginBottom: 4,
   },
-  payerChip: {
-    backgroundColor: COLORS.surface,
-    paddingHorizontal: 8,
+  paidChip: {
+    backgroundColor: "#DCFCE7",
+    paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 8,
+    borderRadius: 6,
     alignSelf: "flex-start",
   },
-  payerChipText: {
-    fontSize: 10,
-    color: COLORS.textSecondary,
+  paidChipText: {
+    fontSize: 9,
+    color: "#16A34A",
+    fontWeight: "500",
   },
-  detailAmount: {
+  debtChip: {
+    backgroundColor: "#FEE2E2",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignSelf: "flex-start",
+  },
+  debtChipText: {
+    fontSize: 9,
+    color: "#DC2626",
+    fontWeight: "500",
+  },
+  paidAmount: {
     fontSize: 14,
-    fontWeight: "600",
-    color: COLORS.textPrimary,
-    marginLeft: 12,
+    fontWeight: "700",
+    color: "#16A34A",
+  },
+  debtAmount: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#DC2626",
   },
   emptyDetails: {
     fontSize: 13,
     color: COLORS.textLight,
     fontStyle: "italic",
+    textAlign: "center",
+    paddingVertical: 12,
   },
   modalOverlay: {
     flex: 1,
@@ -654,8 +712,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingHorizontal: 20,
+    paddingTop: 20,
   },
   modalTitle: {
     fontSize: 18,

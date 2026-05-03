@@ -13,7 +13,7 @@ export const usePushNotification = () => {
   const token = useAuthStore((state) => state.accessToken);
   const hasRegistered = useRef(false);
   useEffect(() => {
-    if (!user?.id || !token) return;
+    if (!token || !user?.id) return;
     if (hasRegistered.current) return;
     register();
     hasRegistered.current = true;

@@ -2,7 +2,6 @@ import * as SecureStore from "expo-secure-store";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { disconnectSocket } from "../utils/socket";
-import { useNotificationStore } from "./notification.store";
 
 type AuthState = {
   user: any | null;
@@ -24,13 +23,48 @@ type AuthState = {
 
 const secureStorage = {
   getItem: async (name: string) => {
-    return await SecureStore.getItemAsync(name);
+    try {
+      return await SecureStore.getItemAsync(name);
+    } catch (e) {
+      console.warn("[SecureStore] getItem error:", e);
+      return null;
+    }
   },
   setItem: async (name: string, value: string) => {
-    await SecureStore.setItemAsync(name, value);
+    try {
+      await SecureStore.setItemAsync(name, value);
+    } catch (e) {
+      console.warn("[SecureStore] setItem error:", e);
+      try {
+        const parsed = JSON.parse(value);
+        const minimal = JSON.stringify({
+          state: {
+            accessToken: parsed.state?.accessToken,
+            refreshToken: parsed.state?.refreshToken,
+            isFirstTime: parsed.state?.isFirstTime,
+            user: parsed.state?.user
+              ? {
+                  id: parsed.state.user.id,
+                  name: parsed.state.user.name,
+                  email: parsed.state.user.email,
+                  avatar: parsed.state.user.avatar,
+                }
+              : null,
+          },
+          version: parsed.version,
+        });
+        await SecureStore.setItemAsync(name, minimal);
+      } catch (e2) {
+        console.error("[SecureStore] fallback setItem also failed:", e2);
+      }
+    }
   },
   removeItem: async (name: string) => {
-    await SecureStore.deleteItemAsync(name);
+    try {
+      await SecureStore.deleteItemAsync(name);
+    } catch (e) {
+      console.warn("[SecureStore] removeItem error:", e);
+    }
   },
 };
 
@@ -58,14 +92,27 @@ export const useAuthStore = create<AuthState>()(
       logout: () => {
         disconnectSocket();
         set({ user: null, accessToken: null, refreshToken: null });
-        useNotificationStore.getState().reset();
+
+        try {
+          const { useNotificationStore } = require("./notification.store");
+          useNotificationStore.getState().reset();
+        } catch (e) {
+          console.warn("[AuthStore] Could not reset notification store:", e);
+        }
       },
     }),
     {
       name: "auth-storage",
       storage: createJSONStorage(() => secureStorage),
-      onRehydrateStorage: () => (state) => {
-        state?.setHasHydrated(true);
+      onRehydrateStorage: () => (state, error) => {
+        if (error) {
+          console.warn("[AuthStore] rehydrate error:", error);
+        }
+        if (state) {
+          state.setHasHydrated(true);
+        } else {
+          useAuthStore.setState({ hasHydrated: true });
+        }
       },
     },
   ),
