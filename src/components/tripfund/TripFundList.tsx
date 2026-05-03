@@ -3,12 +3,12 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    FlatList,
-    RefreshControl,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { Avatar, IconButton, Surface, Text } from "react-native-paper";
 
@@ -136,7 +136,7 @@ const TripFundList = ({ trip }: TripFundListProps) => {
 
           <View style={styles.fundRight}>
             <Text style={styles.fundAmount}>{formatMoney(item.amount)}</Text>
-            {isLeader && (
+            {isLeader && !trip.isCloseTrip && (
               <IconButton
                 icon="delete"
                 size={18}
