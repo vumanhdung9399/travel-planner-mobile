@@ -19,6 +19,7 @@ import {
 } from "react-native";
 import { Surface, Text } from "react-native-paper";
 import ActionSheet from "../ActionSheet";
+import AIChatModal from "./AIChatModal";
 
 interface TimelineListProps {
   trip: Trip;
@@ -35,6 +36,7 @@ export default function TimelineList({ trip, onUpdate }: TimelineListProps) {
   const [currentTime, setCurrentTime] = useState(dayjs());
   const [actionOpen, setActionOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<TimelineItemType | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
 
   // Filter states
   const [filterModalVisible, setFilterModalVisible] = useState(false);
@@ -732,6 +734,36 @@ export default function TimelineList({ trip, onUpdate }: TimelineListProps) {
 
   return (
     <View style={styles.container}>
+      {trip.isLeader && !trip.isCloseTrip && (
+        <View style={styles.aiToolbar}>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={styles.aiButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setAiOpen(true);
+            }}
+          >
+            <LinearGradient
+              colors={["#F5F3FF", "#EEF2FF"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.aiButtonGradient}
+            >
+              <View style={styles.aiIcon}>
+                <Ionicons name="sparkles" size={17} color="#fff" />
+              </View>
+              <View style={styles.aiButtonCopy}>
+                <Text style={styles.aiButtonTitle}>Lên lịch bằng AI</Text>
+                <Text style={styles.aiButtonSubtitle}>
+                  Tạo và tối ưu lịch trình tự động
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#7C3AED" />
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      )}
       {renderFilterChips()}
 
       {sortedDays.length === 0 ? (
@@ -780,6 +812,16 @@ export default function TimelineList({ trip, onUpdate }: TimelineListProps) {
       )}
 
       {renderFilterModal()}
+      <AIChatModal
+        open={aiOpen}
+        trip={trip}
+        existingTimeline={allData}
+        onClose={() => setAiOpen(false)}
+        onUpdated={() => {
+          getTimeline();
+          onUpdate?.();
+        }}
+      />
       <ActionSheet
         open={actionOpen}
         onClose={() => {
@@ -1268,5 +1310,50 @@ const styles = StyleSheet.create({
   },
   filterChip: {
     backgroundColor: "#F9FAFB",
+  },
+  aiToolbar: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  aiButton: {
+    borderRadius: 16,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#DDD6FE",
+  },
+  aiButtonGradient: {
+    minHeight: 62,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  aiIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: "#7C3AED",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 11,
+    shadowColor: "#7C3AED",
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+  },
+  aiButtonCopy: {
+    flex: 1,
+  },
+  aiButtonTitle: {
+    color: "#4C1D95",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  aiButtonSubtitle: {
+    color: "#7C3AED",
+    fontSize: 11,
+    marginTop: 2,
   },
 });
