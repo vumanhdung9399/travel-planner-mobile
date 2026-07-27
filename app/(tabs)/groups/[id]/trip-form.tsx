@@ -157,6 +157,7 @@ const TripFormScreen = () => {
     <SafeAreaView style={styles.container}>
       <CommonHeader
         title={isEditMode ? "Chỉnh sửa chuyến đi" : "Tạo chuyến đi mới"}
+        fallbackHref={{ pathname: "/groups/[id]", params: { id: groupId } }}
       />
 
       <KeyboardAvoidingView

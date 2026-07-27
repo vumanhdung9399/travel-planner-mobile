@@ -32,6 +32,25 @@ import {
   Text,
 } from "react-native-paper";
 
+const parseTripDate = (value: string) => dayjs(String(value).slice(0, 10));
+
+const getBoundedExpenseTime = (
+  startDate: string,
+  endDate: string,
+  value = dayjs(),
+) => {
+  const tripStart = parseTripDate(startDate).startOf("day");
+  const tripEnd = parseTripDate(endDate)
+    .hour(23)
+    .minute(59)
+    .second(0)
+    .millisecond(0);
+
+  if (value.isAfter(tripEnd)) return tripEnd;
+  if (value.isBefore(tripStart)) return tripStart.hour(9);
+  return value;
+};
+
 const ExpenseFormScreen = () => {
   const router = useRouter();
   const { trip } = useTripStore();
@@ -52,7 +71,11 @@ const ExpenseFormScreen = () => {
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("");
-  const [time, setTime] = useState(new Date(trip.startDate));
+  const [time, setTime] = useState(() =>
+    trip?.startDate && trip?.endDate
+      ? getBoundedExpenseTime(trip.startDate, trip.endDate).toDate()
+      : new Date(),
+  );
   const [paidBy, setPaidBy] = useState(user?.id || "");
   const [participants, setParticipants] = useState<string[]>([]);
   const [note, setNote] = useState("");
@@ -71,11 +94,16 @@ const ExpenseFormScreen = () => {
       fetchExpense();
     } else {
       setFetching(false);
+      if (trip?.startDate && trip?.endDate) {
+        setTime(
+          getBoundedExpenseTime(trip.startDate, trip.endDate).toDate(),
+        );
+      }
       if (user?.id) {
         setParticipants([user.id]);
       }
     }
-  }, [expenseId]);
+  }, [expenseId, isEditMode, trip, user?.id]);
 
   const fetchExpense = async () => {
     try {
@@ -88,7 +116,13 @@ const ExpenseFormScreen = () => {
       setTitle(item.title || "");
       setAmount(item.amount?.toString() || "");
       setCategory(item.category || "");
-      setTime(item.time ? dayjs(item.time).toDate() : new Date());
+      setTime(
+        getBoundedExpenseTime(
+          trip.startDate,
+          trip.endDate,
+          item.time ? dayjs(item.time) : dayjs(),
+        ).toDate(),
+      );
       setPaidBy(item.paidBy?.id || user?.id || "");
       setParticipants(item.participants?.map((p: any) => p.user.id) || []);
       setNote(item.note || "");
@@ -194,6 +228,10 @@ const ExpenseFormScreen = () => {
     <SafeAreaView style={styles.container}>
       <CommonHeader
         title={isEditMode ? "Sửa chi phí" : "Thêm chi phí"}
+        fallbackHref={{
+          pathname: "/trips/[id]",
+          params: { id: tripId, tab: "expenses" },
+        }}
         rightElement={
           <TouchableOpacity
             onPress={handleSubmit}
@@ -441,8 +479,8 @@ const ExpenseFormScreen = () => {
           setTime(date);
         }}
         onCancel={() => setShowTimePicker(false)}
-        minimumDate={dayjs(trip.startDate).toDate()}
-        maximumDate={dayjs(trip.endDate).toDate()}
+        minimumDate={parseTripDate(trip.startDate).startOf("day").toDate()}
+        maximumDate={parseTripDate(trip.endDate).endOf("day").toDate()}
         is24Hour={true}
       />
 

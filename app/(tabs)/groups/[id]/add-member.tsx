@@ -243,7 +243,7 @@ const AddMembersScreen = () => {
           <Text style={styles.emptyEmoji}>🔍</Text>
           <Text style={styles.emptyTitle}>Không tìm thấy</Text>
           <Text style={styles.emptySubtext}>
-            Không tìm thấy người dùng nào với từ khóa "{searchQuery}"
+            Không tìm thấy người dùng nào với từ khóa &quot;{searchQuery}&quot;
           </Text>
         </View>
       );
@@ -266,7 +266,10 @@ const AddMembersScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <CommonHeader title="Thêm thành viên" />
+      <CommonHeader
+        title="Thêm thành viên"
+        fallbackHref={{ pathname: "/groups/[id]", params: { id: groupId } }}
+      />
 
       <View style={styles.content}>
         {/* Selected Members */}

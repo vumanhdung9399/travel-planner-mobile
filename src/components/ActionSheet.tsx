@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import { Ionicons } from "@expo/vector-icons";
 import {
   Animated,
   Dimensions,
@@ -89,6 +90,12 @@ export default function ActionSheet({ open, onClose, actions }: any) {
                 handleClose();
               }}
             >
+              <Ionicons
+                name={item.icon || "ellipse-outline"}
+                size={22}
+                color={item.color || "#475569"}
+                style={styles.icon}
+              />
               <Text style={[styles.text, item.color && { color: item.color }]}>
                 {item.label}
               </Text>
@@ -125,14 +132,23 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   item: {
+    flexDirection: "row",
+    justifyContent: "flex-start",
+    paddingHorizontal: 24,
     paddingVertical: 18,
     alignItems: "center",
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "#F3F4F6",
   },
   text: {
+    flex: 1,
+    textAlign: "left",
     fontSize: 17,
     fontWeight: "500",
     color: "#1F2937",
+  },
+  icon: {
+    width: 34,
+    marginRight: 10,
   },
 });

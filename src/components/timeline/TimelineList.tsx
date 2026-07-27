@@ -18,6 +18,7 @@ import {
   View,
 } from "react-native";
 import { Surface, Text } from "react-native-paper";
+import ActionSheet from "../ActionSheet";
 
 interface TimelineListProps {
   trip: Trip;
@@ -32,6 +33,8 @@ export default function TimelineList({ trip, onUpdate }: TimelineListProps) {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [currentTime, setCurrentTime] = useState(dayjs());
+  const [actionOpen, setActionOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<TimelineItemType | null>(null);
 
   // Filter states
   const [filterModalVisible, setFilterModalVisible] = useState(false);
@@ -444,25 +447,15 @@ export default function TimelineList({ trip, onUpdate }: TimelineListProps) {
                 style={styles.actionButton}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  router.push(
-                    `trips/${trip.id}/timeline-form?timelineId=${item.id}` as any,
-                  );
+                  setSelectedItem(item);
+                  setActionOpen(true);
                 }}
               >
                 <Ionicons
-                  name="pencil-outline"
-                  size={18}
+                  name="ellipsis-horizontal"
+                  size={22}
                   color={COLORS.textSecondary}
                 />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  handleConfirmDelete(item.id);
-                }}
-              >
-                <Ionicons name="trash-outline" size={18} color={COLORS.error} />
               </TouchableOpacity>
             </View>
           )}
@@ -787,6 +780,32 @@ export default function TimelineList({ trip, onUpdate }: TimelineListProps) {
       )}
 
       {renderFilterModal()}
+      <ActionSheet
+        open={actionOpen}
+        onClose={() => {
+          setActionOpen(false);
+          setSelectedItem(null);
+        }}
+        actions={[
+          {
+            label: "Sửa lịch trình",
+            icon: "pencil-outline",
+            onPress: () => {
+              if (selectedItem) {
+                router.push(
+                  `trips/${trip.id}/timeline-form?timelineId=${selectedItem.id}` as any,
+                );
+              }
+            },
+          },
+          {
+            label: "Xóa lịch trình",
+            icon: "trash-outline",
+            color: COLORS.error,
+            onPress: () => handleConfirmDelete(selectedItem?.id),
+          },
+        ]}
+      />
     </View>
   );
 }

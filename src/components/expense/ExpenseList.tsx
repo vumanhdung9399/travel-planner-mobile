@@ -3,6 +3,7 @@ import { useAuthStore } from "@/src/store/auth.store";
 import type { ExpenseItem, Trip, UserGroupRole } from "@/src/type/trip";
 import { COLORS, EXPENSE_STATUS, categories } from "@/src/utils/constants";
 import { formatMoney, getDayFromTime } from "@/src/utils/helper";
+import { exportPdf, formatPdfCurrency } from "@/src/utils/pdfExport";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
@@ -24,12 +25,13 @@ import { ExpenseCard } from "./ExpenseCard";
 
 interface ExpenseListProps {
   trip: Trip;
+  onExportReady?: (handler: (() => Promise<void>) | null) => void;
 }
 
 type FilterType = "all" | "today" | "thisWeek" | "highAmount" | "lowAmount";
 type SortType = "newest" | "oldest" | "highest" | "lowest";
 
-const ExpenseList = ({ trip }: ExpenseListProps) => {
+const ExpenseList = ({ trip, onExportReady }: ExpenseListProps) => {
   const router = useRouter();
   const { user } = useAuthStore();
 
@@ -285,6 +287,34 @@ const ExpenseList = ({ trip }: ExpenseListProps) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push(`/trips/${trip.id}/expense-reject?expenseId=${id}`);
   };
+
+  const handleExport = useCallback(async () => {
+    const statusLabels: Record<string, string> = {
+      [EXPENSE_STATUS.PENDING]: "Chờ duyệt",
+      [EXPENSE_STATUS.APPROVED]: "Đã duyệt",
+      [EXPENSE_STATUS.REJECTED]: "Từ chối",
+    };
+    await exportPdf(
+      `${trip.name} - Chi phí`,
+      ["Ngày", "Thời gian", "Khoản chi", "Danh mục", "Số tiền", "Người trả", "Người tham gia", "Trạng thái", "Ghi chú"],
+      listExpenses.map((item) => [
+        getDayFromTime(item.time, trip.startDate),
+        new Date(item.time).toLocaleString("vi-VN"),
+        item.title,
+        item.category,
+        formatPdfCurrency(item.amount),
+        item.paidBy?.name,
+        item.participants?.map((participant) => participant.name).join("; "),
+        statusLabels[item.status] || item.status,
+        item.note,
+      ]),
+    );
+  }, [listExpenses, trip.name, trip.startDate]);
+
+  useEffect(() => {
+    onExportReady?.(handleExport);
+    return () => onExportReady?.(null);
+  }, [handleExport, onExportReady]);
 
   const resetFilters = () => {
     setSelectedFilter("all");

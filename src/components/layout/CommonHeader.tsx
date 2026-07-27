@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons"; // Hoặc Lucide-react-native
+import type { Href } from "expo-router";
 import { useRouter } from "expo-router";
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -6,12 +7,14 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 interface CommonHeaderProps {
   title?: string;
   onBack?: () => void;
+  fallbackHref?: Href;
   rightElement?: React.ReactNode;
 }
 
 export const CommonHeader = ({
   title,
   onBack,
+  fallbackHref = "/",
   rightElement,
 }: CommonHeaderProps) => {
   const router = useRouter();
@@ -19,8 +22,10 @@ export const CommonHeader = ({
   const handleBack = () => {
     if (onBack) {
       onBack();
-    } else {
+    } else if (router.canGoBack()) {
       router.back();
+    } else {
+      router.replace(fallbackHref);
     }
   };
 

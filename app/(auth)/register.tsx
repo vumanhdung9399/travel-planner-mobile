@@ -103,19 +103,26 @@ const RegisterScreen = () => {
       setLoading(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-      await api.post("/auth/register", {
+      const response = await api.post<{ email: string; expiresAt: string }>(
+        "/auth/register",
+        {
         name: form.name.trim(),
         phone: form.phone.trim(),
         email: form.email.trim().toLowerCase(),
         password: form.password,
         confirmPassword: form.confirmPassword,
-      });
+        },
+      );
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      showSuccess(
-        "Đăng ký thành công, Tài khoản của bạn đã được tạo. Vui lòng đăng nhập để tiếp tục.",
-      );
-      router.replace("/login");
+      showSuccess("Đăng ký thành công. Vui lòng xác thực email.");
+      router.replace({
+        pathname: "/(auth)/verify-email",
+        params: {
+          email: response.data.email || form.email.trim().toLowerCase(),
+          expiresAt: response.data.expiresAt,
+        },
+      } as any);
     } catch (err: any) {
       console.error(err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);

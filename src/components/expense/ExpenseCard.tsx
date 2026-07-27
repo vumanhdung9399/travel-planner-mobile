@@ -7,9 +7,10 @@ import {
   getNameFirstLetterUpper,
 } from "@/src/utils/helper";
 import { Ionicons } from "@expo/vector-icons";
-import React from "react";
+import React, { useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
-import { Avatar, IconButton, Surface, Text } from "react-native-paper";
+import { Avatar, Surface, Text } from "react-native-paper";
+import ActionSheet from "../ActionSheet";
 
 interface Category {
   value: string;
@@ -43,6 +44,7 @@ export const ExpenseCard = ({
   onApproval,
   onReject,
 }: ExpenseCardProps) => {
+  const [actionOpen, setActionOpen] = useState(false);
   const canEdit =
     !isApproval &&
     item.status !== EXPENSE_STATUS.REJECTED &&
@@ -119,48 +121,19 @@ export const ExpenseCard = ({
           )}
         </View>
 
-        {/* ACTIONS */}
-        <View style={styles.actions}>
-          {isApproval && !trip.isCloseTrip && (
-            <>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.approveButton]}
-                onPress={() => onApproval(item.id)}
-              >
-                <Ionicons
-                  name="checkmark-circle"
-                  size={20}
-                  color={COLORS.success}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.rejectButton]}
-                onPress={() => onReject(item.id)}
-              >
-                <Ionicons name="close-circle" size={20} color={COLORS.error} />
-              </TouchableOpacity>
-            </>
-          )}
-
-          {canEdit && (
-            <>
-              <IconButton
-                icon="pencil"
-                size={18}
-                iconColor={COLORS.textSecondary}
-                onPress={() => onEdit(item)}
-                style={styles.editButton}
-              />
-              <IconButton
-                icon="delete"
-                size={18}
-                iconColor={COLORS.error}
-                onPress={() => onDelete(item.id)}
-                style={styles.editButton}
-              />
-            </>
-          )}
-        </View>
+        {(canEdit || (isApproval && !trip.isCloseTrip)) && (
+          <TouchableOpacity
+            style={styles.actionButton}
+            accessibilityLabel="Mở thao tác chi phí"
+            onPress={() => setActionOpen(true)}
+          >
+            <Ionicons
+              name="ellipsis-horizontal"
+              size={22}
+              color={COLORS.textSecondary}
+            />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* REJECTION REASON */}
@@ -169,6 +142,42 @@ export const ExpenseCard = ({
           <Text style={styles.rejectionText}>{item.rejectionReason}</Text>
         </View>
       )}
+      <ActionSheet
+        open={actionOpen}
+        onClose={() => setActionOpen(false)}
+        actions={[
+          ...(isApproval && !trip.isCloseTrip
+            ? [
+                {
+                  label: "Duyệt chi phí",
+                  icon: "checkmark-circle-outline",
+                  onPress: () => onApproval(item.id),
+                },
+                {
+                  label: "Từ chối chi phí",
+                  icon: "close-circle-outline",
+                  color: COLORS.error,
+                  onPress: () => onReject(item.id),
+                },
+              ]
+            : []),
+          ...(canEdit
+            ? [
+                {
+                  label: "Sửa chi phí",
+                  icon: "pencil-outline",
+                  onPress: () => onEdit(item),
+                },
+                {
+                  label: "Xóa chi phí",
+                  icon: "trash-outline",
+                  color: COLORS.error,
+                  onPress: () => onDelete(item.id),
+                },
+              ]
+            : []),
+        ]}
+      />
     </Surface>
   );
 };

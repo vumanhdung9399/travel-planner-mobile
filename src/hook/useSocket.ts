@@ -1,6 +1,6 @@
 import { useNotificationStore } from "@/src/store/notification.store";
 import { useUserStore } from "@/src/store/user.store";
-import { initSocket } from "@/src/utils/socket";
+import { disconnectSocket, initSocket } from "@/src/utils/socket";
 import { AppToast } from "@src/components/AppToast";
 import type { Notification } from "@src/type/notification";
 import * as Haptics from "expo-haptics";
@@ -11,11 +11,11 @@ import { useAuthStore } from "../store/auth.store";
 
 export const useSocket = () => {
   const addOneNotification = useNotificationStore((s) => s.addOneNotification);
-  const token = useAuthStore.getState().accessToken;
+  const token = useAuthStore((state) => state.accessToken);
   const userId = useUserStore((s) => s.user?.id);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || !userId) return;
 
     const socket = initSocket(String(userId), token);
 
@@ -59,6 +59,7 @@ export const useSocket = () => {
 
     return () => {
       socket.off("notification", handleNotification);
+      disconnectSocket();
     };
-  }, [token]);
+  }, [addOneNotification, token, userId]);
 };

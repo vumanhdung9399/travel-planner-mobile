@@ -1,13 +1,13 @@
 import { useUserStore } from "@/src/store/user.store";
 import { DrawerContentScrollView } from "@react-navigation/drawer";
-import { router, usePathname } from "expo-router";
+import { Href, router, usePathname } from "expo-router";
 import { Image, Text, TouchableOpacity, View } from "react-native";
 
 export default function CustomDrawer(props: any) {
   const pathname = usePathname();
   const { user } = useUserStore();
 
-  const menu = [
+  const menu: { label: string; path: Href }[] = [
     { label: "Nhóm của tôi", path: "/" },
     { label: "Cá nhân", path: "/profile" },
   ];

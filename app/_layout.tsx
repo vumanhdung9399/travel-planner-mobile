@@ -10,13 +10,17 @@ import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 const initNotification = async () => {
-  await Notifications.setNotificationChannelAsync("default", {
-    name: "default",
-    importance: Notifications.AndroidImportance.MAX,
-    sound: "notification.mp3",
-    vibrationPattern: [0, 250, 250, 250],
-    enableVibrate: true,
-  });
+  try {
+    await Notifications.setNotificationChannelAsync("default", {
+      name: "default",
+      importance: Notifications.AndroidImportance.MAX,
+      sound: "notification.mp3",
+      vibrationPattern: [0, 250, 250, 250],
+      enableVibrate: true,
+    });
+  } catch (error) {
+    console.warn("[Notifications] Could not create channel:", error);
+  }
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldPlaySound: true,
@@ -35,7 +39,7 @@ export default function RootLayout() {
   useSocket();
 
   useEffect(() => {
-    initNotification();
+    void initNotification();
   }, []);
 
   useEffect(() => {
@@ -47,7 +51,7 @@ export default function RootLayout() {
       },
     );
     return () => sub.remove();
-  }, []);
+  }, [router]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

@@ -24,6 +24,11 @@ export default {
       predictiveBackGestureEnabled: false,
       permissions: ["VIBRATE", "RECEIVE_BOOT_COMPLETED", "POST_NOTIFICATIONS"],
       package: "com.anonymous.travelplanner",
+      config: {
+        googleMaps: {
+          apiKey: process.env.GOOGLE_MAPS_API_KEY,
+        },
+      },
       useNextNotificationsApi: true,
       googleServicesFile: "./google-services.json",
       notification: {
@@ -57,6 +62,13 @@ export default {
           enableBackgroundRemoteNotifications: false,
         },
       ],
+      [
+        "expo-location",
+        {
+          locationWhenInUsePermission:
+            "Cho phép Travel Planner sử dụng vị trí để theo dõi thành viên trên tuyến đường.",
+        },
+      ],
       "expo-router",
       [
         "expo-splash-screen",
@@ -88,6 +100,7 @@ export default {
     extra: {
       API_URL: process.env.API_URL || "https://api-travel.vmdung.vn/api",
       SOCKET_URL: process.env.SOCKET_URL || "https://api-travel.vmdung.vn",
+      GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY || "",
       eas: {
         projectId: "833e807d-7197-4ae9-8c52-b8c1e7257e3e",
       },

@@ -6,8 +6,11 @@ node_modules/
 # Expo
 .expo/
 dist/
+dist-android/
 web-build/
 expo-env.d.ts
+.gradle-cache/
+.pnpm-store/
 
 # Native
 .kotlin/

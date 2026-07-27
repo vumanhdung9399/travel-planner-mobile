@@ -1,4 +1,5 @@
 import { CommonHeader } from "@/src/components/layout/CommonHeader";
+import GroupChatFab from "@/src/components/group/GroupChatFab";
 import { api } from "@/src/services/api";
 import { useAuthStore } from "@/src/store/auth.store";
 import { useGroupStore } from "@/src/store/group.store";
@@ -37,7 +38,7 @@ const GroupDetailScreen = () => {
   useFocusEffect(
     useCallback(() => {
       fetchGroup(id);
-    }, [id]),
+    }, [fetchGroup, id]),
   );
 
   const leaderMember = useMemo(
@@ -58,7 +59,7 @@ const GroupDetailScreen = () => {
     try {
       await api.delete(`/groups/${id}/members/${selectedMember.user.id}`);
       await fetchGroup(id);
-    } catch (err) {
+    } catch {
     } finally {
       setSelectedMember(null);
       setMemberActionOpen(false);
@@ -71,7 +72,7 @@ const GroupDetailScreen = () => {
     try {
       await api.delete(`/trips/${tripId}`);
       await fetchGroup(id);
-    } catch (err) {
+    } catch {
     } finally {
     }
   };
@@ -96,15 +97,18 @@ const GroupDetailScreen = () => {
     <SafeAreaView style={styles.container} edges={["bottom"]}>
       <CommonHeader
         title={group.name}
+        fallbackHref="/"
         rightElement={
-          canEdit ? (
+          <View style={styles.headerActions}>
+          {canEdit ? (
             <TouchableOpacity
               onPress={() => router.push(`/groups/${group.id}/edit`)}
               style={styles.headerEditButton}
             >
               <IconButton icon="pencil" size={22} iconColor={COLORS.primary} />
             </TouchableOpacity>
-          ) : undefined
+          ) : null}
+          </View>
         }
       />
 
@@ -314,6 +318,7 @@ const GroupDetailScreen = () => {
           )}
         </Surface>
       </ScrollView>
+      <GroupChatFab groupId={group.id} />
 
       {/* Image Preview Modal */}
       <Modal
@@ -366,6 +371,7 @@ const GroupDetailScreen = () => {
         actions={[
           {
             label: "Xem thông tin",
+            icon: "eye-outline",
             onPress: () => {
               setPreviewVisible(true);
               setMemberActionOpen(false);
@@ -377,6 +383,7 @@ const GroupDetailScreen = () => {
             ? [
                 {
                   label: "Xóa khỏi nhóm",
+                  icon: "person-remove-outline",
                   color: COLORS.error,
                   onPress: () => {
                     handleDeleteMember();
@@ -391,6 +398,10 @@ const GroupDetailScreen = () => {
 };
 
 const styles = StyleSheet.create({
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   container: {
     flex: 1,
     backgroundColor: COLORS.background,

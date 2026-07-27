@@ -56,7 +56,13 @@ const RejectExpenseScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <CommonHeader title="Từ chối chi phí" />
+      <CommonHeader
+        title="Từ chối chi phí"
+        fallbackHref={{
+          pathname: "/trips/[id]",
+          params: { id: tripId, tab: "expenses" },
+        }}
+      />
 
       <View style={styles.content}>
         <View style={styles.iconContainer}>

@@ -3,6 +3,7 @@ import { useAuthStore } from "@/src/store/auth.store";
 import type { ExpenseItem, Trip, UserGroupRole } from "@/src/type/trip";
 import { COLORS, EXPENSE_STATUS, GROUP_ROLE } from "@/src/utils/constants";
 import { formatMoney, getNameFirstLetterUpper } from "@/src/utils/helper";
+import { exportPdf, formatPdfCurrency } from "@/src/utils/pdfExport";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -51,9 +52,10 @@ interface UserBalance {
 
 type Props = {
   trip: Trip;
+  onExportReady?: (handler: (() => Promise<void>) | null) => void;
 };
 
-const BalanceList = ({ trip }: Props) => {
+const BalanceList = ({ trip, onExportReady }: Props) => {
   const { user: currentUser } = useAuthStore();
   const currentUserId = currentUser?.id;
 
@@ -257,6 +259,32 @@ const BalanceList = ({ trip }: Props) => {
       return !!user;
     });
   }, [finalBalances, members]);
+
+  const handleExport = useCallback(async () => {
+    const statusLabels = {
+      receive: "Được nhận",
+      pay: "Cần trả",
+      settled: "Đã cân bằng",
+    };
+    await exportPdf(
+      `${trip.name} - Thanh toán`,
+      ["Thành viên", "Cân đối chi phí", "Đã đóng quỹ", "Số dư cuối", "Trạng thái", "Số tiền thanh toán", "Thanh toán cho"],
+      validBalances.map((balance) => [
+        balance.name,
+        formatPdfCurrency(balance.balanceFromExpense),
+        formatPdfCurrency(balance.fundAmount),
+        formatPdfCurrency(balance.finalBalance),
+        statusLabels[balance.paymentStatus],
+        formatPdfCurrency(balance.paymentAmount),
+        balance.paymentStatus === "settled" ? "" : leader?.name,
+      ]),
+    );
+  }, [leader?.name, trip.name, validBalances]);
+
+  useEffect(() => {
+    onExportReady?.(handleExport);
+    return () => onExportReady?.(null);
+  }, [handleExport, onExportReady]);
 
   if (loading) {
     return (

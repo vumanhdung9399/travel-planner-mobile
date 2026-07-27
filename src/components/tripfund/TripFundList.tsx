@@ -1,13 +1,11 @@
 import * as Haptics from "expo-haptics";
-import { LinearGradient } from "expo-linear-gradient";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
   RefreshControl,
   StyleSheet,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { Avatar, IconButton, Surface, Text } from "react-native-paper";
@@ -17,7 +15,6 @@ import { useAuthStore } from "@/src/store/auth.store";
 import type { Trip } from "@/src/type/trip";
 import { COLORS } from "@/src/utils/constants";
 import { formatMoney, getNameFirstLetterUpper } from "@/src/utils/helper";
-import { Ionicons } from "@expo/vector-icons";
 import ConfirmDialog from "../ConfirmDialog";
 
 interface TripFund {
@@ -39,7 +36,6 @@ interface TripFundListProps {
 }
 
 const TripFundList = ({ trip }: TripFundListProps) => {
-  const router = useRouter();
   const { user: currentUser } = useAuthStore();
 
   const [funds, setFunds] = useState<TripFund[]>([]);
@@ -229,27 +225,6 @@ const TripFundList = ({ trip }: TripFundListProps) => {
         }
         ListEmptyComponent={renderEmptyState()}
       />
-
-      {/* FAB - Add Fund */}
-      {isLeader && !trip.isCloseTrip && (
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push(`/trips/${trip.id}/fund-form`);
-          }}
-          activeOpacity={0.8}
-        >
-          <LinearGradient
-            colors={COLORS.secondaryGradient as readonly [string, string]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.fabGradient}
-          >
-            <Ionicons name="add" size={24} color="#fff" />
-          </LinearGradient>
-        </TouchableOpacity>
-      )}
 
       {/* Delete Confirm Dialog */}
       <ConfirmDialog

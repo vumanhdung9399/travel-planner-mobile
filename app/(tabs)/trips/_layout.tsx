@@ -10,6 +10,7 @@ export default function TripsLayout() {
       <Stack.Screen name="index" />
 
       <Stack.Screen name="[id]/index" />
+      <Stack.Screen name="[id]/map-form" />
     </Stack>
   );
 }

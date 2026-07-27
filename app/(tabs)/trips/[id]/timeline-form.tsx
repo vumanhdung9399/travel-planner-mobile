@@ -23,6 +23,25 @@ import {
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { IconButton, Text } from "react-native-paper";
 
+const parseTripDate = (value: string) => dayjs(String(value).slice(0, 10));
+
+const getBoundedTimelineTime = (
+  startDate: string,
+  endDate: string,
+  value = dayjs(),
+) => {
+  const tripStart = parseTripDate(startDate).startOf("day");
+  const tripEnd = parseTripDate(endDate)
+    .hour(23)
+    .minute(59)
+    .second(0)
+    .millisecond(0);
+
+  if (value.isAfter(tripEnd)) return tripEnd;
+  if (value.isBefore(tripStart)) return tripStart.hour(9);
+  return value;
+};
+
 const TimelineFormScreen = () => {
   const router = useRouter();
   const { trip } = useTripStore();
@@ -42,7 +61,11 @@ const TimelineFormScreen = () => {
   // Form state
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [time, setTime] = useState(new Date());
+  const [time, setTime] = useState(() =>
+    trip?.startDate && trip?.endDate
+      ? getBoundedTimelineTime(trip.startDate, trip.endDate).toDate()
+      : new Date(),
+  );
   const [notify, setNotify] = useState(false);
   const [day, setDay] = useState(1);
   const [errors, setErrors] = useState({
@@ -61,14 +84,15 @@ const TimelineFormScreen = () => {
   );
 
   useEffect(() => {
-    if (trip.id) {
-      const defaultTime = dayjs(trip.startDate)
-        .set("hour", 9)
-        .set("minute", 0)
-        .toDate();
-      setTime(defaultTime);
+    if (trip.id && !isEditMode) {
+      const defaultTime = getBoundedTimelineTime(
+        trip.startDate,
+        trip.endDate,
+      );
+      setTime(defaultTime.toDate());
+      setDay(getDayIndexFromDate(trip.startDate, defaultTime.toDate()));
     }
-  }, [trip]);
+  }, [trip, isEditMode]);
 
   const fetchTimeline = async () => {
     try {
@@ -78,13 +102,14 @@ const TimelineFormScreen = () => {
       const item = res.data;
       setTitle(item.title || "");
       setDescription(item.description || "");
-      setTime(
-        item.time
-          ? dayjs(item.time).toDate()
-          : dayjs().set("hour", 9).set("minute", 0).toDate(),
+      const boundedTime = getBoundedTimelineTime(
+        trip.startDate,
+        trip.endDate,
+        item.time ? dayjs(item.time) : dayjs(),
       );
+      setTime(boundedTime.toDate());
       setNotify(item.notify || false);
-      setDay(item.day || 1);
+      setDay(getDayIndexFromDate(trip.startDate, boundedTime.toDate()));
     } catch (err) {
       console.error(err);
     } finally {
@@ -198,13 +223,17 @@ const TimelineFormScreen = () => {
     );
   }
 
-  const minDate = dayjs(trip.startDate).startOf("day").toDate();
-  const maxDate = dayjs(trip.endDate).endOf("day").toDate();
+  const minDate = parseTripDate(trip.startDate).startOf("day").toDate();
+  const maxDate = parseTripDate(trip.endDate).endOf("day").toDate();
 
   return (
     <SafeAreaView style={styles.container}>
       <CommonHeader
         title={isEditMode ? "Sửa lịch trình" : "Thêm lịch trình"}
+        fallbackHref={{
+          pathname: "/trips/[id]",
+          params: { id: tripId, tab: "timeline" },
+        }}
         rightElement={
           <TouchableOpacity
             onPress={handleSubmit}

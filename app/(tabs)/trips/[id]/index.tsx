@@ -1,4 +1,5 @@
 import { CommonHeader } from "@/src/components/layout/CommonHeader";
+import GroupChatFab from "@/src/components/group/GroupChatFab";
 import { COLORS } from "@/src/utils/constants";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -13,7 +14,7 @@ import {
   View,
 } from "react-native";
 import { IconButton, Text } from "react-native-paper";
-import { SceneMap, TabView } from "react-native-tab-view";
+import { TabView } from "react-native-tab-view";
 
 // Tab Components
 import BalanceList from "@/src/components/balance/BalanceList";
@@ -41,6 +42,8 @@ const TripDetailScreen = () => {
   const { id, tab } = useLocalSearchParams<{ id: string; tab?: string }>();
 
   const [tabIndex, setTabIndex] = useState(0);
+  const expenseExportRef = useRef<(() => Promise<void>) | null>(null);
+  const balanceExportRef = useRef<(() => Promise<void>) | null>(null);
 
   const hasProcessedInitialTab = useRef(false);
   const pendingTab = useRef<string | undefined>(tab);
@@ -58,7 +61,7 @@ const TripDetailScreen = () => {
       hasProcessedInitialTab.current = false;
       pendingTab.current = tab;
       fetchTrip(id);
-    }, [id, tab]),
+    }, [fetchTrip, id, tab]),
   );
 
   useEffect(() => {
@@ -106,14 +109,41 @@ const TripDetailScreen = () => {
     }
   }, [trip]);
 
-  const renderScene = SceneMap({
-    info: () => <TripInfo trip={trip} />,
-    timeline: () => <TimelineList trip={trip} />,
-    expenses: () => <ExpenseList trip={trip} />,
-    balance: () => <BalanceList trip={trip} />,
-    fund: () => <TripFundList trip={trip} />,
-    leader: () => <Leader trip={trip} setTrip={setTrip} />,
-  });
+  const renderScene = useCallback(
+    ({ route }: { route: { key: string } }) => {
+      switch (route.key) {
+        case "info":
+          return <TripInfo trip={trip} />;
+        case "timeline":
+          return <TimelineList trip={trip} />;
+        case "expenses":
+          return (
+            <ExpenseList
+              trip={trip}
+              onExportReady={(handler) => {
+                expenseExportRef.current = handler;
+              }}
+            />
+          );
+        case "balance":
+          return (
+            <BalanceList
+              trip={trip}
+              onExportReady={(handler) => {
+                balanceExportRef.current = handler;
+              }}
+            />
+          );
+        case "fund":
+          return <TripFundList trip={trip} />;
+        case "leader":
+          return <Leader trip={trip} setTrip={setTrip} />;
+        default:
+          return null;
+      }
+    },
+    [setTrip, trip],
+  );
 
   const shouldShowHeaderButton = () => {
     if (trip.isCloseTrip) return false;
@@ -183,6 +213,49 @@ const TripDetailScreen = () => {
   };
 
   const renderHeaderRight = () => {
+    if (tabIndex === 2) {
+      return (
+        <View style={styles.headerActions}>
+          {!trip.isCloseTrip && (
+            <TouchableOpacity
+              onPress={handleHeaderButtonPress}
+              style={styles.headerActionButton}
+              accessibilityLabel="Tạo chi phí"
+            >
+              <IconButton icon="plus" size={22} iconColor={COLORS.primary} />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            onPress={() => void expenseExportRef.current?.()}
+            style={styles.headerActionButton}
+            accessibilityLabel="Tải xuống PDF chi phí"
+          >
+            <IconButton
+              icon="download-outline"
+              size={22}
+              iconColor={COLORS.primary}
+            />
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (tabIndex === 3) {
+      return (
+        <TouchableOpacity
+          onPress={() => void balanceExportRef.current?.()}
+          style={styles.headerButton}
+          accessibilityLabel="Tải xuống PDF thanh toán"
+        >
+          <IconButton
+            icon="download-outline"
+            size={22}
+            iconColor={COLORS.primary}
+          />
+        </TouchableOpacity>
+      );
+    }
+
     if (!shouldShowHeaderButton()) return undefined;
 
     return (
@@ -248,6 +321,7 @@ const TripDetailScreen = () => {
     <SafeAreaView style={styles.container}>
       <CommonHeader
         title={trip.name || "Chi tiết chuyến đi"}
+        fallbackHref="/trips"
         rightElement={renderHeaderRight()}
       />
 
@@ -269,11 +343,19 @@ const TripDetailScreen = () => {
           <Text>Không tìm thấy chuyến đi</Text>
         </View>
       )}
+      {trip.group?.id ? <GroupChatFab groupId={trip.group.id} /> : null}
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  headerActionButton: {
+    marginLeft: -6,
+  },
   container: {
     flex: 1,
     backgroundColor: COLORS.background,

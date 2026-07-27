@@ -7,7 +7,10 @@ export default function EditGroupScreen() {
 
   return (
     <>
-      <CommonHeader title={"Sửa nhóm"} />
+      <CommonHeader
+        title="Sửa nhóm"
+        fallbackHref={{ pathname: "/groups/[id]", params: { id } }}
+      />
       <GroupForm mode="edit" groupId={id} />
     </>
   );

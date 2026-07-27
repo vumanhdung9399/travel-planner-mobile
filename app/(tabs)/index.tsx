@@ -158,6 +158,7 @@ const HomeScreen = () => {
             ? [
                 {
                   label: "Sửa nhóm",
+                  icon: "pencil-outline",
                   onPress: () => {
                     router.push(`/groups/${selectedGroup?.id}/edit`);
                     setOpenSheet(false);
@@ -165,6 +166,7 @@ const HomeScreen = () => {
                 },
                 {
                   label: "Xóa nhóm",
+                  icon: "trash-outline",
                   color: "#FF4D4D",
                   onPress: () => {
                     handleDelete();
@@ -174,6 +176,7 @@ const HomeScreen = () => {
             : []),
           {
             label: "Vào nhóm",
+            icon: "log-in-outline",
             onPress: () => {
               router.push(`/groups/${selectedGroup?.id}`);
             },

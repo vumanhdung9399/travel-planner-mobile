@@ -201,10 +201,16 @@ export default function NotificationScreen() {
             : [
                 {
                   label: "Đánh dấu đã đọc",
+                  icon: "checkmark-done-outline",
                   onPress: () => selected && markRead(selected),
                 },
               ]),
-          { label: "Xoá thông báo", color: "red", onPress: handleDelete },
+          {
+            label: "Xoá thông báo",
+            icon: "trash-outline",
+            color: "red",
+            onPress: handleDelete,
+          },
         ].filter(Boolean)}
       />
     </View>
