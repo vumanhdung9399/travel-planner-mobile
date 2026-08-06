@@ -45,7 +45,7 @@ export default function RouteCard({ trip }: Props) {
     router.push({
       pathname: "/trips/[id]/map-form",
       params: { id: trip.id, mapId: route.id },
-    });
+    } as any);
   };
 
   const activate = async (route: TripRoute) => {

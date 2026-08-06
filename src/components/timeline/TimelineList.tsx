@@ -20,15 +20,26 @@ import {
 import { Surface, Text } from "react-native-paper";
 import ActionSheet from "../ActionSheet";
 import AIChatModal from "./AIChatModal";
+import { useAppPalette } from "@/src/hook/useAppPalette";
 
 interface TimelineListProps {
   trip: Trip;
   onUpdate?: () => void;
+  onSummaryChange?: (summary: {
+    eyebrow: string;
+    value: string;
+    pill?: string;
+  }) => void;
 }
 
 type FilterType = "all" | "active" | "upcoming" | "passed" | "today";
 
-export default function TimelineList({ trip, onUpdate }: TimelineListProps) {
+export default function TimelineList({
+  trip,
+  onUpdate,
+  onSummaryChange,
+}: TimelineListProps) {
+  const palette = useAppPalette();
   const router = useRouter();
   const [allData, setAllData] = useState<TimelineItemType[]>([]);
   const [loading, setLoading] = useState(false);
@@ -181,6 +192,25 @@ export default function TimelineList({ trip, onUpdate }: TimelineListProps) {
     allData.forEach((item) => days.add(item.day));
     return Array.from(days).sort((a, b) => a - b);
   }, [allData]);
+
+  useEffect(() => {
+    onSummaryChange?.({
+      eyebrow:
+        selectedDay === null
+          ? "Lịch trình chuyến đi"
+          : `Lịch trình Ngày ${selectedDay}`,
+      value: `${filteredData.length} hoạt động`,
+      pill:
+        selectedDay === null
+          ? `${availableDays.length} ngày`
+          : `Ngày ${selectedDay}`,
+    });
+  }, [
+    availableDays.length,
+    filteredData.length,
+    onSummaryChange,
+    selectedDay,
+  ]);
 
   // Render filter chips
   // Render filter chips - Version cải tiến
@@ -733,7 +763,7 @@ export default function TimelineList({ trip, onUpdate }: TimelineListProps) {
   const hasNoResults = filteredData.length === 0 && allData.length > 0;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: palette.background }]}> 
       {trip.isLeader && !trip.isCloseTrip && (
         <View style={styles.aiToolbar}>
           <TouchableOpacity
@@ -863,15 +893,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   listContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 80,
+    paddingHorizontal: 12,
+    paddingTop: 14,
+    paddingBottom: 96,
   },
   filterChipsContainer: {
-    backgroundColor: COLORS.background,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    backgroundColor: COLORS.surface,
+    paddingVertical: 11,
   },
   filterChipsContent: {
     paddingHorizontal: 16,
@@ -882,9 +910,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: "#fff",
+    paddingVertical: 7,
+    borderRadius: 14,
+    backgroundColor: COLORS.surfaceMuted,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -907,7 +935,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   emptyCard: {
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.surface,
     borderRadius: 24,
     padding: 32,
     alignItems: "center",
@@ -944,13 +972,13 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   daySection: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   dayHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 16,
+    marginBottom: 12,
     paddingHorizontal: 4,
   },
   dayHeaderLeft: {
@@ -958,9 +986,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   dayText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.textSecondary,
+    fontSize: 15,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
   },
   dayTextActive: {
     color: COLORS.primary,
@@ -982,11 +1010,11 @@ const styles = StyleSheet.create({
   },
   timelineContainer: {
     position: "relative",
-    paddingLeft: 24,
+    paddingLeft: 28,
   },
   verticalLine: {
     position: "absolute",
-    left: 5,
+    left: 6,
     top: 8,
     bottom: 8,
     width: 2,
@@ -1000,35 +1028,42 @@ const styles = StyleSheet.create({
   },
   connectorDot: {
     position: "absolute",
-    left: -22,
+    left: -25,
     top: 16,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: COLORS.textLight,
+    width: 11,
+    height: 11,
+    borderRadius: 6,
+    borderWidth: 3,
+    borderColor: COLORS.background,
+    backgroundColor: COLORS.primary,
     zIndex: 1,
   },
   connectorDotActive: {
     backgroundColor: COLORS.primary,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    left: -22,
+    width: 13,
+    height: 13,
+    borderRadius: 7,
+    left: -26,
   },
   connectorDotLast: {
     // Style cho dot cuối cùng nếu cần
   },
   timelineItem: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
+    backgroundColor: COLORS.surface,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: COLORS.border,
     overflow: "hidden",
+    shadowColor: "#3D4E62",
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 1,
   },
   timelineItemActive: {
     borderColor: COLORS.primary,
     borderWidth: 2,
-    backgroundColor: "#F8FAFF",
+    backgroundColor: COLORS.infoLight,
   },
   timelineItemContent: {
     flexDirection: "row",
@@ -1050,7 +1085,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   notifyBadge: {
-    backgroundColor: "#FEF3C7",
+    backgroundColor: COLORS.warningLight,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,
@@ -1095,7 +1130,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: "80%",
@@ -1134,7 +1169,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: COLORS.surfaceMuted,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -1161,7 +1196,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 12,
     borderRadius: 12,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: COLORS.surfaceMuted,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -1185,7 +1220,7 @@ const styles = StyleSheet.create({
   },
   activeFiltersSection: {
     padding: 16,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: COLORS.surfaceMuted,
   },
   activeFiltersTitle: {
     fontSize: 12,
@@ -1218,7 +1253,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: COLORS.surfaceMuted,
     alignItems: "center",
   },
   resetButtonText: {
@@ -1242,9 +1277,12 @@ const styles = StyleSheet.create({
   },
 
   filterContainer: {
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
+    overflow: "hidden",
   },
   chipContent: {
     flexDirection: "row",
@@ -1252,7 +1290,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   chipCount: {
-    backgroundColor: "#F3F4F6",
+    backgroundColor: COLORS.surfaceMuted,
     borderRadius: 12,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -1262,19 +1300,19 @@ const styles = StyleSheet.create({
   chipCountText: {
     fontSize: 11,
     fontWeight: "600",
-    color: "#6B7280",
+    color: COLORS.textSecondary,
   },
   activeCount: {
     backgroundColor: COLORS.primary + "20",
   },
   upcomingCount: {
-    backgroundColor: "#FEF3C7",
+    backgroundColor: COLORS.warningLight,
   },
   passedCount: {
-    backgroundColor: "#F3F4F6",
+    backgroundColor: COLORS.surfaceMuted,
   },
   todayCount: {
-    backgroundColor: "#D1FAE5",
+    backgroundColor: COLORS.successLight,
   },
   chipDot: {
     width: 6,
@@ -1288,7 +1326,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F59E0B",
   },
   passedDot: {
-    backgroundColor: "#9CA3AF",
+    backgroundColor: COLORS.textLight,
   },
   activeFilterDot: {
     width: 8,
@@ -1303,18 +1341,19 @@ const styles = StyleSheet.create({
     color: "#F59E0B",
   },
   passedText: {
-    color: "#6B7280",
+    color: COLORS.textSecondary,
   },
   todayText: {
     color: "#10B981",
   },
   filterChip: {
-    backgroundColor: "#F9FAFB",
+    backgroundColor: COLORS.surfaceMuted,
   },
   aiToolbar: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingTop: 12,
-    paddingBottom: 4,
+    paddingBottom: 6,
+    backgroundColor: COLORS.surface,
   },
   aiButton: {
     borderRadius: 16,

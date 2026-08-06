@@ -76,10 +76,10 @@ export default function LoginScreen() {
 
           {/* Title */}
           <Text variant="headlineMedium" style={styles.title}>
-            Travel Planner
+            Đăng nhập
           </Text>
 
-          <Text style={styles.subtitle}>Plan your journey ✈️</Text>
+          <Text style={styles.subtitle}>Tiếp tục hành trình của bạn ✈️</Text>
 
           {/* Email */}
           <Controller
@@ -106,7 +106,7 @@ export default function LoginScreen() {
             name="password"
             render={({ field: { onChange, value } }) => (
               <TextInput
-                label="Password"
+                label="Mật khẩu"
                 mode="outlined"
                 secureTextEntry={secureText}
                 value={value}
@@ -134,17 +134,17 @@ export default function LoginScreen() {
             loading={loading}
             disabled={loading}
           >
-            Login
+            {loading ? "Đang đăng nhập..." : "Đăng nhập"}
           </Button>
 
           <Divider style={{ marginVertical: 20 }} />
 
           {/* Register */}
           <Button mode="outlined" onPress={() => router.push("/register")}>
-            Create Account
+            Tạo tài khoản
           </Button>
 
-          <Text style={styles.footer}>New to Travel Planner?</Text>
+          <Text style={styles.footer}>Chưa có tài khoản Travel Planner?</Text>
         </Card.Content>
       </Card>
     </View>
@@ -154,12 +154,12 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#4facfe",
+    backgroundColor: "#1687F8",
     justifyContent: "center",
     padding: 16,
   },
   card: {
-    borderRadius: 20,
+    borderRadius: 14,
     paddingVertical: 10,
   },
   title: {
@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
   },
   button: {
     marginTop: 10,
-    borderRadius: 10,
+    borderRadius: 14,
     paddingVertical: 6,
   },
   footer: {

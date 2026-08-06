@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 16,
+    borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 4,
     marginVertical: 8,
@@ -524,7 +524,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   addButton: {
-    borderRadius: 16,
+    borderRadius: 14,
   },
   addButtonContent: {
     paddingVertical: 8,

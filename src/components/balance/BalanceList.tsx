@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { Avatar, Surface, Text } from "react-native-paper";
 import BalanceCard from "./BalanceCard";
+import { useAppPalette } from "@/src/hook/useAppPalette";
 
 interface TripFund {
   id: string;
@@ -53,9 +54,15 @@ interface UserBalance {
 type Props = {
   trip: Trip;
   onExportReady?: (handler: (() => Promise<void>) | null) => void;
+  onSummaryChange?: (summary: {
+    eyebrow: string;
+    value: string;
+    pill?: string;
+  }) => void;
 };
 
-const BalanceList = ({ trip, onExportReady }: Props) => {
+const BalanceList = ({ trip, onExportReady, onSummaryChange }: Props) => {
+  const palette = useAppPalette();
   const { user: currentUser } = useAuthStore();
   const currentUserId = currentUser?.id;
 
@@ -253,6 +260,40 @@ const BalanceList = ({ trip, onExportReady }: Props) => {
     0,
   );
 
+  const currentBalance = finalBalances.find(
+    (balance) => balance.userId === currentUserId,
+  );
+
+  useEffect(() => {
+    if (!trip.isCloseTrip) {
+      onSummaryChange?.({
+        eyebrow: "Thanh toán chuyến đi",
+        value: "Chưa chốt sổ",
+        pill: "Đang diễn ra",
+      });
+      return;
+    }
+
+    if (!currentBalance || currentBalance.paymentStatus === "settled") {
+      onSummaryChange?.({
+        eyebrow: "Số dư của bạn",
+        value: "Đã cân bằng",
+        pill: "Hoàn tất",
+      });
+      return;
+    }
+
+    onSummaryChange?.({
+      eyebrow:
+        currentBalance.paymentStatus === "pay"
+          ? "Bạn cần thanh toán"
+          : "Bạn sẽ được nhận",
+      value: formatMoney(currentBalance.paymentAmount),
+      pill:
+        currentBalance.paymentStatus === "pay" ? "Cần trả" : "Được nhận",
+    });
+  }, [currentBalance, onSummaryChange, trip.isCloseTrip]);
+
   const validBalances = useMemo(() => {
     return finalBalances.filter((balance) => {
       const user = members.find((u) => u.id === balance.userId);
@@ -318,7 +359,7 @@ const BalanceList = ({ trip, onExportReady }: Props) => {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: palette.background }]}> 
       <FlatList
         data={validBalances}
         keyExtractor={(item) => item.userId}
@@ -435,9 +476,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   listContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 80,
+    paddingHorizontal: 12,
+    paddingTop: 14,
+    paddingBottom: 96,
     gap: 12,
   },
   notFinishedContainer: {
@@ -447,8 +488,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   notFinishedCard: {
-    backgroundColor: "#fff",
-    borderRadius: 24,
+    backgroundColor: COLORS.surface,
+    borderRadius: 20,
     padding: 32,
     alignItems: "center",
     width: "100%",
@@ -473,12 +514,17 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   header: {
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.surface,
     borderRadius: 20,
-    padding: 18,
+    padding: 16,
     marginBottom: 8,
     borderWidth: 1,
     borderColor: COLORS.border,
+    shadowColor: "#3D4E62",
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 1,
   },
   leaderRow: {
     flexDirection: "row",

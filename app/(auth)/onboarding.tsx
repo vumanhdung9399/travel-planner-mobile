@@ -28,21 +28,21 @@ const slides: Slide[] = [
     title: "Quản lý chi tiêu\ndễ dàng",
     text: "Theo dõi mọi khoản chi tiêu trong chuyến đi một cách đơn giản và minh bạch. Chia sẻ chi phí với bạn bè chưa bao giờ dễ đến thế.",
     image: require("@/assets/images/onboarding-1.png"),
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.surface,
   },
   {
     key: "2",
     title: "Lịch trình\nthông minh",
     text: "Lên kế hoạch chi tiết cho từng ngày trong chuyến đi. Đặt thông báo nhắc nhở để không bỏ lỡ bất kỳ hoạt động nào.",
     image: require("@/assets/images/onboarding-2.png"),
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.surface,
   },
   {
     key: "3",
     title: "Cân đối thu chi\ntự động",
     text: "Kết thúc chuyến đi, hệ thống tự động tính toán ai nợ ai bao nhiêu. Thanh toán dễ dàng qua mã QR.",
     image: require("@/assets/images/onboarding-3.png"),
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.surface,
   },
 ];
 
@@ -170,7 +170,7 @@ const OnboardingScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.surface,
   },
   slide: {
     flex: 1,
@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
   },
   nextButton: {
     paddingVertical: 16,
-    borderRadius: 16,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
   },
   doneButton: {
     paddingVertical: 16,
-    borderRadius: 16,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
   },

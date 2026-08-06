@@ -22,16 +22,65 @@ import {
 import { Surface, Text } from "react-native-paper";
 import ConfirmDialog from "../ConfirmDialog";
 import { ExpenseCard } from "./ExpenseCard";
+import { useAppPalette } from "@/src/hook/useAppPalette";
 
 interface ExpenseListProps {
   trip: Trip;
   onExportReady?: (handler: (() => Promise<void>) | null) => void;
+  onSummaryChange?: (summary: {
+    eyebrow: string;
+    value: string;
+    pill?: string;
+  }) => void;
 }
 
 type FilterType = "all" | "today" | "thisWeek" | "highAmount" | "lowAmount";
 type SortType = "newest" | "oldest" | "highest" | "lowest";
 
-const ExpenseList = ({ trip, onExportReady }: ExpenseListProps) => {
+const expenseCategoryTabs = [
+  {
+    value: "all",
+    label: "Tất cả",
+    icon: "grid-outline",
+    color: COLORS.primary,
+    background: COLORS.primaryLight,
+  },
+  {
+    value: "Di chuyển",
+    label: "Di chuyển",
+    icon: "bus-outline",
+    color: "#1A9A68",
+    background: COLORS.successLight,
+  },
+  {
+    value: "Ăn uống",
+    label: "Ăn uống",
+    icon: "restaurant-outline",
+    color: "#ED7A35",
+    background: COLORS.orangeLight,
+  },
+  {
+    value: "Mua sắm",
+    label: "Mua sắm",
+    icon: "bag-handle-outline",
+    color: "#7465D7",
+    background: COLORS.purpleLight,
+  },
+  {
+    value: "Khác",
+    label: "Khác",
+    icon: "ellipsis-horizontal",
+    color: COLORS.textSecondary,
+    background: COLORS.surfaceMuted,
+  },
+] as const;
+
+const ExpenseList = ({
+  trip,
+  onExportReady,
+  onSummaryChange,
+}: ExpenseListProps) => {
+  const palette = useAppPalette();
   const router = useRouter();
   const { user } = useAuthStore();
 
@@ -192,9 +241,32 @@ const ExpenseList = ({ trip, onExportReady }: ExpenseListProps) => {
   ]);
 
   const totalDay = useMemo(
-    () => filteredItems.reduce((sum, i) => sum + Number(i.amount), 0),
-    [filteredItems],
+    () =>
+      listExpenses
+        .filter(
+          (item) =>
+            item.status === EXPENSE_STATUS.APPROVED &&
+            getDayFromTime(item.time, trip.startDate) === selectedDay,
+        )
+        .reduce((sum, item) => sum + Number(item.amount), 0),
+    [listExpenses, selectedDay, trip.startDate],
   );
+
+  useEffect(() => {
+    onSummaryChange?.(
+      showPending
+        ? {
+            eyebrow: "Các khoản đang chờ duyệt",
+            value: `${countPending} khoản`,
+            pill: "Chờ duyệt",
+          }
+        : {
+            eyebrow: `Tổng chi Ngày ${selectedDay}`,
+            value: formatMoney(totalDay),
+            pill: `Ngày ${selectedDay}`,
+          },
+    );
+  }, [countPending, onSummaryChange, selectedDay, showPending, totalDay]);
 
   useEffect(() => {
     const count = listExpenses.filter((e) => {
@@ -710,43 +782,98 @@ const ExpenseList = ({ trip, onExportReady }: ExpenseListProps) => {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: palette.background }]}> 
       {/* HEADER */}
       <Surface style={styles.header} elevation={0}>
-        {/* DAY SCROLL */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.dayScroll}
-        >
-          {days.map((d) => (
-            <TouchableOpacity
-              key={d}
-              style={[
-                styles.dayChip,
-                d === selectedDay && !showPending && styles.dayChipActive,
-              ]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setSelectedDay(d);
-                setShowPending(false);
-              }}
-            >
-              {d === selectedDay && !showPending ? (
-                <LinearGradient
-                  colors={COLORS.primaryGradient as readonly [string, string]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.dayChipGradient}
+        <View style={styles.categoryRail}>
+          {expenseCategoryTabs.map((item) => {
+            const isActive = selectedCategory === item.value && !showPending;
+            return (
+              <TouchableOpacity
+                key={item.value}
+                activeOpacity={0.78}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isActive }}
+                style={styles.categoryItem}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setSelectedCategory(item.value);
+                  setShowPending(false);
+                }}
+              >
+                <View
+                  style={[
+                    styles.categoryIcon,
+                    { backgroundColor: item.background },
+                    isActive && styles.categoryIconActive,
+                  ]}
                 >
-                  <Text style={styles.dayChipTextActive}>Ngày {d}</Text>
-                </LinearGradient>
-              ) : (
-                <Text style={styles.dayChipText}>Ngày {d}</Text>
-              )}
-            </TouchableOpacity>
-          ))}
+                  <Ionicons
+                    name={item.icon}
+                    size={21}
+                    color={isActive ? "#FFFFFF" : item.color}
+                  />
+                </View>
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.categoryLabel,
+                    isActive && styles.categoryLabelActive,
+                  ]}
+                >
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
+        <View style={styles.headerDivider} />
+
+        {/* DAY SCROLL */}
+        <View style={styles.dayToolbar}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.dayScroll}
+          >
+            {days.map((d) => (
+              <TouchableOpacity
+                key={d}
+                style={[
+                  styles.dayChip,
+                  d === selectedDay && !showPending && styles.dayChipActive,
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setSelectedDay(d);
+                  setShowPending(false);
+                }}
+              >
+                {d === selectedDay && !showPending ? (
+                  <LinearGradient
+                    colors={COLORS.primaryGradient as readonly [string, string]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.dayChipGradient}
+                  >
+                    <Text style={styles.dayChipTextActive}>Ngày {d}</Text>
+                  </LinearGradient>
+                ) : (
+                  <Text style={styles.dayChipText}>Ngày {d}</Text>
+                )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          <TouchableOpacity
+            style={styles.compactFilterButton}
+            onPress={() => setFilterModalVisible(true)}
+            accessibilityLabel="Mở bộ lọc chi phí"
+          >
+            <Ionicons name="options-outline" size={18} color={COLORS.primary} />
+            {hasActiveFilters ? <View style={styles.compactFilterDot} /> : null}
+          </TouchableOpacity>
           <TouchableOpacity
             style={[
               styles.pendingChip,
@@ -760,38 +887,25 @@ const ExpenseList = ({ trip, onExportReady }: ExpenseListProps) => {
               }
             }}
           >
-            <Text
-              style={[
-                styles.pendingChipText,
-                showPending && styles.pendingChipTextActive,
-              ]}
-            >
-              ⏳ {countPending}
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
-
-        {/* Filter chips */}
-        {renderFilterChips()}
-
-        {/* TOTAL */}
-        {!showPending && (
-          <View style={styles.totalContainer}>
-            <View style={styles.totalHeader}>
-              <Text style={styles.totalLabel}>Tổng chi ngày {selectedDay}</Text>
-              {filteredItems.length > 0 && (
-                <Text style={styles.itemCount}>
-                  {filteredItems.length} khoản
-                </Text>
-              )}
+            <View style={styles.pendingChipContent}>
+              <Ionicons
+                name="time-outline"
+                size={14}
+                color={showPending ? "#8A5A00" : COLORS.textSecondary}
+              />
+              <Text
+                style={[
+                  styles.pendingChipText,
+                  showPending && styles.pendingChipTextActive,
+                ]}
+              >
+                {countPending}
+              </Text>
             </View>
-            <Text style={styles.totalAmount}>{formatMoney(totalDay)}</Text>
-          </View>
-        )}
+          </TouchableOpacity>
+        </View>
 
-        {showPending && (
-          <Text style={styles.pendingHint}>Các khoản đang chờ duyệt</Text>
-        )}
+        {hasActiveFilters && !showPending ? renderFilterChips() : null}
       </Surface>
 
       {/* LIST */}
@@ -876,17 +990,63 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   header: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 16,
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 14,
+    paddingHorizontal: 10,
+    paddingBottom: 10,
+    marginBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  categoryRail: {
+    flexDirection: "row",
+  },
+  categoryItem: {
+    flex: 1,
+    alignItems: "center",
+    minWidth: 0,
+    gap: 6,
+  },
+  categoryIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  categoryIconActive: {
+    backgroundColor: COLORS.primary,
+    shadowColor: COLORS.primary,
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  categoryLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 10,
+    fontWeight: "500",
+  },
+  categoryLabelActive: {
+    color: COLORS.primary,
+    fontWeight: "700",
+  },
+  headerDivider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginTop: 14,
+    marginHorizontal: -10,
+  },
+  dayToolbar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    paddingTop: 10,
   },
   dayScroll: {
-    paddingBottom: 8,
+    flexGrow: 1,
     gap: 8,
   },
   dayChip: {
@@ -913,24 +1073,54 @@ const styles = StyleSheet.create({
     color: "#fff",
   },
   pendingChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    minWidth: 43,
+    height: 34,
+    paddingHorizontal: 10,
+    borderRadius: 12,
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 3,
   },
   pendingChipActive: {
     backgroundColor: "#facc15",
     borderColor: "#facc15",
   },
   pendingChipText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
     color: COLORS.textSecondary,
   },
   pendingChipTextActive: {
-    color: "#000",
+    color: "#8A5A00",
+  },
+  pendingChipContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  compactFilterButton: {
+    position: "relative",
+    width: 36,
+    height: 34,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.primary + "55",
+    backgroundColor: COLORS.primaryLight,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  compactFilterDot: {
+    position: "absolute",
+    top: 5,
+    right: 5,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: COLORS.coral,
   },
   filterChipsContainer: {
     marginTop: 12,
@@ -946,9 +1136,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: COLORS.surfaceMuted,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: COLORS.border,
     position: "relative",
   },
   filterChipActive: {
@@ -1000,8 +1190,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   listContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 80,
+    paddingHorizontal: 12,
+    paddingBottom: 96,
     gap: 12,
   },
   emptyContainer: {
@@ -1039,7 +1229,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: "85%",
@@ -1083,9 +1273,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: COLORS.surfaceMuted,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: COLORS.border,
   },
   sortButtonActive: {
     backgroundColor: COLORS.primary + "15",
@@ -1103,9 +1293,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: COLORS.surfaceMuted,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: COLORS.border,
     marginRight: 8,
   },
   categoryButtonActive: {
@@ -1124,9 +1314,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: COLORS.surfaceMuted,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: COLORS.border,
     marginRight: 8,
   },
   payerButtonActive: {
@@ -1149,9 +1339,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     borderRadius: 20,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: COLORS.surfaceMuted,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: COLORS.border,
     alignItems: "center",
   },
   amountButtonActive: {
@@ -1165,7 +1355,7 @@ const styles = StyleSheet.create({
   },
   activeFiltersSection: {
     padding: 16,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: COLORS.surfaceMuted,
   },
   activeFiltersTitle: {
     fontSize: 12,
@@ -1198,7 +1388,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: COLORS.surfaceMuted,
     alignItems: "center",
   },
   resetButtonText: {

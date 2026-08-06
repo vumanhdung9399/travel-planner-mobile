@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
   logoCircle: {
     width: 80,
     height: 80,
-    borderRadius: 24,
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -417,8 +417,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   formCard: {
-    backgroundColor: "#fff",
-    borderRadius: 24,
+    backgroundColor: COLORS.surface,
+    borderRadius: 14,
     padding: 24,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -439,7 +439,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 16,
+    borderRadius: 14,
     paddingHorizontal: 16,
   },
   inputIcon: {
@@ -460,7 +460,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   registerButton: {
-    borderRadius: 16,
+    borderRadius: 14,
     overflow: "hidden",
     marginTop: 8,
     marginBottom: 20,

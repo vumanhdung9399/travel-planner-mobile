@@ -3,6 +3,8 @@ import { api } from "@/src/services/api";
 import { useAuthStore } from "@/src/store/auth.store";
 import type { ChatMessage, MessagePage } from "@/src/type/chat";
 import { getSocket } from "@/src/utils/socket";
+import { COLORS } from "@/src/utils/constants";
+import { useAppPalette } from "@/src/hook/useAppPalette";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -31,6 +33,7 @@ export default function GroupChatScreen() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<ChatMessage | null>(null);
   const listRef = useRef<FlatList<ChatMessage>>(null);
+  const palette = useAppPalette();
 
   const load = useCallback(
     async (markAsRead = false) => {
@@ -109,28 +112,65 @@ export default function GroupChatScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={["bottom"]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: palette.background }]}
+      edges={["bottom"]}
+    >
       <CommonHeader
         title={groupName}
         fallbackHref={{ pathname: "/groups/[id]", params: { id } }}
       />
       {pinned.length > 0 && (
-        <View style={styles.pinned}>
-          <Ionicons name="pin-outline" size={18} color="#2563eb" />
-          <Text numberOfLines={1} style={styles.pinnedText}>
+        <View
+          style={[
+            styles.pinned,
+            { backgroundColor: palette.surfaceMuted, borderColor: palette.border },
+          ]}
+        >
+          <View style={styles.pinnedIcon}>
+            <Ionicons name="pin" size={14} color={COLORS.primary} />
+          </View>
+          <Text
+            numberOfLines={1}
+            style={[styles.pinnedText, { color: palette.textPrimary }]}
+          >
             {pinned[pinned.length - 1].content}
           </Text>
         </View>
       )}
       {loading ? (
-        <ActivityIndicator style={styles.loader} />
+        <ActivityIndicator style={styles.loader} color={COLORS.primary} />
       ) : (
         <FlatList
           ref={listRef}
           data={messages}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
+          style={{ backgroundColor: palette.background }}
+          contentContainerStyle={[
+            styles.list,
+            messages.length === 0 && styles.listEmpty,
+          ]}
+          keyboardDismissMode="interactive"
+          keyboardShouldPersistTaps="handled"
           onContentSizeChange={() => listRef.current?.scrollToEnd()}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <View
+                style={[
+                  styles.emptyIcon,
+                  { backgroundColor: palette.surfaceMuted, borderColor: palette.border },
+                ]}
+              >
+                <Ionicons
+                  name="chatbubbles-outline"
+                  size={30}
+                  color={COLORS.primary}
+                />
+              </View>
+              <Text style={[styles.emptyTitle, { color: palette.textPrimary }]}>Chưa có tin nhắn</Text>
+              <Text style={[styles.emptySubtitle, { color: palette.textSecondary }]}>Hãy bắt đầu cuộc trò chuyện với nhóm.</Text>
+            </View>
+          }
           renderItem={({ item }) => {
             const mine = item.sender.id === userId;
             return (
@@ -144,20 +184,52 @@ export default function GroupChatScreen() {
                   ) : (
                     <Avatar.Text size={30} label={item.sender.name?.[0] || "?"} />
                   ))}
-                <View style={styles.messageWrap}>
-                  {!mine && <Text style={styles.sender}>{item.sender.name}</Text>}
-                  <View style={[styles.bubble, mine && styles.bubbleMine]}>
+                <View style={[styles.messageWrap, mine && styles.messageWrapMine]}>
+                  {!mine && (
+                    <Text style={[styles.sender, { color: palette.textSecondary }]}>
+                      {item.sender.name}
+                    </Text>
+                  )}
+                  <View
+                    style={[
+                      styles.bubble,
+                      {
+                        backgroundColor: palette.surfaceMuted,
+                        borderColor: palette.border,
+                      },
+                      mine && styles.bubbleMine,
+                    ]}
+                  >
                     {item.isPinned && <Text style={styles.pin}>📌 </Text>}
-                    <Text style={mine ? styles.mineText : undefined}>
+                    <Text
+                      style={[
+                        styles.messageText,
+                        { color: palette.textPrimary },
+                        mine && styles.mineText,
+                      ]}
+                    >
                       {item.content}
                     </Text>
                   </View>
                   {!!item.reactions?.length && (
-                    <Text style={styles.reactions}>
-                      {item.reactions.map((reaction) => reaction.emoji).join(" ")}
-                    </Text>
+                    <View
+                      style={[
+                        styles.reactions,
+                        { backgroundColor: palette.surface, borderColor: palette.border },
+                      ]}
+                    >
+                      <Text style={styles.reactionText}>
+                        {item.reactions.map((reaction) => reaction.emoji).join(" ")}
+                      </Text>
+                    </View>
                   )}
-                  <Text style={[styles.meta, mine && styles.metaMine]}>
+                  <Text
+                    style={[
+                      styles.meta,
+                      { color: palette.textSecondary },
+                      mine && styles.metaMine,
+                    ]}
+                  >
                     {new Date(item.createdAt).toLocaleTimeString("vi-VN", {
                       hour: "2-digit",
                       minute: "2-digit",
@@ -171,28 +243,69 @@ export default function GroupChatScreen() {
         />
       )}
       {selected && (
-        <View style={styles.actions}>
+        <View
+          style={[
+            styles.actions,
+            { backgroundColor: palette.surface, borderColor: palette.border },
+          ]}
+        >
           {EMOJIS.map((emoji) => (
-            <Pressable key={emoji} onPress={() => react(emoji)}>
+            <Pressable key={emoji} onPress={() => react(emoji)} style={styles.emojiButton}>
               <Text style={styles.emoji}>{emoji}</Text>
             </Pressable>
           ))}
-          <Pressable onPress={pin}>
-            <Ionicons name="pin" size={22} color="#2563eb" />
+          <Pressable onPress={pin} style={styles.emojiButton}>
+            <Ionicons name="pin" size={20} color={COLORS.primary} />
+          </Pressable>
+          <Pressable onPress={() => setSelected(null)} style={styles.emojiButton}>
+            <Ionicons name="close" size={20} color={palette.textSecondary} />
           </Pressable>
         </View>
       )}
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <View style={styles.composer}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 56 : 0}
+      >
+        <View
+          style={[
+            styles.composer,
+            { backgroundColor: palette.surface, borderColor: palette.border },
+          ]}
+        >
           <TextInput
             value={text}
             onChangeText={setText}
             placeholder="Nhập tin nhắn..."
+            placeholderTextColor={palette.textSecondary}
+            selectionColor={COLORS.primary}
             multiline
-            style={styles.input}
+            style={[
+              styles.input,
+              {
+                color: palette.textPrimary,
+                backgroundColor: palette.surfaceMuted,
+                borderColor: palette.border,
+              },
+            ]}
           />
-          <Pressable disabled={!text.trim()} onPress={send} style={styles.send}>
-            <Ionicons name="send" size={22} color={text.trim() ? "#2563eb" : "#94a3b8"} />
+          <Pressable
+            disabled={!text.trim()}
+            onPress={send}
+            style={[
+              styles.send,
+              {
+                backgroundColor: text.trim()
+                  ? COLORS.primary
+                  : palette.surfaceMuted,
+                borderColor: text.trim() ? COLORS.primary : palette.border,
+              },
+            ]}
+          >
+            <Ionicons
+              name="send"
+              size={19}
+              color={text.trim() ? "#FFFFFF" : palette.textSecondary}
+            />
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -201,57 +314,88 @@ export default function GroupChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
+  container: { flex: 1 },
   loader: { flex: 1 },
   pinned: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    padding: 10,
-    backgroundColor: "#eff6ff",
+    marginHorizontal: 12,
+    marginTop: 10,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 14,
   },
-  pinnedText: { flex: 1 },
-  list: { padding: 12, gap: 8 },
+  pinnedIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(22,135,248,.14)",
+  },
+  pinnedText: { flex: 1, fontSize: 12, fontWeight: "600" },
+  list: { paddingHorizontal: 12, paddingTop: 16, paddingBottom: 20, gap: 10 },
+  listEmpty: { flexGrow: 1 },
+  emptyState: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 },
+  emptyIcon: { width: 64, height: 64, borderRadius: 22, alignItems: "center", justifyContent: "center", borderWidth: 1, marginBottom: 14 },
+  emptyTitle: { fontSize: 16, fontWeight: "800" },
+  emptySubtitle: { marginTop: 5, fontSize: 12, textAlign: "center" },
   row: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
   rowMine: { justifyContent: "flex-start", flexDirection: "row-reverse" },
   messageWrap: { maxWidth: "78%" },
-  sender: { fontSize: 11, color: "#64748b", marginLeft: 8 },
+  messageWrapMine: { alignItems: "flex-end" },
+  sender: { fontSize: 11, marginLeft: 8, marginBottom: 3, fontWeight: "600" },
   bubble: {
     flexDirection: "row",
-    backgroundColor: "#e2e8f0",
+    alignItems: "center",
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 18,
-    paddingHorizontal: 13,
-    paddingVertical: 9,
+    borderBottomLeftRadius: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
-  bubbleMine: { backgroundColor: "#2563eb" },
-  mineText: { color: "#fff" },
+  bubbleMine: { backgroundColor: COLORS.primary, borderColor: COLORS.primary, borderBottomLeftRadius: 18, borderBottomRightRadius: 6 },
+  messageText: { fontSize: 15, lineHeight: 20 },
+  mineText: { color: "#FFFFFF" },
   pin: { fontSize: 11 },
-  reactions: { fontSize: 13, marginHorizontal: 6 },
-  meta: { fontSize: 9, color: "#94a3b8", marginHorizontal: 8 },
+  reactions: { alignSelf: "flex-start", marginTop: -4, marginHorizontal: 8, paddingHorizontal: 7, paddingVertical: 3, borderWidth: StyleSheet.hairlineWidth, borderRadius: 10 },
+  reactionText: { fontSize: 13 },
+  meta: { fontSize: 10, marginHorizontal: 8, marginTop: 3 },
   metaMine: { textAlign: "right" },
   actions: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-around",
-    padding: 10,
-    borderTopWidth: 1,
-    borderColor: "#e2e8f0",
+    justifyContent: "space-between",
+    marginHorizontal: 10,
+    marginBottom: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 16,
   },
+  emojiButton: { width: 34, height: 34, alignItems: "center", justifyContent: "center" },
   emoji: { fontSize: 22 },
   composer: {
     flexDirection: "row",
     alignItems: "flex-end",
-    padding: 10,
-    borderTopWidth: 1,
-    borderColor: "#e2e8f0",
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingTop: 9,
+    paddingBottom: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   input: {
     flex: 1,
     maxHeight: 100,
-    backgroundColor: "#f1f5f9",
-    borderRadius: 20,
+    minHeight: 42,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 18,
     paddingHorizontal: 14,
-    paddingVertical: 9,
+    paddingTop: 10,
+    paddingBottom: 9,
+    fontSize: 15,
   },
-  send: { padding: 10 },
+  send: { width: 42, height: 42, borderRadius: 21, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center" },
 });

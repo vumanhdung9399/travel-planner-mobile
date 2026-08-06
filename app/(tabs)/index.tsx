@@ -1,17 +1,19 @@
 import { EmptyState } from "@/src/components/group/EmptyState";
+import { AppToast } from "@/src/components/AppToast";
+import ConfirmDialog from "@/src/components/ConfirmDialog";
 import { api } from "@/src/services/api";
-import { useAuthStore } from "@/src/store/auth.store";
 import { COLORS } from "@/src/utils/constants";
-import { getGreeting } from "@/src/utils/helper";
 import ActionSheet from "@components/ActionSheet";
 import type { Group } from "@src/type/group";
 import * as Haptics from "expo-haptics";
-import { LinearGradient } from "expo-linear-gradient"; // Cần cài expo-linear-gradient
+import * as ImagePicker from "expo-image-picker";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 
 import {
   FlatList,
+  Image,
+  ImageBackground,
   RefreshControl,
   SafeAreaView,
   StyleSheet,
@@ -20,13 +22,18 @@ import {
 } from "react-native";
 import { IconButton, Surface, Text } from "react-native-paper";
 
+const getGroupCoverUri = (group: Group) =>
+  group.coverImage ||
+  group.trips?.find((trip) => Boolean(trip.coverImage))?.coverImage;
+
 const HomeScreen = () => {
-  const { user } = useAuthStore();
   const [groups, setGroups] = useState<Group[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [openSheet, setOpenSheet] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [loading, setLoading] = useState(false);
+  const [coverLoading, setCoverLoading] = useState(false);
+  const [coverDeleteOpen, setCoverDeleteOpen] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -57,6 +64,94 @@ const HomeScreen = () => {
     }
   };
 
+  const pickGroupCover = async () => {
+    if (!selectedGroup || coverLoading) return;
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      AppToast.show({
+        title: "Chưa có quyền truy cập ảnh",
+        message: "Vui lòng cấp quyền thư viện ảnh để chọn ảnh nhóm.",
+        type: "info",
+      });
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [16, 7],
+      quality: 0.85,
+    });
+    const asset = result.canceled ? null : result.assets[0];
+    if (!asset?.uri) return;
+    if (asset.fileSize && asset.fileSize > 5 * 1024 * 1024) {
+      AppToast.show({
+        title: "Ảnh quá lớn",
+        message: "Vui lòng chọn ảnh có kích thước tối đa 5 MB.",
+        type: "error",
+      });
+      return;
+    }
+
+    try {
+      setCoverLoading(true);
+      const extension =
+        asset.fileName?.split(".").pop()?.toLowerCase() ||
+        asset.uri.split(".").pop()?.toLowerCase() ||
+        "jpg";
+      const formData = new FormData();
+      formData.append("file", {
+        uri: asset.uri,
+        name: `group-cover.${extension}`,
+        type:
+          asset.mimeType ||
+          (extension === "png"
+            ? "image/png"
+            : extension === "webp"
+              ? "image/webp"
+              : "image/jpeg"),
+      } as any);
+      await api.patch(`/groups/${selectedGroup.id}/cover`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      await getListGroup();
+      AppToast.show({
+        title: "Đã cập nhật ảnh nhóm",
+        message: "Ảnh mới đã được hiển thị trên danh sách nhóm.",
+      });
+    } catch {
+      AppToast.show({
+        title: "Không thể cập nhật ảnh",
+        message: "Vui lòng thử lại sau.",
+        type: "error",
+      });
+    } finally {
+      setCoverLoading(false);
+    }
+  };
+
+  const deleteGroupCover = async () => {
+    if (!selectedGroup) return;
+    try {
+      setCoverLoading(true);
+      await api.delete(`/groups/${selectedGroup.id}/cover`);
+      await getListGroup();
+      AppToast.show({
+        title: "Đã xóa ảnh nhóm",
+        message: "Danh sách đang dùng ảnh chuyến đi hoặc ảnh mặc định.",
+      });
+    } catch {
+      AppToast.show({
+        title: "Không thể xóa ảnh",
+        message: "Vui lòng thử lại sau.",
+        type: "error",
+      });
+    } finally {
+      setCoverLoading(false);
+      setCoverDeleteOpen(false);
+    }
+  };
+
   const renderItem = ({ item }: { item: Group }) => (
     <Surface style={styles.cardWrapper} elevation={0}>
       <TouchableOpacity
@@ -71,29 +166,65 @@ const HomeScreen = () => {
         }}
         style={styles.cardInner}
       >
-        <LinearGradient
-          colors={["#22d3ee", "#4ade80"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+        <ImageBackground
+          source={
+            getGroupCoverUri(item)
+              ? { uri: getGroupCoverUri(item) }
+              : require("@/assets/images/trip-hero-cao-bang.png")
+          }
           style={styles.avatarGradient}
-        >
-          <Text style={styles.avatarLabel}>
-            {item.name?.charAt(0).toUpperCase()}
-          </Text>
-        </LinearGradient>
+          imageStyle={styles.groupCoverImage}
+        />
 
         <View style={styles.textContainer}>
           <Text style={styles.groupName} numberOfLines={1}>
             {item.name}
           </Text>
-          <View style={styles.memberBadge}>
+          <View style={styles.memberRow}>
+            <View style={styles.memberAvatars}>
+              {item.members.slice(0, 4).map((member, index) =>
+                member.user?.avatar ? (
+                  <Image
+                    key={member.id}
+                    source={{ uri: member.user.avatar }}
+                    style={[
+                      styles.memberAvatar,
+                      index > 0 && styles.memberAvatarOverlap,
+                    ]}
+                  />
+                ) : (
+                  <View
+                    key={member.id}
+                    style={[
+                      styles.memberAvatar,
+                      styles.memberAvatarFallback,
+                      index > 0 && styles.memberAvatarOverlap,
+                    ]}
+                  >
+                    <Text style={styles.memberAvatarText}>
+                      {member.user?.name?.charAt(0).toUpperCase() || "?"}
+                    </Text>
+                  </View>
+                ),
+              )}
+            </View>
             <Text style={styles.memberText}>
               {item.members.length} thành viên
             </Text>
           </View>
         </View>
 
-        <IconButton icon="chevron-right" iconColor="#D1D5DB" size={20} />
+        <IconButton
+          icon="dots-vertical"
+          iconColor={COLORS.textPrimary}
+          size={20}
+          style={styles.moreButton}
+          onPress={(event) => {
+            event?.stopPropagation?.();
+            setSelectedGroup(item);
+            setOpenSheet(true);
+          }}
+        />
       </TouchableOpacity>
     </Surface>
   );
@@ -102,27 +233,16 @@ const HomeScreen = () => {
     <SafeAreaView style={styles.container}>
       {/* Custom Header */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.welcomeText}>{getGreeting()}</Text>
-          <Text style={styles.userName}>{user?.name || "Bạn thân mến"}</Text>
-        </View>
-        {groups.length > 0 && (
-          <TouchableOpacity
-            style={styles.plusButton}
-            onPress={() => {
-              router.push("/groups/create");
-            }}
-          >
-            <LinearGradient
-              colors={COLORS.primaryGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.plusGradient}
-            >
-              <IconButton icon="plus" iconColor="#fff" size={17} />
-            </LinearGradient>
-          </TouchableOpacity>
-        )}
+        <Text style={styles.userName}>Nhóm của tôi</Text>
+        <TouchableOpacity
+          style={styles.plusButton}
+          onPress={() => router.push("/groups/create")}
+        >
+          <View style={styles.plusGradient}>
+            <Text style={styles.plusText}>Tạo nhóm</Text>
+            <IconButton icon="plus" iconColor="#fff" size={17} />
+          </View>
+        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -135,17 +255,12 @@ const HomeScreen = () => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={getListGroup}
-            tintColor="#6366f1"
+            tintColor={COLORS.primary}
           />
-        }
-        ListHeaderComponent={
-          <Text style={styles.sectionTitle}>
-            Nhóm của bạn ({groups.length})
-          </Text>
         }
         ListEmptyComponent={
           !loading ? (
-            <EmptyState onCreatePress={() => setOpenSheet(true)} />
+            <EmptyState onCreatePress={() => router.push("/groups/create")} />
           ) : null
         }
       />
@@ -154,6 +269,29 @@ const HomeScreen = () => {
         open={openSheet}
         onClose={() => setOpenSheet(false)}
         actions={[
+          ...(selectedGroup?.canManageCover
+            ? [
+                {
+                  label: selectedGroup.coverImage
+                    ? "Đổi ảnh nhóm"
+                    : "Thêm ảnh nhóm",
+                  icon: "image-outline",
+                  onPress: () =>
+                    setTimeout(() => void pickGroupCover(), 300),
+                },
+                ...(selectedGroup.coverImage
+                  ? [
+                      {
+                        label: "Xóa ảnh nhóm",
+                        icon: "trash-outline",
+                        color: COLORS.error,
+                        onPress: () =>
+                          setTimeout(() => setCoverDeleteOpen(true), 300),
+                      },
+                    ]
+                  : []),
+              ]
+            : []),
           ...(selectedGroup?.isCreate
             ? [
                 {
@@ -183,71 +321,103 @@ const HomeScreen = () => {
           },
         ]}
       />
+      <ConfirmDialog
+        visible={coverDeleteOpen}
+        title="Xóa ảnh nhóm"
+        message="Ảnh trên danh sách sẽ chuyển sang ảnh chuyến đi hoặc ảnh mặc định."
+        confirmText="Xóa ảnh"
+        loading={coverLoading}
+        onConfirm={deleteGroupCover}
+        onCancel={() => setCoverDeleteOpen(false)}
+      />
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFFFFF" },
+  container: { flex: 1, backgroundColor: COLORS.surface },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 24,
-    paddingVertical: 20,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 14,
   },
-  welcomeText: {
-    fontSize: 14,
-    color: "#94A3B8",
-    fontWeight: "500",
-    letterSpacing: 0.5,
+  headerText: { flex: 1, marginRight: 12 },
+  userName: { fontSize: 24, fontWeight: "800", color: COLORS.textPrimary },
+  plusButton: { borderRadius: 14, overflow: "hidden" },
+  plusGradient: {
+    minHeight: 38,
+    paddingLeft: 12,
+    paddingRight: 2,
+    flexDirection: "row",
+    alignItems: "center",
   },
-  userName: { fontSize: 24, fontWeight: "800", color: "#1E293B", marginTop: 4 },
-  plusButton: { borderRadius: 16, overflow: "hidden" },
-  plusGradient: { padding: 4 },
+  plusText: { color: "#FFFFFF", fontSize: 12, fontWeight: "800" },
 
   sectionTitle: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#94A3B8",
+    color: COLORS.textSecondary,
     textTransform: "uppercase",
     letterSpacing: 1,
     marginBottom: 16,
     paddingHorizontal: 4,
   },
-  list: { paddingHorizontal: 20, paddingBottom: 40 },
+  list: { paddingHorizontal: 16, paddingBottom: 40, paddingTop: 2 },
 
   cardWrapper: {
-    marginBottom: 16,
-    borderRadius: 24,
-    backgroundColor: "#F8FAFC",
+    marginBottom: 12,
+    borderRadius: 14,
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
-    borderColor: "#F1F5F9",
+    borderColor: COLORS.border,
   },
   cardInner: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
+    minHeight: 118,
+    padding: 8,
+    paddingLeft: 7,
   },
   avatarGradient: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
+    width: 104,
+    height: 102,
+    borderRadius: 11,
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+  groupCoverImage: { borderRadius: 11 },
+  avatarLabel: {
+    color: "#fff",
+    fontSize: 20,
+    fontWeight: "bold",
+    textShadowColor: "rgba(0,0,0,.45)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  textContainer: { flex: 1, alignSelf: "stretch", justifyContent: "center", marginLeft: 12, paddingRight: 24 },
+  groupName: { fontSize: 17, fontWeight: "700", color: COLORS.textPrimary },
+  memberRow: { flexDirection: "column", alignItems: "flex-start", marginTop: 12 },
+  memberAvatars: { flexDirection: "row", alignItems: "center", marginRight: 7 },
+  memberAvatar: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    borderColor: COLORS.surface,
+  },
+  memberAvatarOverlap: { marginLeft: -6 },
+  memberAvatarFallback: {
+    backgroundColor: COLORS.primaryLight,
     justifyContent: "center",
     alignItems: "center",
   },
-  avatarLabel: { color: "#fff", fontSize: 20, fontWeight: "bold" },
-  textContainer: { flex: 1, marginLeft: 16 },
-  groupName: { fontSize: 17, fontWeight: "700", color: "#1E293B" },
-  memberBadge: {
-    backgroundColor: "#E0E7FF",
-    alignSelf: "flex-start",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-    marginTop: 6,
-  },
-  memberText: { fontSize: 11, color: "#4338CA", fontWeight: "600" },
+  memberAvatarText: { fontSize: 9, fontWeight: "800", color: COLORS.primaryDark },
+  memberText: { fontSize: 11, color: COLORS.textSecondary, marginTop: 4 },
+  moreButton: { position: "absolute", right: -4, top: -2 },
 });
 
 export default HomeScreen;

@@ -29,6 +29,7 @@ export interface Trip {
   name: string;
   description?: string;
   location?: string;
+  coverImage?: string;
   infor?: string;
   startDate: string; // YYYY-MM-DD
   endDate: string; // YYYY-MM-DD
@@ -55,6 +56,7 @@ export interface ListTrip {
   name: string;
   description?: string;
   location?: string;
+  coverImage?: string;
   infor?: string;
   startDate: string; // YYYY-MM-DD
   endDate: string; // YYYY-MM-DD

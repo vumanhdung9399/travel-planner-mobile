@@ -1,15 +1,24 @@
 import { api } from "@/src/services/api";
 import { getSocket } from "@/src/utils/socket";
+import { COLORS } from "@/src/utils/constants";
+import { useAppPalette } from "@/src/hook/useAppPalette";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import { Modal, Pressable, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Badge, Text } from "react-native-paper";
 import GroupChatPanel from "./GroupChatPanel";
 
-export default function GroupChatFab({ groupId }: { groupId: string }) {
+export default function GroupChatFab({
+  groupId,
+  side = "right",
+}: {
+  groupId: string;
+  side?: "left" | "right";
+}) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
   const [minimized, setMinimized] = useState(false);
+  const palette = useAppPalette();
 
   useEffect(() => {
     const socket = getSocket();
@@ -38,7 +47,10 @@ export default function GroupChatFab({ groupId }: { groupId: string }) {
 
   return (<>
     {!open && <TouchableOpacity
-      style={styles.fab}
+      style={[
+        styles.fab,
+        side === "left" ? styles.fabLeft : styles.fabRight,
+      ]}
       activeOpacity={0.85}
       accessibilityLabel="Mở trò chuyện nhóm"
       onPress={() => {
@@ -58,15 +70,39 @@ export default function GroupChatFab({ groupId }: { groupId: string }) {
     </TouchableOpacity>}
     <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
       <Pressable style={styles.overlay} onPress={() => setOpen(false)} />
-      <View style={[styles.chatWindow, minimized && styles.chatWindowMinimized]}>
-        <Pressable style={styles.chatHeader} onPress={() => setMinimized(false)}>
-          <View style={styles.onlineDot} />
-          <Text numberOfLines={1} style={styles.chatTitle}>Trò chuyện nhóm</Text>
-          <TouchableOpacity style={styles.headerIcon} onPress={() => setMinimized((value) => !value)}>
-            <Ionicons name="remove" size={22} color="#0084ff" />
+      <View
+        style={[
+          styles.chatWindow,
+          { backgroundColor: palette.surface, borderColor: palette.border },
+          minimized && styles.chatWindowMinimized,
+        ]}
+      >
+        <Pressable
+          style={[
+            styles.chatHeader,
+            { backgroundColor: palette.surface, borderBottomColor: palette.border },
+          ]}
+          onPress={() => setMinimized(false)}
+        >
+          <View style={[styles.chatAvatar, { backgroundColor: palette.surfaceMuted, borderColor: palette.border }]}>
+            <Ionicons name="chatbubble-ellipses" size={18} color={COLORS.primary} />
+            <View style={[styles.onlineDot, { borderColor: palette.surface }]} />
+          </View>
+          <View style={styles.chatHeading}>
+            <Text numberOfLines={1} style={[styles.chatTitle, { color: palette.textPrimary }]}>Trò chuyện nhóm</Text>
+            <Text numberOfLines={1} style={[styles.chatSubtitle, { color: palette.textSecondary }]}>Tin nhắn của nhóm</Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.headerIcon, { backgroundColor: palette.surfaceMuted }]}
+            onPress={() => setMinimized((value) => !value)}
+          >
+            <Ionicons name="remove" size={20} color={palette.textSecondary} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.headerIcon} onPress={() => setOpen(false)}>
-            <Ionicons name="close" size={22} color="#0084ff" />
+          <TouchableOpacity
+            style={[styles.headerIcon, { backgroundColor: palette.surfaceMuted }]}
+            onPress={() => setOpen(false)}
+          >
+            <Ionicons name="close" size={20} color={palette.textSecondary} />
           </TouchableOpacity>
         </Pressable>
         {!minimized && <GroupChatPanel groupId={groupId} />}
@@ -78,21 +114,22 @@ export default function GroupChatFab({ groupId }: { groupId: string }) {
 const styles = StyleSheet.create({
   fab: {
     position: "absolute",
-    right: 18,
     bottom: 98,
     width: 54,
     height: 54,
     borderRadius: 27,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#0084FF",
+    backgroundColor: "#1687F8",
     elevation: 8,
-    shadowColor: "#0084FF",
+    shadowColor: "#1687F8",
     shadowOpacity: 0.35,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 5 },
     zIndex: 20,
   },
+  fabLeft: { left: 18 },
+  fabRight: { right: 18 },
   badge: {
     position: "absolute",
     top: -11,
@@ -100,7 +137,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#EF4444",
     color: "#fff",
   },
-  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(15,23,42,0.18)" },
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(3,8,18,.58)" },
   chatWindow: {
     position: "absolute",
     left: 10,
@@ -110,24 +147,26 @@ const styles = StyleSheet.create({
     maxHeight: 620,
     overflow: "hidden",
     borderRadius: 20,
-    backgroundColor: "#fff",
+    borderWidth: StyleSheet.hairlineWidth,
     elevation: 14,
     shadowColor: "#000",
     shadowOpacity: 0.22,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 8 },
   },
-  chatWindowMinimized: { height: 54 },
+  chatWindowMinimized: { height: 62 },
   chatHeader: {
-    height: 54,
+    height: 62,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e4e6eb",
-    backgroundColor: "#fff",
+    paddingHorizontal: 12,
+    gap: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  onlineDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#22c55e", marginRight: 9 },
-  chatTitle: { flex: 1, fontWeight: "700", color: "#172033" },
-  headerIcon: { padding: 6, marginLeft: 2 },
+  chatAvatar: { width: 38, height: 38, borderRadius: 13, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center" },
+  onlineDot: { position: "absolute", right: -2, bottom: -2, width: 10, height: 10, borderRadius: 5, borderWidth: 2, borderColor: "#FFFFFF", backgroundColor: "#22c55e" },
+  chatHeading: { flex: 1, minWidth: 0 },
+  chatTitle: { fontSize: 14, fontWeight: "800" },
+  chatSubtitle: { marginTop: 1, fontSize: 10 },
+  headerIcon: { width: 34, height: 34, borderRadius: 12, alignItems: "center", justifyContent: "center" },
 });

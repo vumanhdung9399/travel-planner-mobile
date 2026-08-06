@@ -3,7 +3,6 @@ import { ListTrip } from "@/src/type/trip";
 import { COLORS } from "@/src/utils/constants";
 import { formatMoney, getNameFirstLetterUpper } from "@/src/utils/helper";
 import { Ionicons } from "@expo/vector-icons";
-import dayjs from "dayjs";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -11,6 +10,7 @@ import React, { useCallback, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
+    ImageBackground,
     RefreshControl,
     SafeAreaView,
     StyleSheet,
@@ -69,13 +69,13 @@ const MyTripsScreen = () => {
       return {
         label: "Đã kết thúc",
         color: COLORS.textLight,
-        bgColor: "#F1F5F9",
+        bgColor: COLORS.surfaceMuted,
       };
     }
     return {
       label: "Đang diễn ra",
       color: COLORS.success,
-      bgColor: "#D1FAE5",
+      bgColor: COLORS.successLight,
     };
   };
 
@@ -92,76 +92,40 @@ const MyTripsScreen = () => {
         activeOpacity={0.7}
       >
         <Surface style={styles.card} elevation={0}>
-          {/* Header */}
-          <View style={styles.cardHeader}>
-            <View style={styles.cardHeaderLeft}>
-              <LinearGradient
-                colors={COLORS.primaryGradient as readonly [string, string]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.tripIcon}
-              >
-                <Text style={styles.tripIconText}>
-                  {item.name?.charAt(0).toUpperCase() || "✈️"}
-                </Text>
-              </LinearGradient>
-              <View style={styles.tripInfo}>
-                <View style={styles.tripNameRow}>
-                  <Text style={styles.tripName} numberOfLines={1}>
-                    {item.name}
-                  </Text>
-                  {item.isLeader && (
-                    <View style={styles.leaderBadge}>
-                      <Ionicons name="star" size={10} color="#FBBF24" />
-                      <Text style={styles.leaderBadgeText}>Leader</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.tripGroup} numberOfLines={1}>
-                  {item.group?.name || "Nhóm cá nhân"}
-                </Text>
-              </View>
-            </View>
-            <View
-              style={[styles.statusBadge, { backgroundColor: status.bgColor }]}
+          <ImageBackground
+            source={
+              item.coverImage
+                ? { uri: item.coverImage }
+                : require("@/assets/images/trip-hero-cao-bang.png")
+            }
+            style={styles.cover}
+            imageStyle={styles.coverImage}
+          >
+            <LinearGradient
+              colors={["rgba(9,24,42,.08)", "rgba(9,24,42,.78)"]}
+              style={styles.coverOverlay}
             >
-              <Text style={[styles.statusBadgeText, { color: status.color }]}>
-                {status.label}
-              </Text>
-            </View>
-          </View>
+              <View style={styles.coverTop}>
+                <View
+                  style={[styles.statusBadge, { backgroundColor: status.bgColor }]}
+                >
+                  <Text style={[styles.statusBadgeText, { color: status.color }]}>
+                    {status.label}
+                  </Text>
+                </View>
+                <View style={styles.coverMenu}>
+                  <Ionicons name="ellipsis-horizontal" size={18} color="#FFFFFF" />
+                </View>
+              </View>
+            </LinearGradient>
+          </ImageBackground>
 
-          {/* Dates */}
-          <View style={styles.dateRow}>
-            <Ionicons
-              name="calendar-outline"
-              size={16}
-              color={COLORS.textSecondary}
-            />
-            <Text style={styles.dateText}>
-              {dayjs(item.startDate).format("DD/MM/YYYY")} -{" "}
-              {dayjs(item.endDate).format("DD/MM/YYYY")}
+          <View style={styles.cardBody}>
+            <Text style={styles.tripName} numberOfLines={1}>
+              {item.name}
             </Text>
-          </View>
-
-          {/* Location */}
-          {item.location && (
-            <View style={styles.locationRow}>
-              <Ionicons
-                name="location-outline"
-                size={16}
-                color={COLORS.textSecondary}
-              />
-              <Text style={styles.locationText} numberOfLines={1}>
-                {item.location}
-              </Text>
-            </View>
-          )}
-
-          {/* Footer */}
-          <View style={styles.cardFooter}>
-            {/* Members */}
-            <View style={styles.membersContainer}>
+            <View style={styles.cardFooter}>
+              <View style={styles.membersContainer}>
               {item.members?.slice(0, 4).map((member, index) => (
                 <View
                   key={member.id}
@@ -193,18 +157,18 @@ const MyTripsScreen = () => {
                   </View>
                 </View>
               )}
-            </View>
+              </View>
 
-            {/* Expenses */}
-            <View style={styles.expensesContainer}>
-              <Ionicons
-                name="wallet-outline"
-                size={14}
-                color={COLORS.textSecondary}
-              />
-              <Text style={styles.expensesText}>
-                {formatMoney(totalExpenses)}
-              </Text>
+              <View style={styles.expensesContainer}>
+                <Ionicons
+                  name="wallet-outline"
+                  size={14}
+                  color={COLORS.textSecondary}
+                />
+                <Text style={styles.expensesText}>
+                  {formatMoney(totalExpenses)}
+                </Text>
+              </View>
             </View>
           </View>
         </Surface>
@@ -233,12 +197,8 @@ const MyTripsScreen = () => {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>Chuyến đi của tôi</Text>
-          <Text style={styles.headerSubtitle}>
-            {trips.length} chuyến đi • {activeCount} đang diễn ra
-          </Text>
-        </View>
+        <Text style={styles.headerTitle}>Chuyến đi của tôi</Text>
+        <Ionicons name="filter-outline" size={22} color={COLORS.textPrimary} />
       </View>
 
       {/* Filter Tabs */}
@@ -318,7 +278,7 @@ const MyTripsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.surface,
   },
   centered: {
     flex: 1,
@@ -332,7 +292,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 12,
+    paddingBottom: 14,
   },
   headerTitle: {
     fontSize: 24,
@@ -346,16 +306,20 @@ const styles = StyleSheet.create({
   },
   filterTabs: {
     flexDirection: "row",
-    paddingHorizontal: 20,
-    marginBottom: 12,
+    marginHorizontal: 20,
+    marginBottom: 10,
     gap: 8,
+    borderRadius: 0,
+    backgroundColor: "transparent",
   },
   filterTab: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    justifyContent: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 9,
+    borderRadius: 10,
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -365,7 +329,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.primary,
   },
   filterTabText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "500",
     color: COLORS.textSecondary,
   },
@@ -373,8 +337,8 @@ const styles = StyleSheet.create({
     color: "#fff",
   },
   filterBadge: {
-    backgroundColor: "#fff",
-    borderRadius: 10,
+    backgroundColor: COLORS.surface,
+    borderRadius: 14,
     paddingHorizontal: 6,
     paddingVertical: 2,
     marginLeft: 6,
@@ -386,19 +350,46 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingTop: 6,
     paddingBottom: 80,
   },
   cardWrapper: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 16,
+    backgroundColor: COLORS.surface,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
+    overflow: "hidden",
   },
+  cover: { height: 148, backgroundColor: COLORS.primaryLight },
+  coverImage: { resizeMode: "cover" },
+  coverOverlay: {
+    flex: 1,
+    padding: 14,
+    justifyContent: "flex-start",
+  },
+  coverTop: {
+    position: "absolute",
+    left: 12,
+    right: 12,
+    top: 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  coverMenu: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,.26)",
+  },
+  coverTitle: { color: "#FFFFFF", fontSize: 20, fontWeight: "800" },
+  coverGroup: { color: "rgba(255,255,255,.82)", fontSize: 12, marginTop: 3 },
+  cardBody: { padding: 12 },
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -414,7 +405,7 @@ const styles = StyleSheet.create({
   tripIcon: {
     width: 48,
     height: 48,
-    borderRadius: 16,
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
@@ -435,19 +426,21 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   tripName: {
-    fontSize: 16,
-    fontWeight: "700",
+    fontSize: 18,
+    fontWeight: "800",
     color: COLORS.textPrimary,
     flexShrink: 1,
   },
   tripGroup: {
     fontSize: 13,
     color: COLORS.textSecondary,
+    marginTop: 2,
+    marginBottom: 12,
   },
   leaderBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FEF3C7",
+    backgroundColor: COLORS.warningLight,
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: 6,
@@ -457,7 +450,7 @@ const styles = StyleSheet.create({
   leaderBadgeText: {
     fontSize: 9,
     fontWeight: "600",
-    color: "#D97706",
+    color: "#9A6500",
   },
   statusBadge: {
     paddingHorizontal: 10,
@@ -476,7 +469,7 @@ const styles = StyleSheet.create({
   dateRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 7,
   },
   dateText: {
     fontSize: 13,
@@ -548,8 +541,8 @@ const styles = StyleSheet.create({
     paddingTop: 60,
   },
   emptyCard: {
-    backgroundColor: "#fff",
-    borderRadius: 24,
+    backgroundColor: COLORS.surface,
+    borderRadius: 14,
     padding: 32,
     alignItems: "center",
     width: "100%",
@@ -574,7 +567,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   createButton: {
-    borderRadius: 16,
+    borderRadius: 14,
     overflow: "hidden",
     width: "100%",
   },

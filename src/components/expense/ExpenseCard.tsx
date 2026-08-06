@@ -57,6 +57,13 @@ export const ExpenseCard = ({
   );
 
   const category = categories.find((c) => c.value === item.category);
+  const categoryColors: Record<string, { background: string; color: string }> = {
+    "Ăn uống": { background: COLORS.orangeLight, color: "#ED7A35" },
+    "Di chuyển": { background: COLORS.successLight, color: "#1A9A68" },
+    "Mua sắm": { background: COLORS.purpleLight, color: "#7465D7" },
+    Khác: { background: COLORS.surfaceMuted, color: COLORS.textSecondary },
+  };
+  const categoryTone = categoryColors[item.category] || categoryColors.Khác;
 
   const isMePaid = item.paidBy?.id === currentUserId;
   const isMeInvolved = item.participants?.find((p) => p.id === currentUserId);
@@ -71,15 +78,29 @@ export const ExpenseCard = ({
     <Surface style={styles.container} elevation={0}>
       {/* TOP */}
       <View style={styles.topRow}>
-        <View style={styles.iconContainer}>
-          <Text style={styles.categoryIcon}>{category?.icon || "💸"}</Text>
+        <View
+          style={[
+            styles.iconContainer,
+            { backgroundColor: categoryTone.background },
+          ]}
+        >
+          <Text
+            style={[styles.categoryIcon, { color: categoryTone.color }]}
+          >
+            {category?.icon || "💸"}
+          </Text>
         </View>
 
         <View style={styles.content}>
           <View style={styles.titleRow}>
-            <Text style={styles.title} numberOfLines={1}>
-              {item.title}
-            </Text>
+            <View style={styles.titleBlock}>
+              <Text style={styles.categoryLabel}>
+                {category?.label || item.category}
+              </Text>
+              <Text style={styles.title} numberOfLines={2}>
+                {item.title}
+              </Text>
+            </View>
             <Text style={[styles.amount, { color: getAmountColor() }]}>
               {formatMoney(item.amount)}
             </Text>
@@ -184,27 +205,26 @@ export const ExpenseCard = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 14,
+    backgroundColor: COLORS.surface,
+    borderRadius: 18,
+    padding: 15,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   topRow: {
     flexDirection: "row",
-    marginBottom: 8,
+    marginBottom: 10,
   },
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: "#f1f5f9",
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
   },
   categoryIcon: {
-    fontSize: 20,
+    fontSize: 18,
   },
   content: {
     flex: 1,
@@ -212,28 +232,39 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
     marginBottom: 2,
   },
-  title: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: COLORS.textPrimary,
+  titleBlock: {
     flex: 1,
+    minWidth: 0,
     marginRight: 8,
+  },
+  categoryLabel: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    marginBottom: 4,
+  },
+  title: {
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
   },
   amount: {
     fontSize: 15,
-    fontWeight: "700",
+    fontWeight: "800",
+    marginTop: 1,
   },
   meta: {
-    fontSize: 12,
+    fontSize: 11,
     color: COLORS.textSecondary,
+    marginTop: 7,
   },
   note: {
     fontSize: 13,
-    color: "#475569",
-    marginBottom: 12,
+    color: COLORS.textSecondary,
+    marginBottom: 10,
     lineHeight: 18,
   },
   bottomRow: {
@@ -274,10 +305,10 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   approveButton: {
-    backgroundColor: "#ecfdf5",
+    backgroundColor: COLORS.successLight,
   },
   rejectButton: {
-    backgroundColor: "#fef2f2",
+    backgroundColor: COLORS.errorLight,
   },
   editButton: {
     margin: 0,
@@ -286,7 +317,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     padding: 10,
     borderRadius: 10,
-    backgroundColor: "#fef2f2",
+    backgroundColor: COLORS.errorLight,
   },
   rejectionText: {
     fontSize: 12,

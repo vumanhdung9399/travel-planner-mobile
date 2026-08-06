@@ -45,7 +45,7 @@ export const exportPdf = async (
   const html = `<!doctype html>
   <html lang="vi"><head><meta charset="utf-8"><style>
     @page { size: A4 landscape; margin: 24px; }
-    body { font-family: Arial, sans-serif; color: #172033; }
+    body { font-family: Arial, sans-serif; color: #14213D; }
     h1 { font-size: 20px; margin: 0 0 4px; }
     p { color: #64748b; font-size: 10px; margin: 0 0 14px; }
     table { width: 100%; border-collapse: collapse; font-size: 9px; }

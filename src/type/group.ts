@@ -8,7 +8,9 @@ export interface Group {
   deletedAt: string | null;
   name: string;
   description: string;
+  coverImage: string | null;
   isCreate: boolean;
+  canManageCover: boolean;
   members: Member[];
   trips: Trip[];
 }

@@ -66,12 +66,11 @@ const RejectExpenseScreen = () => {
 
       <View style={styles.content}>
         <View style={styles.iconContainer}>
-          <LinearGradient
-            colors={["#FEF2F2", "#FEE2E2"]}
-            style={styles.iconGradient}
+          <View
+            style={[styles.iconGradient, { backgroundColor: COLORS.errorLight }]}
           >
             <Text style={styles.iconEmoji}>❌</Text>
-          </LinearGradient>
+          </View>
         </View>
 
         <Text style={styles.title}>Lý do từ chối</Text>
@@ -145,7 +144,7 @@ const styles = StyleSheet.create({
   iconGradient: {
     width: 80,
     height: 80,
-    borderRadius: 24,
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -167,7 +166,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 16,
+    borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
@@ -201,19 +200,19 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 14,
     alignItems: "center",
-    borderRadius: 16,
+    borderRadius: 14,
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   cancelText: {
     fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.textSecondary,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
   },
   submitButton: {
     flex: 1,
-    borderRadius: 16,
+    borderRadius: 14,
     overflow: "hidden",
   },
   submitButtonGradient: {

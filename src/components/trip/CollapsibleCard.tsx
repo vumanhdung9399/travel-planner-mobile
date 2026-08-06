@@ -3,6 +3,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import type { ComponentProps, ReactNode } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Surface, Text } from "react-native-paper";
+import { useAppPalette } from "@/src/hook/useAppPalette";
 
 interface Props {
   title: string;
@@ -23,8 +24,9 @@ export default function CollapsibleCard({
   action,
   children,
 }: Props) {
+  const palette = useAppPalette();
   return (
-    <Surface style={styles.card} elevation={1}>
+    <Surface style={[styles.card, { backgroundColor: palette.surface, borderColor: palette.border }]} elevation={0}>
       <Pressable
         onPress={onToggle}
         style={styles.header}
@@ -33,14 +35,14 @@ export default function CollapsibleCard({
       >
         <View style={styles.titleRow}>
           <Ionicons name={icon} size={22} color={iconColor} />
-          <Text style={styles.title}>{title}</Text>
+          <Text style={[styles.title, { color: palette.textPrimary }]}>{title}</Text>
         </View>
         <View style={styles.right}>
           {action}
           <Ionicons
             name={expanded ? "chevron-up" : "chevron-down"}
             size={20}
-            color={COLORS.textSecondary}
+            color={palette.textSecondary}
           />
         </View>
       </Pressable>
@@ -51,20 +53,27 @@ export default function CollapsibleCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 18,
-    marginBottom: 14,
+    backgroundColor: COLORS.surface,
+    borderRadius: 20,
+    marginBottom: 12,
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: "#3D4E62",
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 1,
   },
   header: {
-    minHeight: 58,
+    minHeight: 60,
     paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
   titleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  title: { fontSize: 16, fontWeight: "700", color: COLORS.textPrimary },
+  title: { fontSize: 15, fontWeight: "700", color: COLORS.textPrimary },
   right: { flexDirection: "row", alignItems: "center", gap: 8 },
   content: { padding: 16, paddingTop: 4 },
 });

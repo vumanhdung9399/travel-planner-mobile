@@ -4,11 +4,17 @@ import { Ionicons } from "@expo/vector-icons";
 import { DrawerContentScrollView } from "@react-navigation/drawer";
 import { Href, router, usePathname } from "expo-router";
 import { Image, Text, TouchableOpacity, View } from "react-native";
+import { COLORS, UI_RADIUS } from "@/src/utils/constants";
+import { useSettingsStore } from "@/src/store/settings.store";
 
 export default function CustomDrawer(props: any) {
   const pathname = usePathname();
   const { user } = useUserStore();
   const { logout } = useAuthStore();
+  const darkMode = useSettingsStore((state) => state.darkMode);
+  const textPrimary = darkMode ? "#F2F6FC" : COLORS.textPrimary;
+  const textSecondary = darkMode ? "#A9B7CA" : COLORS.textSecondary;
+  const border = darkMode ? "#2A384C" : COLORS.border;
 
   const menu: {
     label: string;
@@ -45,8 +51,8 @@ export default function CustomDrawer(props: any) {
           style={{ width: 40, height: 40, borderRadius: 20 }}
         />
         <View>
-          <Text style={{ fontWeight: "600" }}>{user?.name}</Text>
-          <Text style={{ color: "#888", fontSize: 12 }}>{user?.email}</Text>
+          <Text style={{ fontWeight: "600", color: textPrimary }}>{user?.name}</Text>
+          <Text style={{ color: textSecondary, fontSize: 12 }}>{user?.email}</Text>
         </View>
       </View>
 
@@ -61,22 +67,22 @@ export default function CustomDrawer(props: any) {
               onPress={() => handleNavigate(item.path)}
               style={{
                 padding: 12,
-                borderRadius: 12,
+                borderRadius: UI_RADIUS.control,
                 marginBottom: 8,
                 flexDirection: "row",
                 alignItems: "center",
                 gap: 10,
-                backgroundColor: isActive ? "#eef2ff" : "transparent",
+                backgroundColor: isActive ? COLORS.primaryLight : "transparent",
               }}
             >
               <Ionicons
                 name={item.icon}
                 size={20}
-                color={isActive ? "#4f46e5" : "#333"}
+                color={isActive ? COLORS.primary : textSecondary}
               />
               <Text
                 style={{
-                  color: isActive ? "#4f46e5" : "#333",
+                  color: isActive ? COLORS.primary : textPrimary,
                   fontWeight: isActive ? "600" : "400",
                 }}
               >
@@ -92,7 +98,7 @@ export default function CustomDrawer(props: any) {
           marginHorizontal: 16,
           paddingTop: 16,
           borderTopWidth: 1,
-          borderTopColor: "#e5e7eb",
+          borderTopColor: border,
         }}
       >
         <TouchableOpacity
@@ -104,8 +110,8 @@ export default function CustomDrawer(props: any) {
             gap: 10,
           }}
         >
-          <Ionicons name="log-out-outline" size={20} color="#333" />
-          <Text style={{ color: "#333" }}>Đăng xuất</Text>
+          <Ionicons name="log-out-outline" size={20} color={COLORS.error} />
+          <Text style={{ color: COLORS.error }}>Đăng xuất</Text>
         </TouchableOpacity>
       </View>
     </DrawerContentScrollView>

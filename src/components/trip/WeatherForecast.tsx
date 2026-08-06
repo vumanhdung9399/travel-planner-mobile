@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
   },
   location: { color: "#dbeafe", fontSize: 13 },
   temperature: { color: "#fff", fontSize: 48, fontWeight: "300" },
-  condition: { color: "#eff6ff" },
+  condition: { color: COLORS.infoLight },
   metrics: {
     flexDirection: "row",
     justifyContent: "space-around",
@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
     gap: 10,
     borderRadius: 12,
     padding: 12,
-    backgroundColor: "#fffbeb",
+    backgroundColor: COLORS.warningLight,
   },
   errorText: { flex: 1 },
   retry: { color: COLORS.primary, fontSize: 12, marginTop: 2 },

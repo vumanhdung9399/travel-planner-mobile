@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import { COLORS, UI_RADIUS } from "@/src/utils/constants";
 import { Ionicons } from "@expo/vector-icons";
 import {
   Animated,
@@ -11,11 +12,13 @@ import {
   TouchableWithoutFeedback,
   View,
 } from "react-native";
+import { useTheme } from "react-native-paper";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 export default function ActionSheet({ open, onClose, actions }: any) {
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const theme = useTheme();
 
   // Hàm thực hiện hiệu ứng đóng mượt mà trước khi gọi onClose
   const handleClose = () => {
@@ -73,16 +76,28 @@ export default function ActionSheet({ open, onClose, actions }: any) {
         </TouchableWithoutFeedback>
 
         <Animated.View
-          style={[styles.sheet, { transform: [{ translateY }] }]}
+          style={[
+            styles.sheet,
+            {
+              backgroundColor: theme.colors.surface,
+              transform: [{ translateY }],
+            },
+          ]}
           {...panResponder.panHandlers}
         >
-          <View style={styles.dragIndicator} />
+          <View
+            style={[
+              styles.dragIndicator,
+              { backgroundColor: theme.colors.outlineVariant },
+            ]}
+          />
 
           {actions.map((item: any, index: number) => (
             <TouchableOpacity
               key={index}
               style={[
                 styles.item,
+                { borderBottomColor: theme.colors.outlineVariant },
                 index === actions.length - 1 && { borderBottomWidth: 0 },
               ]}
               onPress={() => {
@@ -93,10 +108,16 @@ export default function ActionSheet({ open, onClose, actions }: any) {
               <Ionicons
                 name={item.icon || "ellipse-outline"}
                 size={22}
-                color={item.color || "#475569"}
+                color={item.color || theme.colors.onSurfaceVariant}
                 style={styles.icon}
               />
-              <Text style={[styles.text, item.color && { color: item.color }]}>
+              <Text
+                style={[
+                  styles.text,
+                  { color: theme.colors.onSurface },
+                  item.color && { color: item.color },
+                ]}
+              >
                 {item.label}
               </Text>
             </TouchableOpacity>
@@ -117,16 +138,16 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.5)",
   },
   sheet: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: UI_RADIUS.sheet,
+    borderTopRightRadius: UI_RADIUS.sheet,
     paddingBottom: 40,
     maxHeight: SCREEN_HEIGHT * 0.8,
   },
   dragIndicator: {
     width: 36,
     height: 5,
-    backgroundColor: "#E5E7EB",
+    backgroundColor: COLORS.border,
     alignSelf: "center",
     marginVertical: 12,
     borderRadius: 3,
@@ -138,14 +159,14 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     alignItems: "center",
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#F3F4F6",
+    borderBottomColor: COLORS.border,
   },
   text: {
     flex: 1,
     textAlign: "left",
     fontSize: 17,
     fontWeight: "500",
-    color: "#1F2937",
+    color: COLORS.textPrimary,
   },
   icon: {
     width: 34,

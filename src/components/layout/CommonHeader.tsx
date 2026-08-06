@@ -2,7 +2,9 @@ import { Ionicons } from "@expo/vector-icons"; // Hoặc Lucide-react-native
 import type { Href } from "expo-router";
 import { useRouter } from "expo-router";
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { Text, useTheme } from "react-native-paper";
+import { COLORS } from "@/src/utils/constants";
 
 interface CommonHeaderProps {
   title?: string;
@@ -18,6 +20,7 @@ export const CommonHeader = ({
   rightElement,
 }: CommonHeaderProps) => {
   const router = useRouter();
+  const theme = useTheme();
 
   const handleBack = () => {
     if (onBack) {
@@ -30,14 +33,29 @@ export const CommonHeader = ({
   };
 
   return (
-    <View style={[styles.container]}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: theme.colors.surface,
+          borderBottomColor: theme.colors.outlineVariant,
+        },
+      ]}
+    >
       <View style={styles.content}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={28} color="#000" />
+          <Ionicons
+            name="chevron-back"
+            size={26}
+            color={theme.colors.onSurface}
+          />
         </TouchableOpacity>
 
         <View style={styles.titleContainer}>
-          <Text style={styles.title} numberOfLines={1}>
+          <Text
+            style={[styles.title, { color: theme.colors.onSurface }]}
+            numberOfLines={1}
+          >
             {title || "Chi tiết"}
           </Text>
         </View>
@@ -52,9 +70,9 @@ export const CommonHeader = ({
 
 const styles = StyleSheet.create({
   container: {
-    // backgroundColor: "#fff",
+    backgroundColor: COLORS.surface,
     borderBottomWidth: 0.5,
-    borderBottomColor: "#E0E0E0",
+    borderBottomColor: COLORS.border,
   },
   content: {
     height: 56,
@@ -78,7 +96,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#1A1A1A",
+    color: COLORS.textPrimary,
     maxWidth: "70%",
   },
   rightContainer: {

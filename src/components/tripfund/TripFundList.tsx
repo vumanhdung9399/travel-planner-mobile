@@ -1,6 +1,6 @@
 import * as Haptics from "expo-haptics";
 import { useFocusEffect } from "expo-router";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -16,6 +16,7 @@ import type { Trip } from "@/src/type/trip";
 import { COLORS } from "@/src/utils/constants";
 import { formatMoney, getNameFirstLetterUpper } from "@/src/utils/helper";
 import ConfirmDialog from "../ConfirmDialog";
+import { useAppPalette } from "@/src/hook/useAppPalette";
 
 interface TripFund {
   id: string;
@@ -33,9 +34,15 @@ interface TripFund {
 
 interface TripFundListProps {
   trip: Trip;
+  onSummaryChange?: (summary: {
+    eyebrow: string;
+    value: string;
+    pill?: string;
+  }) => void;
 }
 
-const TripFundList = ({ trip }: TripFundListProps) => {
+const TripFundList = ({ trip, onSummaryChange }: TripFundListProps) => {
+  const palette = useAppPalette();
   const { user: currentUser } = useAuthStore();
 
   const [funds, setFunds] = useState<TripFund[]>([]);
@@ -73,6 +80,14 @@ const TripFundList = ({ trip }: TripFundListProps) => {
 
     return { total, average, count: funds.length };
   }, [funds]);
+
+  useEffect(() => {
+    onSummaryChange?.({
+      eyebrow: "Tổng quỹ chuyến đi",
+      value: formatMoney(stats.total),
+      pill: `${stats.count} người đã đóng`,
+    });
+  }, [onSummaryChange, stats.count, stats.total]);
 
   const handleDelete = (fund: TripFund) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -176,7 +191,7 @@ const TripFundList = ({ trip }: TripFundListProps) => {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: palette.background }]}> 
       <FlatList
         data={funds}
         keyExtractor={(item) => item.id}
@@ -253,17 +268,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   listContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 100,
+    paddingHorizontal: 12,
+    paddingTop: 14,
+    paddingBottom: 104,
   },
   statsCard: {
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.surface,
     borderRadius: 20,
     padding: 16,
-    marginBottom: 16,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
+    shadowColor: "#3D4E62",
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 1,
   },
   statsRow: {
     flexDirection: "row",
@@ -279,8 +299,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   statValue: {
-    fontSize: 16,
-    fontWeight: "700",
+    fontSize: 15,
+    fontWeight: "800",
     color: COLORS.primary,
   },
   statDivider: {
@@ -289,36 +309,41 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.border,
   },
   fundCard: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 14,
+    backgroundColor: COLORS.surface,
+    borderRadius: 18,
+    padding: 15,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
+    shadowColor: "#3D4E62",
+    shadowOpacity: 0.035,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 1,
   },
   fundHeader: {
     flexDirection: "row",
     alignItems: "center",
   },
   userAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     marginRight: 12,
   },
   userAvatarFallback: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: COLORS.primary,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.primaryLight,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
   },
   userAvatarText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#fff",
+    fontSize: 15,
+    fontWeight: "700",
+    color: COLORS.primary,
   },
   fundInfo: {
     flex: 1,
@@ -353,9 +378,9 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
   },
   fundAmount: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: COLORS.primary,
+    fontSize: 15,
+    fontWeight: "800",
+    color: COLORS.success,
     marginBottom: 4,
   },
   deleteButton: {
@@ -380,7 +405,7 @@ const styles = StyleSheet.create({
     paddingTop: 60,
   },
   emptyCard: {
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.surface,
     borderRadius: 24,
     padding: 32,
     alignItems: "center",

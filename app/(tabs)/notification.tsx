@@ -2,7 +2,7 @@ import { api } from "@/src/services/api";
 import { useNotificationStore } from "@/src/store/notification.store";
 import { useNotificationNavigate } from "@/src/store/notificationNavigate.store";
 import type { Notification } from "@/src/type/notification";
-import { NOTIFICATION_TYPE } from "@/src/utils/constants";
+import { COLORS, NOTIFICATION_TYPE } from "@/src/utils/constants";
 import { showSuccess } from "@/src/utils/errorHandler";
 import { formatTimeAgo } from "@/src/utils/helper";
 import ActionSheet from "@components/ActionSheet";
@@ -36,7 +36,7 @@ export default function NotificationScreen() {
     if (!loading) return null;
     return (
       <View style={{ paddingVertical: 20 }}>
-        <ActivityIndicator size="small" color="#007AFF" />
+        <ActivityIndicator size="small" color={COLORS.primary} />
       </View>
     );
   };
@@ -109,8 +109,16 @@ export default function NotificationScreen() {
   );
 
   const getIcon = (type: string, isRead: boolean) => {
-    const color = isRead ? "#8e8e93" : "#007AFF";
-    const bg = isRead ? "#f2f2f7" : "#e5f1ff";
+    const appearance =
+      {
+        [NOTIFICATION_TYPE.EXPENSE]: { color: "#FF6B3D", bg: "#FFF0E8" },
+        [NOTIFICATION_TYPE.TIMELINE]: { color: "#1687F8", bg: COLORS.infoLight },
+        [NOTIFICATION_TYPE.INVITE]: { color: "#23B96F", bg: COLORS.successLight },
+        [NOTIFICATION_TYPE.TRIP]: { color: "#E3A008", bg: COLORS.warningLight },
+        [NOTIFICATION_TYPE.BALANCE]: { color: "#7257D6", bg: COLORS.purpleLight },
+      }[type] || { color: COLORS.primary, bg: COLORS.primaryLight };
+    const color = isRead ? COLORS.textLight : appearance.color;
+    const bg = isRead ? COLORS.surfaceMuted : appearance.bg;
     let iconName: any = "bell-outline";
 
     switch (type) {
@@ -147,7 +155,7 @@ export default function NotificationScreen() {
         refreshing={loading && listNotification.length === 0}
         onRefresh={() => fetchNotifications(true)}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 20 }}
+        contentContainerStyle={{ paddingBottom: 90 }}
         onEndReached={() => {
           if (!loading && hasMore && listNotification.length > 0) {
             fetchNotifications();
@@ -218,7 +226,7 @@ export default function NotificationScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
+  container: { flex: 1, backgroundColor: COLORS.surface },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -226,18 +234,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    backgroundColor: COLORS.surface,
+    borderBottomColor: COLORS.border,
   },
-  headerTitle: { fontSize: 22, fontWeight: "800", color: "#1a1a1a" },
-  readAllBtn: { color: "#007AFF", fontSize: 14, fontWeight: "600" },
+  headerTitle: { fontSize: 24, fontWeight: "800", color: COLORS.textPrimary },
+  readAllBtn: { color: COLORS.primary, fontSize: 13, fontWeight: "700" },
 
   item: {
     flexDirection: "row",
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 16,
     alignItems: "center",
+    backgroundColor: COLORS.surface,
+    borderBottomWidth: 1,
+    borderColor: COLORS.border,
   },
-  unreadItem: { backgroundColor: "#f0f7ff" },
+  unreadItem: { backgroundColor: COLORS.infoLight },
 
   iconBox: {
     width: 48,
@@ -249,17 +261,17 @@ const styles = StyleSheet.create({
   },
 
   contentContainer: { flex: 1 },
-  title: { fontSize: 15, color: "#262626", lineHeight: 20 },
-  boldText: { fontWeight: "700", color: "#000" },
-  content: { fontSize: 14, color: "#666", marginTop: 2, lineHeight: 18 },
-  time: { fontSize: 12, color: "#8e8e93", marginTop: 6 },
+  title: { fontSize: 15, color: COLORS.textPrimary, lineHeight: 20 },
+  boldText: { fontWeight: "700", color: COLORS.textPrimary },
+  content: { fontSize: 14, color: COLORS.textSecondary, marginTop: 2, lineHeight: 18 },
+  time: { fontSize: 12, color: COLORS.textLight, marginTop: 6 },
 
   dotContainer: { width: 12, marginLeft: 8 },
   dot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#007AFF",
+    backgroundColor: COLORS.primary,
   },
   emptyContainer: {
     flex: 1,

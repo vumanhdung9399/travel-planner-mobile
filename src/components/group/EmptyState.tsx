@@ -1,37 +1,39 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { StyleSheet, View } from "react-native";
 import { Button, Text } from "react-native-paper";
+import { useAppPalette } from "@/src/hook/useAppPalette";
+import { COLORS } from "@/src/utils/constants";
 
-export const EmptyState = ({
-  onCreatePress,
-}: {
-  onCreatePress: () => void;
-}) => (
-  <View style={styles.emptyContainer}>
-    <LinearGradient
-      colors={["#EEF2FF", "#F8FAFC"]}
-      style={styles.emptyIllustration}
-    >
-      <Text style={styles.emptyEmoji}>👥</Text>
-    </LinearGradient>
+export const EmptyState = ({ onCreatePress }: { onCreatePress: () => void }) => {
+  const palette = useAppPalette();
 
-    <Text style={styles.emptyTitle}>Chưa có nhóm nào</Text>
-    <Text style={styles.emptySubtext}>
-      Tạo nhóm đầu tiên để bắt đầu chia sẻ chi tiêu cùng bạn bè
-    </Text>
+  return (
+    <View style={styles.emptyContainer}>
+      <LinearGradient
+        colors={[palette.primaryLight, palette.surfaceMuted]}
+        style={styles.emptyIllustration}
+      >
+        <Text style={styles.emptyEmoji}>👥</Text>
+      </LinearGradient>
 
-    <Button
-      mode="contained"
-      onPress={onCreatePress}
-      contentStyle={styles.emptyButtonContent}
-      style={styles.emptyButton}
-      labelStyle={styles.emptyButtonLabel}
-      buttonColor="#4F46E5"
-    >
-      Tạo nhóm ngay
-    </Button>
-  </View>
-);
+      <Text style={styles.emptyTitle}>Chưa có nhóm nào</Text>
+      <Text style={styles.emptySubtext}>
+        Tạo nhóm đầu tiên để bắt đầu chia sẻ chi tiêu cùng bạn bè
+      </Text>
+
+      <Button
+        mode="contained"
+        onPress={onCreatePress}
+        contentStyle={styles.emptyButtonContent}
+        style={styles.emptyButton}
+        labelStyle={styles.emptyButtonLabel}
+        buttonColor={COLORS.primary}
+      >
+        Tạo nhóm ngay
+      </Button>
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   emptyContainer: {
@@ -55,12 +57,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 22,
     fontWeight: "700",
-    color: "#1E293B",
+    color: COLORS.textPrimary,
     marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 15,
-    color: "#64748B",
+    color: COLORS.textSecondary,
     textAlign: "center",
     lineHeight: 22,
     marginBottom: 28,

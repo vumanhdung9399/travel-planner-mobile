@@ -1,17 +1,15 @@
-import { CommonHeader } from "@/src/components/layout/CommonHeader";
+import TripDetailFormSheet from "@/src/components/trip/TripDetailFormSheet";
 import { api } from "@/src/services/api";
 import { useTripStore } from "@/src/store/trip.store";
 import type { TimelineItemType } from "@/src/type/trip";
 import { COLORS } from "@/src/utils/constants";
 import dayjs from "dayjs";
 import * as Haptics from "expo-haptics";
-import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -21,7 +19,7 @@ import {
   View,
 } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
-import { IconButton, Text } from "react-native-paper";
+import { Text } from "react-native-paper";
 
 const parseTripDate = (value: string) => dayjs(String(value).slice(0, 10));
 
@@ -40,6 +38,15 @@ const getBoundedTimelineTime = (
   if (value.isAfter(tripEnd)) return tripEnd;
   if (value.isBefore(tripStart)) return tripStart.hour(9);
   return value;
+};
+
+const getDayIndexFromDate = (
+  startDate: string | Date,
+  selectedDate: Date,
+) => {
+  const start = dayjs(startDate).startOf("day");
+  const selected = dayjs(selectedDate).startOf("day");
+  return selected.diff(start, "day") + 1;
 };
 
 const TimelineFormScreen = () => {
@@ -74,27 +81,7 @@ const TimelineFormScreen = () => {
   });
   const [showDateTimePicker, setShowDateTimePicker] = useState(false);
 
-  // Fetch timeline data if editing
-  useFocusEffect(
-    useCallback(() => {
-      if (isEditMode && timelineId) {
-        fetchTimeline();
-      }
-    }, [timelineId, trip]),
-  );
-
-  useEffect(() => {
-    if (trip.id && !isEditMode) {
-      const defaultTime = getBoundedTimelineTime(
-        trip.startDate,
-        trip.endDate,
-      );
-      setTime(defaultTime.toDate());
-      setDay(getDayIndexFromDate(trip.startDate, defaultTime.toDate()));
-    }
-  }, [trip, isEditMode]);
-
-  const fetchTimeline = async () => {
+  const fetchTimeline = useCallback(async () => {
     try {
       const res = await api.get<TimelineItemType>(
         `timelines/trip/${trip.id}/${timelineId}`,
@@ -115,7 +102,27 @@ const TimelineFormScreen = () => {
     } finally {
       setFetchingTimeline(false);
     }
-  };
+  }, [timelineId, trip.endDate, trip.id, trip.startDate]);
+
+  // Fetch timeline data if editing
+  useFocusEffect(
+    useCallback(() => {
+      if (isEditMode && timelineId) {
+        void fetchTimeline();
+      }
+    }, [fetchTimeline, isEditMode, timelineId]),
+  );
+
+  useEffect(() => {
+    if (trip.id && !isEditMode) {
+      const defaultTime = getBoundedTimelineTime(
+        trip.startDate,
+        trip.endDate,
+      );
+      setTime(defaultTime.toDate());
+      setDay(getDayIndexFromDate(trip.startDate, defaultTime.toDate()));
+    }
+  }, [trip, isEditMode]);
 
   const handleConfirmDateTime = (selectedDate: Date) => {
     setShowDateTimePicker(false);
@@ -131,20 +138,6 @@ const TimelineFormScreen = () => {
 
   const handleCancelDateTime = () => {
     setShowDateTimePicker(false);
-  };
-
-  const tripDays = trip
-    ? dayjs(trip.endDate).diff(dayjs(trip.startDate), "day") + 1
-    : 1;
-
-  const getDayIndexFromDate = (
-    startDate: string | Date,
-    selectedDate: Date,
-  ) => {
-    const start = dayjs(startDate).startOf("day");
-    const selected = dayjs(selectedDate).startOf("day");
-    const diffDays = selected.diff(start, "day");
-    return diffDays + 1;
   };
 
   const validate = () => {
@@ -204,7 +197,7 @@ const TimelineFormScreen = () => {
   };
 
   const formatDateTime = (date: Date) => {
-    return dayjs(date).format("DD/MM/YYYY • HH:mm");
+    return dayjs(date).format("DD/MM/YYYY HH:mm");
   };
 
   if (fetchingTimeline) {
@@ -227,63 +220,27 @@ const TimelineFormScreen = () => {
   const maxDate = parseTripDate(trip.endDate).endOf("day").toDate();
 
   return (
-    <SafeAreaView style={styles.container}>
-      <CommonHeader
-        title={isEditMode ? "Sửa lịch trình" : "Thêm lịch trình"}
-        fallbackHref={{
-          pathname: "/trips/[id]",
-          params: { id: tripId, tab: "timeline" },
-        }}
-        rightElement={
-          <TouchableOpacity
-            onPress={handleSubmit}
-            disabled={loading}
-            style={styles.headerSaveButton}
-          >
-            {loading ? (
-              <ActivityIndicator size="small" color={COLORS.primary} />
-            ) : (
-              <Text style={styles.headerSaveText}>Lưu</Text>
-            )}
-          </TouchableOpacity>
-        }
-      />
-
-      <KeyboardAvoidingView
-        style={styles.keyboardView}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
+    <TripDetailFormSheet
+      title={isEditMode ? "Sửa lịch trình" : "Thêm lịch trình"}
+      onCancel={() => router.back()}
+      onSubmit={handleSubmit}
+      loading={loading}
+      submitLabel="Lưu"
+      height="80%"
+    >
+      <>
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Preview */}
-          <View style={styles.preview}>
-            <LinearGradient
-              colors={COLORS.primaryGradient as readonly [string, string]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.previewCircle}
-            >
-              <Text style={styles.previewEmoji}>
-                {title.trim() ? title.trim().charAt(0).toUpperCase() : "📅"}
-              </Text>
-            </LinearGradient>
-            <Text style={styles.previewHint}>
-              {title.trim() ? title.trim() : "Nhập tiêu đề lịch trình"}
-            </Text>
-          </View>
-
           {/* Tiêu đề */}
           <View style={styles.field}>
-            <Text style={styles.label}>
-              Tiêu đề <Text style={styles.required}>*</Text>
-            </Text>
+            <Text style={styles.label}>Tiêu đề</Text>
             <TextInput
               style={[styles.input, errors.title ? styles.inputError : null]}
-              placeholder="Ví dụ: Tham quan bảo tàng"
+              placeholder="Nhập tiêu đề"
               placeholderTextColor={COLORS.textLight}
               value={title}
               onChangeText={(text) => {
@@ -304,7 +261,7 @@ const TimelineFormScreen = () => {
             <Text style={styles.label}>Mô tả</Text>
             <TextInput
               style={[styles.input, styles.textArea]}
-              placeholder="Thêm mô tả chi tiết (không bắt buộc)"
+              placeholder="Nhập mô tả (không bắt buộc)"
               placeholderTextColor={COLORS.textLight}
               value={description}
               onChangeText={setDescription}
@@ -318,9 +275,7 @@ const TimelineFormScreen = () => {
 
           {/* Thời gian */}
           <View style={styles.field}>
-            <Text style={styles.label}>
-              Thời gian <Text style={styles.required}>*</Text>
-            </Text>
+            <Text style={styles.label}>Thời gian</Text>
             <TouchableOpacity
               style={[
                 styles.dateTimeButton,
@@ -333,308 +288,125 @@ const TimelineFormScreen = () => {
               <Text style={styles.dateTimeButtonText}>
                 {formatDateTime(time)}
               </Text>
-              <IconButton
-                icon="calendar-clock"
-                size={20}
-                iconColor={COLORS.primary}
+              <Ionicons
+                name="chevron-forward"
+                size={21}
+                color={COLORS.textSecondary}
               />
             </TouchableOpacity>
             {errors.time ? (
               <Text style={styles.errorText}>{errors.time}</Text>
             ) : null}
-            <Text style={styles.hintText}>
-              Từ {dayjs(minDate).format("DD/MM/YYYY")} đến{" "}
-              {dayjs(maxDate).format("DD/MM/YYYY")}
-            </Text>
-          </View>
-
-          {/* Ngày thứ (tự động tính) */}
-          <View style={styles.field}>
-            <Text style={styles.label}>Ngày thứ</Text>
-            <View style={styles.dayContainer}>
-              <View style={styles.dayInputWrapper}>
-                <Text style={styles.dayInputText}>
-                  Ngày {day} / {tripDays}
-                </Text>
-              </View>
-              <View style={styles.dayBadge}>
-                <Text style={styles.dayBadgeText}>
-                  {day}/{tripDays}
-                </Text>
-              </View>
-            </View>
-            <Text style={styles.hintText}>
-              Tự động tính dựa trên thời gian đã chọn
-            </Text>
           </View>
 
           {/* Thông báo */}
-          <View style={styles.field}>
-            <View style={styles.switchRow}>
-              <View style={styles.switchLabelContainer}>
-                <Text style={styles.label}>Thông báo</Text>
-                <Text style={styles.switchHint}>
-                  Nhận thông báo trước giờ diễn ra
-                </Text>
-              </View>
-              <Switch
-                value={notify}
-                onValueChange={setNotify}
-                disabled={loading}
-                trackColor={{ false: COLORS.border, true: COLORS.primary }}
-                thumbColor="#fff"
-              />
-            </View>
+          <View style={styles.reminderRow}>
+            <Text style={styles.reminderLabel}>Nhắc trước 30 phút</Text>
+            <Switch
+              value={notify}
+              onValueChange={setNotify}
+              disabled={loading}
+              trackColor={{ false: "#D9DEE5", true: COLORS.secondary }}
+              thumbColor="#FFFFFF"
+            />
           </View>
         </ScrollView>
-      </KeyboardAvoidingView>
 
-      {/* Bottom Button (cho màn hình nhỏ) */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={styles.cancelButton}
-          onPress={() => router.back()}
-          disabled={loading}
-        >
-          <Text style={styles.cancelText}>Hủy</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.submitButton, loading && styles.submitButtonDisabled]}
-          onPress={handleSubmit}
-          disabled={loading}
-          activeOpacity={0.8}
-        >
-          <LinearGradient
-            colors={COLORS.primaryGradient as readonly [string, string]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.submitButtonGradient}
-          >
-            {loading ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text style={styles.submitText}>
-                {isEditMode ? "Cập nhật" : "Tạo lịch trình"}
-              </Text>
-            )}
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
-
-      {/* DateTime Picker */}
-      {showDateTimePicker && (
-        <DateTimePickerModal
-          isVisible={showDateTimePicker}
-          mode="datetime"
-          date={time}
-          onConfirm={handleConfirmDateTime}
-          onCancel={handleCancelDateTime}
-          minimumDate={minDate}
-          maximumDate={maxDate}
-          minuteInterval={15}
-          is24Hour={true}
-          locale="vi_VN"
-        />
-      )}
-    </SafeAreaView>
+        {showDateTimePicker && (
+          <DateTimePickerModal
+            isVisible={showDateTimePicker}
+            mode="datetime"
+            date={time}
+            onConfirm={handleConfirmDateTime}
+            onCancel={handleCancelDateTime}
+            minimumDate={minDate}
+            maximumDate={maxDate}
+            minuteInterval={15}
+            is24Hour={true}
+            locale="vi_VN"
+          />
+        )}
+      </>
+    </TripDetailFormSheet>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
   centered: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: COLORS.background,
   },
-  keyboardView: {
-    flex: 1,
-  },
   scrollView: {
     flex: 1,
   },
   content: {
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 16,
-  },
-  headerSaveButton: {
-    marginRight: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  headerSaveText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.primary,
-  },
-  preview: {
-    alignItems: "center",
-    marginBottom: 28,
-  },
-  previewCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 24,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  previewEmoji: {
-    fontSize: 32,
-    fontWeight: "bold",
-    color: "#fff",
-  },
-  previewHint: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 24,
   },
   field: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   label: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "600",
     color: COLORS.textPrimary,
     marginBottom: 8,
-  },
-  required: {
-    color: COLORS.error,
   },
   input: {
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 16,
+    borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
+    paddingVertical: 13,
+    fontSize: 15,
     color: COLORS.textPrimary,
   },
   inputError: {
     borderColor: COLORS.error,
   },
   textArea: {
-    minHeight: 100,
-    paddingTop: 14,
+    minHeight: 86,
+    paddingTop: 13,
   },
   errorText: {
-    fontSize: 13,
+    fontSize: 12,
     color: COLORS.error,
-    marginTop: 6,
-  },
-  charCount: {
-    fontSize: 12,
-    color: COLORS.textLight,
-    textAlign: "right",
-    marginTop: 4,
-  },
-  hintText: {
-    fontSize: 12,
-    color: COLORS.textLight,
     marginTop: 6,
   },
   dateTimeButton: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    minHeight: 50,
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 16,
+    borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 8,
   },
   dateTimeButtonText: {
     fontSize: 15,
     color: COLORS.textPrimary,
   },
-  dayContainer: {
-    position: "relative",
-  },
-  dayInputWrapper: {
-    backgroundColor: "#F1F5F9",
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  dayInputText: {
-    fontSize: 16,
-    color: COLORS.textSecondary,
-  },
-  dayBadge: {
-    position: "absolute",
-    right: 12,
-    top: 10,
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  dayBadgeText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#fff",
-  },
-  switchRow: {
+  reminderRow: {
+    minHeight: 58,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-  },
-  switchLabelContainer: {
-    flex: 1,
-    marginRight: 16,
-  },
-  switchHint: {
-    fontSize: 13,
-    color: COLORS.textLight,
-    marginTop: 2,
-  },
-  bottomBar: {
-    flexDirection: "row",
-    gap: 12,
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    backgroundColor: COLORS.background,
-  },
-  cancelButton: {
-    flex: 1,
-    paddingVertical: 14,
-    alignItems: "center",
-    borderRadius: 16,
+    paddingHorizontal: 16,
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
+    borderRadius: 12,
   },
-  cancelText: {
-    fontSize: 16,
+  reminderLabel: {
+    color: COLORS.textPrimary,
+    fontSize: 14,
     fontWeight: "600",
-    color: COLORS.textSecondary,
-  },
-  submitButton: {
-    flex: 1,
-    borderRadius: 16,
-    overflow: "hidden",
-  },
-  submitButtonGradient: {
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  submitButtonDisabled: {
-    opacity: 0.6,
-  },
-  submitText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#fff",
   },
 });
 

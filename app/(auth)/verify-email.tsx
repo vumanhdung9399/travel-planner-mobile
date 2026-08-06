@@ -128,10 +128,10 @@ const styles = StyleSheet.create({
   subtitle: { textAlign: "center", marginTop: 10, color: COLORS.textSecondary },
   code: {
     marginTop: 32,
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 16,
+    borderRadius: 14,
     padding: 16,
     fontSize: 28,
     letterSpacing: 12,

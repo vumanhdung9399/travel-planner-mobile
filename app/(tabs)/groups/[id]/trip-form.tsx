@@ -1,15 +1,18 @@
 import { CommonHeader } from "@/src/components/layout/CommonHeader";
+import { AppToast } from "@/src/components/AppToast";
 import { api } from "@/src/services/api";
 import type { Trip } from "@/src/type/trip";
 import { COLORS } from "@/src/utils/constants";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import dayjs from "dayjs";
 import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
     ActivityIndicator,
+    ImageBackground,
     KeyboardAvoidingView,
     Platform,
     SafeAreaView,
@@ -20,6 +23,7 @@ import {
     View,
 } from "react-native";
 import { IconButton, Text } from "react-native-paper";
+import { Ionicons } from "@expo/vector-icons";
 
 const TripFormScreen = () => {
   const router = useRouter();
@@ -40,21 +44,29 @@ const TripFormScreen = () => {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
+  const [coverUri, setCoverUri] = useState<string | null>(null);
+  const [coverChanged, setCoverChanged] = useState(false);
 
-  // Fetch trip data if editing
-  useEffect(() => {
-    if (isEditMode && tripId) {
-      fetchTrip();
-    }
-  }, [tripId]);
-
-  const fetchTrip = async () => {
+  const fetchTrip = useCallback(async () => {
     try {
       const res = await api.get<Trip>(`/trips/${tripId}`);
       const trip = res.data;
+      if (trip.isCloseTrip) {
+        AppToast.show({
+          title: "Chuyến đi đã kết thúc",
+          message: "Bạn không thể chỉnh sửa chuyến đi đã kết thúc.",
+          type: "info",
+        });
+        router.replace({
+          pathname: "/groups/[id]",
+          params: { id: groupId },
+        });
+        return;
+      }
       setName(trip.name || "");
       setLocation(trip.location || "");
       setInfor(trip.infor || "");
+      setCoverUri(trip.coverImage || null);
       setStartDate(trip.startDate ? new Date(trip.startDate) : new Date());
       setEndDate(trip.endDate ? new Date(trip.endDate) : new Date());
     } catch (err) {
@@ -62,7 +74,14 @@ const TripFormScreen = () => {
     } finally {
       setFetching(false);
     }
-  };
+  }, [groupId, router, tripId]);
+
+  // Fetch trip data if editing
+  useEffect(() => {
+    if (isEditMode && tripId) {
+      void fetchTrip();
+    }
+  }, [fetchTrip, isEditMode, tripId]);
 
   const validate = (): boolean => {
     const newErrors: { [key: string]: string } = {};
@@ -99,16 +118,34 @@ const TripFormScreen = () => {
 
       const data: Partial<Trip> = {
         name: name.trim(),
-        location: location.trim() || undefined,
-        infor: infor.trim() || undefined,
+        location: location.trim(),
+        ...(!isEditMode ? { infor: infor.trim() } : {}),
         startDate: dayjs(startDate).format("YYYY-MM-DD"),
         endDate: dayjs(endDate).format("YYYY-MM-DD"),
       };
 
+      let savedTripId = tripId;
       if (isEditMode) {
         await api.patch(`/trips/${tripId}`, data);
       } else {
-        await api.post(`/trips?groupId=${groupId}`, { ...data, groupId });
+        const response = await api.post<Trip>(`/trips?groupId=${groupId}`, {
+          ...data,
+          groupId,
+        });
+        savedTripId = response.data.id;
+      }
+
+      if (coverChanged && coverUri && savedTripId) {
+        const extension = coverUri.split(".").pop()?.toLowerCase() || "jpg";
+        const formData = new FormData();
+        formData.append("file", {
+          uri: coverUri,
+          name: `trip-cover.${extension}`,
+          type: extension === "png" ? "image/png" : "image/jpeg",
+        } as any);
+        await api.patch(`/trips/${savedTripId}/cover`, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
       }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -118,6 +155,22 @@ const TripFormScreen = () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const pickCover = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [16, 7],
+      quality: 0.85,
+    });
+    if (!result.canceled && result.assets[0]?.uri) {
+      setCoverUri(result.assets[0].uri);
+      setCoverChanged(true);
     }
   };
 
@@ -170,22 +223,31 @@ const TripFormScreen = () => {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Illustration Preview */}
-          <View style={styles.illustration}>
-            <LinearGradient
-              colors={COLORS.primaryGradient as readonly [string, string]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.illustrationCircle}
+          <TouchableOpacity
+            style={styles.coverPicker}
+            onPress={pickCover}
+            activeOpacity={0.85}
+          >
+            <ImageBackground
+              source={
+                coverUri
+                  ? { uri: coverUri }
+                  : require("@/assets/images/trip-hero-cao-bang.png")
+              }
+              style={styles.coverPreview}
+              imageStyle={styles.coverImage}
             >
-              <Text style={styles.illustrationEmoji}>
-                {name.trim() ? name.trim().charAt(0).toUpperCase() : "✈️"}
-              </Text>
-            </LinearGradient>
-            <Text style={styles.illustrationHint}>
-              {name.trim() ? name.trim() : "Nhập tên chuyến đi"}
-            </Text>
-          </View>
+              <LinearGradient
+                colors={["rgba(3,22,38,.15)", "rgba(3,22,38,.72)"]}
+                style={styles.coverOverlay}
+              >
+                <Ionicons name="camera-outline" size={22} color="#FFFFFF" />
+                <Text style={styles.coverText}>
+                  {coverUri ? "Đổi ảnh bìa" : "Chọn ảnh bìa"}
+                </Text>
+              </LinearGradient>
+            </ImageBackground>
+          </TouchableOpacity>
 
           {/* Tên chuyến đi */}
           <View style={styles.field}>
@@ -223,8 +285,9 @@ const TripFormScreen = () => {
             />
           </View>
 
+          <View style={styles.dateFields}>
           {/* Ngày bắt đầu */}
-          <View style={styles.field}>
+          <View style={[styles.field, styles.dateField]}>
             <Text style={styles.label}>
               Ngày bắt đầu <Text style={styles.required}>*</Text>
             </Text>
@@ -249,7 +312,7 @@ const TripFormScreen = () => {
           </View>
 
           {/* Ngày kết thúc */}
-          <View style={styles.field}>
+          <View style={[styles.field, styles.dateField]}>
             <Text style={styles.label}>
               Ngày kết thúc <Text style={styles.required}>*</Text>
             </Text>
@@ -272,24 +335,26 @@ const TripFormScreen = () => {
               <Text style={styles.errorText}>{errors.endDate}</Text>
             ) : null}
           </View>
-
-          {/* Thông tin thêm */}
-          <View style={styles.field}>
-            <Text style={styles.label}>Thông tin thêm</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Thêm mô tả, ghi chú cho chuyến đi (không bắt buộc)"
-              placeholderTextColor={COLORS.textLight}
-              value={infor}
-              onChangeText={setInfor}
-              multiline
-              numberOfLines={5}
-              textAlignVertical="top"
-              editable={!loading}
-              maxLength={255}
-            />
-            <Text style={styles.charCount}>{infor.length}/255</Text>
           </View>
+
+          {!isEditMode ? (
+            <View style={styles.field}>
+              <Text style={styles.label}>Thông tin thêm</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                placeholder="Thêm mô tả, ghi chú cho chuyến đi (không bắt buộc)"
+                placeholderTextColor={COLORS.textLight}
+                value={infor}
+                onChangeText={setInfor}
+                multiline
+                numberOfLines={5}
+                textAlignVertical="top"
+                editable={!loading}
+                maxLength={255}
+              />
+              <Text style={styles.charCount}>{infor.length}/255</Text>
+            </View>
+          ) : null}
         </ScrollView>
 
         {/* Bottom Actions */}
@@ -310,12 +375,7 @@ const TripFormScreen = () => {
             disabled={loading}
             activeOpacity={0.8}
           >
-            <LinearGradient
-              colors={COLORS.primaryGradient as readonly [string, string]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.submitButtonGradient}
-            >
+            <View style={styles.submitButtonGradient}>
               {loading ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
@@ -323,7 +383,7 @@ const TripFormScreen = () => {
                   {isEditMode ? "Lưu thay đổi" : "Tạo chuyến đi"}
                 </Text>
               )}
-            </LinearGradient>
+            </View>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -336,6 +396,7 @@ const TripFormScreen = () => {
           display="spinner"
           onChange={handleStartDateChange}
           minimumDate={new Date()}
+          maximumDate={endDate}
         />
       )}
       {showEndPicker && (
@@ -354,7 +415,7 @@ const TripFormScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.surface,
   },
   keyboardView: {
     flex: 1,
@@ -369,7 +430,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   content: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 20,
   },
@@ -380,7 +441,7 @@ const styles = StyleSheet.create({
   illustrationCircle: {
     width: 80,
     height: 80,
-    borderRadius: 24,
+    borderRadius: 10,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 12,
@@ -394,9 +455,37 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.textSecondary,
   },
-  field: {
+  coverPicker: {
+    height: 172,
+    borderRadius: 10,
+    overflow: "hidden",
     marginBottom: 24,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
+  coverPreview: {
+    flex: 1,
+  },
+  coverImage: {
+    borderRadius: 10,
+  },
+  coverOverlay: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "flex-end",
+    paddingBottom: 16,
+    gap: 4,
+  },
+  coverText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  field: {
+    marginBottom: 18,
+  },
+  dateFields: { flexDirection: "row", gap: 12 },
+  dateField: { flex: 1 },
   label: {
     fontSize: 15,
     fontWeight: "600",
@@ -410,7 +499,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 16,
+    borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
@@ -420,7 +509,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.error,
   },
   textArea: {
-    minHeight: 120,
+    minHeight: 88,
     paddingTop: 14,
   },
   errorText: {
@@ -441,7 +530,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 16,
+    borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
@@ -456,25 +545,26 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.surface,
   },
   cancelButton: {
     flex: 1,
     paddingVertical: 14,
     alignItems: "center",
-    borderRadius: 16,
+    borderRadius: 10,
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   cancelText: {
     fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.textSecondary,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
   },
   submitButton: {
     flex: 1,
-    borderRadius: 16,
+    borderRadius: 10,
+    backgroundColor: COLORS.primary,
     overflow: "hidden",
   },
   submitButtonGradient: {

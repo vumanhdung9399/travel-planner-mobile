@@ -435,16 +435,21 @@ const BalanceCard = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 16,
+    backgroundColor: COLORS.surface,
+    borderRadius: 18,
+    padding: 15,
     borderWidth: 1,
     borderColor: COLORS.border,
+    shadowColor: "#3D4E62",
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 1,
   },
   containerActive: {
     borderColor: COLORS.error,
-    borderWidth: 2,
-    backgroundColor: "#FEF2F2",
+    borderWidth: 1,
+    backgroundColor: COLORS.errorLight,
   },
   header: {
     marginBottom: 12,
@@ -539,7 +544,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   fundSection: {
-    backgroundColor: "#F0F9FF",
+    backgroundColor: COLORS.infoLight,
     borderRadius: 12,
     padding: 12,
   },
@@ -600,7 +605,7 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
   sectionBadge: {
-    backgroundColor: "#DCFCE7",
+    backgroundColor: COLORS.successLight,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 12,
@@ -611,7 +616,7 @@ const styles = StyleSheet.create({
     color: "#16A34A",
   },
   debtBadge: {
-    backgroundColor: "#FEE2E2",
+    backgroundColor: COLORS.errorLight,
   },
   debtBadgeText: {
     color: "#DC2626",
@@ -622,7 +627,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 10,
     borderRadius: 12,
-    backgroundColor: "#F0FDF4",
+    backgroundColor: COLORS.successLight,
     borderWidth: 1,
     borderColor: "#BBF7D0",
   },
@@ -632,7 +637,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 10,
     borderRadius: 12,
-    backgroundColor: "#FEF2F2",
+    backgroundColor: COLORS.errorLight,
     borderWidth: 1,
     borderColor: "#FECACA",
   },
@@ -655,7 +660,7 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
   },
   paidChip: {
-    backgroundColor: "#DCFCE7",
+    backgroundColor: COLORS.successLight,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
@@ -667,7 +672,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   debtChip: {
-    backgroundColor: "#FEE2E2",
+    backgroundColor: COLORS.errorLight,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
@@ -706,7 +711,7 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 360,
     borderRadius: 24,
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.surface,
   },
   modalHeader: {
     flexDirection: "row",
@@ -743,7 +748,7 @@ const styles = StyleSheet.create({
   qrContainer: {
     width: 220,
     height: 260,
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.surface,
     borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",

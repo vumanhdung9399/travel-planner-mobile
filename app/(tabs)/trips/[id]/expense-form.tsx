@@ -1,4 +1,4 @@
-import { CommonHeader } from "@/src/components/layout/CommonHeader";
+import TripDetailFormSheet from "@/src/components/trip/TripDetailFormSheet";
 import { api } from "@/src/services/api";
 import { useAuthStore } from "@/src/store/auth.store";
 import { useTripStore } from "@/src/store/trip.store";
@@ -6,16 +6,14 @@ import type { ExpenseItem, UserGroupRole } from "@/src/type/trip";
 import { COLORS, categories } from "@/src/utils/constants";
 import { formatMoney, getNameFirstLetterUpper } from "@/src/utils/helper";
 import dayjs from "dayjs";
+import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -24,13 +22,7 @@ import {
   View,
 } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
-import {
-  Avatar,
-  Checkbox,
-  IconButton,
-  Surface,
-  Text,
-} from "react-native-paper";
+import { Avatar, Checkbox, IconButton, Surface, Text } from "react-native-paper";
 
 const parseTripDate = (value: string) => dayjs(String(value).slice(0, 10));
 
@@ -83,36 +75,17 @@ const ExpenseFormScreen = () => {
 
   // UI state
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showPayerModal, setShowPayerModal] = useState(false);
   const [showParticipantsModal, setShowParticipantsModal] = useState(false);
 
-  const members = (trip.group.members || []) as UserGroupRole[];
+  const members = (trip.group?.members || []) as UserGroupRole[];
 
-  useEffect(() => {
-    if (isEditMode && expenseId) {
-      fetchExpense();
-    } else {
-      setFetching(false);
-      if (trip?.startDate && trip?.endDate) {
-        setTime(
-          getBoundedExpenseTime(trip.startDate, trip.endDate).toDate(),
-        );
-      }
-      if (user?.id) {
-        setParticipants([user.id]);
-      }
-    }
-  }, [expenseId, isEditMode, trip, user?.id]);
-
-  const fetchExpense = async () => {
+  const fetchExpense = useCallback(async () => {
     try {
       const res = await api.get<ExpenseItem>(
         `/expenses/${tripId}/${expenseId}`,
       );
       const item = res.data;
-      console.log(item);
-
       setTitle(item.title || "");
       setAmount(item.amount?.toString() || "");
       setCategory(item.category || "");
@@ -124,14 +97,43 @@ const ExpenseFormScreen = () => {
         ).toDate(),
       );
       setPaidBy(item.paidBy?.id || user?.id || "");
-      setParticipants(item.participants?.map((p: any) => p.user.id) || []);
+      setParticipants(
+        item.participants
+          ?.map((p: any) => p.id || p.user?.id)
+          .filter(Boolean) || [],
+      );
       setNote(item.note || "");
     } catch (err) {
       console.error(err);
     } finally {
       setFetching(false);
     }
-  };
+  }, [expenseId, trip.endDate, trip.startDate, tripId, user?.id]);
+
+  useEffect(() => {
+    if (isEditMode && expenseId) {
+      void fetchExpense();
+    } else {
+      setFetching(false);
+      if (trip?.startDate && trip?.endDate) {
+        setTime(
+          getBoundedExpenseTime(trip.startDate, trip.endDate).toDate(),
+        );
+      }
+      const memberIds = (trip.group?.members || [])
+        .map((member) => member.id)
+        .filter(Boolean);
+      setParticipants(memberIds.length ? memberIds : user?.id ? [user.id] : []);
+    }
+  }, [
+    expenseId,
+    fetchExpense,
+    isEditMode,
+    trip.endDate,
+    trip.group?.members,
+    trip.startDate,
+    user?.id,
+  ]);
 
   const validate = (): boolean => {
     const newErrors: { [key: string]: string } = {};
@@ -213,8 +215,20 @@ const ExpenseFormScreen = () => {
     setParticipants([paidBy]); // Keep only payer
   };
 
-  const selectedCategory = categories.find((c) => c.value === category);
   const selectedPayer = members.find((m) => m.id === paidBy);
+  const selectedParticipants = members.filter((member) =>
+    participants.includes(member.id),
+  );
+
+  const renderMemberAvatar = (member: UserGroupRole, size = 30) =>
+    member.avatar ? (
+      <Avatar.Image source={{ uri: member.avatar }} size={size} />
+    ) : (
+      <Avatar.Text
+        size={size}
+        label={getNameFirstLetterUpper(member.name || "")}
+      />
+    );
 
   if (fetching) {
     return (
@@ -225,59 +239,27 @@ const ExpenseFormScreen = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <CommonHeader
-        title={isEditMode ? "Sửa chi phí" : "Thêm chi phí"}
-        fallbackHref={{
-          pathname: "/trips/[id]",
-          params: { id: tripId, tab: "expenses" },
-        }}
-        rightElement={
-          <TouchableOpacity
-            onPress={handleSubmit}
-            disabled={loading}
-            style={styles.headerSaveButton}
-          >
-            {loading ? (
-              <ActivityIndicator size="small" color={COLORS.primary} />
-            ) : (
-              <Text style={styles.headerSaveText}>Lưu</Text>
-            )}
-          </TouchableOpacity>
-        }
-      />
-
-      <KeyboardAvoidingView
-        style={styles.keyboardView}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
+    <TripDetailFormSheet
+      title={isEditMode ? "Sửa chi phí" : "Thêm chi phí"}
+      onCancel={() => router.back()}
+      onSubmit={handleSubmit}
+      loading={loading}
+      submitLabel="Lưu"
+      height="94%"
+    >
+      <>
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          {/* Preview */}
-          <View style={styles.preview}>
-            <LinearGradient
-              colors={COLORS.primaryGradient as readonly [string, string]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.previewCircle}
-            >
-              <Text style={styles.previewEmoji}>
-                {selectedCategory?.icon || "💰"}
-              </Text>
-            </LinearGradient>
-          </View>
-
           {/* Tiêu đề */}
           <View style={styles.field}>
-            <Text style={styles.label}>
-              Tiêu đề <Text style={styles.required}>*</Text>
-            </Text>
+            <Text style={styles.label}>Tiêu đề</Text>
             <TextInput
               style={[styles.input, errors.title ? styles.inputError : null]}
-              placeholder="Ví dụ: Ăn trưa"
+              placeholder="Nhập tiêu đề"
               placeholderTextColor={COLORS.textLight}
               value={title}
               onChangeText={setTitle}
@@ -290,9 +272,7 @@ const ExpenseFormScreen = () => {
 
           {/* Số tiền */}
           <View style={styles.field}>
-            <Text style={styles.label}>
-              Số tiền <Text style={styles.required}>*</Text>
-            </Text>
+            <Text style={styles.label}>Số tiền</Text>
             <View style={styles.amountContainer}>
               <TextInput
                 style={[
@@ -303,12 +283,14 @@ const ExpenseFormScreen = () => {
                 placeholder="0"
                 placeholderTextColor={COLORS.textLight}
                 value={
-                  amount ? formatMoney(Number(amount)).replace("₫", "") : ""
+                  amount
+                    ? formatMoney(Number(amount)).replace(/\s?đ$/, "")
+                    : ""
                 }
                 onChangeText={handleAmountChange}
                 keyboardType="numeric"
               />
-              <Text style={styles.currencySymbol}>₫</Text>
+              <Text style={styles.currencySymbol}>đ</Text>
             </View>
             {errors.amount ? (
               <Text style={styles.errorText}>{errors.amount}</Text>
@@ -317,33 +299,37 @@ const ExpenseFormScreen = () => {
 
           {/* Danh mục */}
           <View style={styles.field}>
-            <Text style={styles.label}>
-              Danh mục <Text style={styles.required}>*</Text>
-            </Text>
-            <TouchableOpacity
-              style={[
-                styles.selectButton,
-                errors.category ? styles.inputError : null,
-              ]}
-              onPress={() => setShowCategoryModal(true)}
-            >
-              <Text
-                style={
-                  selectedCategory
-                    ? styles.selectText
-                    : styles.selectPlaceholder
-                }
-              >
-                {selectedCategory
-                  ? `${selectedCategory.icon} ${selectedCategory.label}`
-                  : "Chọn danh mục"}
-              </Text>
-              <IconButton
-                icon="chevron-down"
-                size={20}
-                iconColor={COLORS.textSecondary}
-              />
-            </TouchableOpacity>
+            <Text style={styles.label}>Danh mục</Text>
+            <View style={styles.categoryGrid}>
+              {categories.map((item) => {
+                const isSelected = category === item.value;
+                return (
+                  <TouchableOpacity
+                    key={item.value}
+                    style={[
+                      styles.categoryTile,
+                      isSelected && styles.categoryTileSelected,
+                    ]}
+                    onPress={() => {
+                      setCategory(item.value);
+                      setErrors((current) => ({ ...current, category: "" }));
+                    }}
+                    activeOpacity={0.76}
+                  >
+                    <Text style={styles.categoryTileIcon}>{item.icon}</Text>
+                    <Text
+                      style={[
+                        styles.categoryTileLabel,
+                        isSelected && styles.categoryTileLabelSelected,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
             {errors.category ? (
               <Text style={styles.errorText}>{errors.category}</Text>
             ) : null}
@@ -351,9 +337,7 @@ const ExpenseFormScreen = () => {
 
           {/* Thời gian */}
           <View style={styles.field}>
-            <Text style={styles.label}>
-              Thời gian <Text style={styles.required}>*</Text>
-            </Text>
+            <Text style={styles.label}>Thời gian</Text>
             <TouchableOpacity
               style={styles.selectButton}
               onPress={() => setShowTimePicker(true)}
@@ -361,19 +345,17 @@ const ExpenseFormScreen = () => {
               <Text style={styles.selectText}>
                 {dayjs(time).format("DD/MM/YYYY • HH:mm")}
               </Text>
-              <IconButton
-                icon="calendar-clock"
-                size={20}
-                iconColor={COLORS.primary}
+              <Ionicons
+                name="chevron-forward"
+                size={21}
+                color={COLORS.textSecondary}
               />
             </TouchableOpacity>
           </View>
 
           {/* Người trả */}
           <View style={styles.field}>
-            <Text style={styles.label}>
-              Người trả <Text style={styles.required}>*</Text>
-            </Text>
+            <Text style={styles.label}>Người trả</Text>
             <TouchableOpacity
               style={[
                 styles.selectButton,
@@ -384,18 +366,15 @@ const ExpenseFormScreen = () => {
               <View style={styles.payerInfo}>
                 {selectedPayer && (
                   <>
-                    <Avatar.Text
-                      size={24}
-                      label={getNameFirstLetterUpper(selectedPayer.name || "")}
-                    />
+                    {renderMemberAvatar(selectedPayer, 30)}
                     <Text style={styles.payerName}>{selectedPayer.name}</Text>
                   </>
                 )}
               </View>
-              <IconButton
-                icon="chevron-down"
+              <Ionicons
+                name="chevron-down"
                 size={20}
-                iconColor={COLORS.textSecondary}
+                color={COLORS.textSecondary}
               />
             </TouchableOpacity>
             {errors.paidBy ? (
@@ -405,9 +384,7 @@ const ExpenseFormScreen = () => {
 
           {/* Người tham gia */}
           <View style={styles.field}>
-            <Text style={styles.label}>
-              Người tham gia <Text style={styles.required}>*</Text>
-            </Text>
+            <Text style={styles.label}>Chia cho</Text>
             <TouchableOpacity
               style={[
                 styles.selectButton,
@@ -415,13 +392,22 @@ const ExpenseFormScreen = () => {
               ]}
               onPress={() => setShowParticipantsModal(true)}
             >
-              <Text style={styles.selectText}>
-                {participants.length} người được chọn
-              </Text>
-              <IconButton
-                icon="chevron-down"
+              <View style={styles.participantSummary}>
+                <View style={styles.avatarStack}>
+                  {selectedParticipants.slice(0, 4).map((member) => (
+                    <View key={member.id} style={styles.stackedAvatar}>
+                      {renderMemberAvatar(member, 30)}
+                    </View>
+                  ))}
+                </View>
+                <Text style={styles.participantCount}>
+                  {participants.length} người
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-down"
                 size={20}
-                iconColor={COLORS.textSecondary}
+                color={COLORS.textSecondary}
               />
             </TouchableOpacity>
             {errors.participants ? (
@@ -445,29 +431,6 @@ const ExpenseFormScreen = () => {
             />
           </View>
         </ScrollView>
-      </KeyboardAvoidingView>
-
-      {/* Bottom Buttons */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={styles.cancelButton}
-          onPress={() => router.back()}
-        >
-          <Text style={styles.cancelText}>Hủy</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-          <LinearGradient
-            colors={COLORS.primaryGradient as readonly [string, string]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.submitButtonGradient}
-          >
-            <Text style={styles.submitText}>
-              {isEditMode ? "Cập nhật" : "Thêm chi phí"}
-            </Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
 
       {/* Time Picker */}
       <DateTimePickerModal
@@ -484,48 +447,11 @@ const ExpenseFormScreen = () => {
         is24Hour={true}
       />
 
-      {/* Category Modal */}
-      <Modal visible={showCategoryModal} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <Surface style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Chọn danh mục</Text>
-              <IconButton
-                icon="close"
-                onPress={() => setShowCategoryModal(false)}
-              />
-            </View>
-            <FlatList
-              data={categories}
-              keyExtractor={(item) => item.value}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.categoryItem}
-                  onPress={() => {
-                    setCategory(item.value);
-                    setShowCategoryModal(false);
-                  }}
-                >
-                  <Text style={styles.categoryIcon}>{item.icon}</Text>
-                  <Text style={styles.categoryLabel}>{item.label}</Text>
-                  {category === item.value && (
-                    <IconButton
-                      icon="check"
-                      size={20}
-                      iconColor={COLORS.primary}
-                    />
-                  )}
-                </TouchableOpacity>
-              )}
-            />
-          </Surface>
-        </View>
-      </Modal>
-
       {/* Payer Modal */}
       <Modal visible={showPayerModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <Surface style={styles.modalContent}>
+            <View style={styles.modalHandle} />
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Chọn người trả</Text>
               <IconButton
@@ -546,10 +472,7 @@ const ExpenseFormScreen = () => {
                       setShowPayerModal(false);
                     }}
                   >
-                    <Avatar.Text
-                      size={40}
-                      label={getNameFirstLetterUpper(item.name || "")}
-                    />
+                    {renderMemberAvatar(item, 40)}
                     <View style={styles.memberInfo}>
                       <Text style={styles.memberName}>{item.name}</Text>
                     </View>
@@ -572,8 +495,9 @@ const ExpenseFormScreen = () => {
       <Modal visible={showParticipantsModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <Surface style={styles.modalContent}>
+            <View style={styles.modalHandle} />
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Chọn người tham gia</Text>
+              <Text style={styles.modalTitle}>Chia chi phí cho</Text>
               <IconButton
                 icon="close"
                 onPress={() => setShowParticipantsModal(false)}
@@ -602,10 +526,7 @@ const ExpenseFormScreen = () => {
                     onPress={() => toggleParticipant(userId)}
                     disabled={isPayer}
                   >
-                    <Avatar.Text
-                      size={40}
-                      label={getNameFirstLetterUpper(item.name || "")}
-                    />
+                    {renderMemberAvatar(item, 40)}
                     <View style={styles.memberInfo}>
                       <Text style={styles.memberName}>
                         {item.name} {isPayer && "(Người trả)"}
@@ -622,86 +543,54 @@ const ExpenseFormScreen = () => {
           </Surface>
         </View>
       </Modal>
-    </SafeAreaView>
+      </>
+    </TripDetailFormSheet>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
   centered: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-  },
-  keyboardView: {
-    flex: 1,
+    backgroundColor: COLORS.background,
   },
   scrollView: {
     flex: 1,
   },
   content: {
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 16,
-  },
-  headerSaveButton: {
-    marginRight: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  headerSaveText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.primary,
-  },
-  preview: {
-    alignItems: "center",
-    marginBottom: 28,
-  },
-  previewCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  previewEmoji: {
-    fontSize: 28,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 24,
   },
   field: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   label: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "600",
     color: COLORS.textPrimary,
     marginBottom: 8,
-  },
-  required: {
-    color: COLORS.error,
   },
   input: {
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 16,
+    borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
+    paddingVertical: 13,
+    fontSize: 15,
     color: COLORS.textPrimary,
   },
   inputError: {
     borderColor: COLORS.error,
   },
   textArea: {
-    minHeight: 100,
-    paddingTop: 14,
+    minHeight: 78,
+    paddingTop: 13,
   },
   errorText: {
-    fontSize: 13,
+    fontSize: 12,
     color: COLORS.error,
     marginTop: 6,
   },
@@ -714,97 +603,125 @@ const styles = StyleSheet.create({
   currencySymbol: {
     position: "absolute",
     right: 16,
-    top: 14,
-    fontSize: 16,
+    top: 13,
+    fontSize: 15,
     color: COLORS.textSecondary,
+  },
+  categoryGrid: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  categoryTile: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 76,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    backgroundColor: COLORS.surface,
+  },
+  categoryTileSelected: {
+    borderWidth: 1.5,
+    borderColor: COLORS.secondary,
+    backgroundColor: COLORS.successLight,
+  },
+  categoryTileIcon: {
+    fontSize: 24,
+    marginBottom: 6,
+  },
+  categoryTileLabel: {
+    maxWidth: "100%",
+    color: COLORS.textSecondary,
+    fontSize: 10,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  categoryTileLabelSelected: {
+    color: COLORS.success,
   },
   selectButton: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    minHeight: 50,
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 16,
+    borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 8,
   },
   selectText: {
-    fontSize: 16,
+    fontSize: 15,
     color: COLORS.textPrimary,
-  },
-  selectPlaceholder: {
-    fontSize: 16,
-    color: COLORS.textLight,
   },
   payerInfo: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 10,
   },
   payerName: {
-    fontSize: 16,
+    fontSize: 15,
+    fontWeight: "500",
     color: COLORS.textPrimary,
   },
-  bottomBar: {
+  participantSummary: {
     flexDirection: "row",
-    gap: 12,
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    backgroundColor: COLORS.background,
-  },
-  cancelButton: {
-    flex: 1,
-    paddingVertical: 14,
     alignItems: "center",
-    borderRadius: 16,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  cancelText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.textSecondary,
-  },
-  submitButton: {
     flex: 1,
-    borderRadius: 16,
-    overflow: "hidden",
   },
-  submitButtonGradient: {
-    paddingVertical: 14,
-    alignItems: "center",
+  avatarStack: {
+    flexDirection: "row",
+    paddingLeft: 6,
   },
-  submitText: {
-    fontSize: 16,
+  stackedAvatar: {
+    marginLeft: -6,
+    borderWidth: 2,
+    borderColor: COLORS.surface,
+    borderRadius: 18,
+  },
+  participantCount: {
+    marginLeft: 10,
+    color: COLORS.textPrimary,
+    fontSize: 14,
     fontWeight: "600",
-    color: "#fff",
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(15, 23, 42, 0.5)",
     justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: "70%",
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    maxHeight: "72%",
+    paddingTop: 9,
+    paddingBottom: 24,
+  },
+  modalHandle: {
+    width: 42,
+    height: 5,
+    alignSelf: "center",
+    borderRadius: 999,
+    backgroundColor: COLORS.border,
+    marginBottom: 5,
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 16,
-    borderBottomWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: COLORS.border,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: "700",
+    fontSize: 19,
+    fontWeight: "800",
     color: COLORS.textPrimary,
   },
   modalActions: {
@@ -819,27 +736,12 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: COLORS.primary,
   },
-  categoryItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  categoryIcon: {
-    fontSize: 24,
-    marginRight: 12,
-  },
-  categoryLabel: {
-    flex: 1,
-    fontSize: 16,
-    color: COLORS.textPrimary,
-  },
   memberItem: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
-    borderBottomWidth: 1,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: COLORS.border,
   },
   memberInfo: {

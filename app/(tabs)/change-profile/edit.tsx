@@ -153,8 +153,8 @@ export default function EditProfileScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: COLORS.background }}>
-      <CommonHeader title="Chỉnh sửa hồ sơ" />
+    <View style={{ flex: 1, backgroundColor: COLORS.surface }}>
+      <CommonHeader title="Chỉnh sửa cá nhân" />
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -245,7 +245,7 @@ export default function EditProfileScreen() {
                   animationType="slide"
                   onRequestClose={() => setOpenBank(false)}
                 >
-                  <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
+                  <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.surface }}>
                     <View style={styles.modalHeader}>
                       <Text style={styles.modalTitle}>Danh sách ngân hàng</Text>
                       <TouchableOpacity onPress={() => setOpenBank(false)}>
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: Platform.OS === "ios" ? 34 : 20,
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.surface,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
   },
@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 16,
+    borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
   },
 
   inputDisabled: {
-    backgroundColor: "#F1F5F9",
+    backgroundColor: COLORS.surfaceMuted,
     color: COLORS.textSecondary,
   },
 
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
   btn: {
     backgroundColor: COLORS.primary,
     padding: 16,
-    borderRadius: 16,
+    borderRadius: 10,
     alignItems: "center",
   },
 
@@ -432,7 +432,7 @@ const styles = StyleSheet.create({
   },
 
   menuItemActive: {
-    backgroundColor: "#F0F0FF",
+    backgroundColor: COLORS.purpleLight,
   },
 
   menuItemText: {

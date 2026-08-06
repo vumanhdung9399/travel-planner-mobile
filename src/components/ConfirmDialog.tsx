@@ -1,4 +1,4 @@
-import { COLORS } from "@/src/utils/constants";
+import { COLORS, UI_RADIUS } from "@/src/utils/constants";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Surface, Text } from "react-native-paper";
+import { Surface, Text, useTheme } from "react-native-paper";
 
 export type ConfirmDialogType = "danger" | "warning" | "success" | "info";
 
@@ -42,6 +42,7 @@ const ConfirmDialog = ({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) => {
+  const theme = useTheme();
   const getTypeConfig = (): {
     icon: string;
     iconBgColor: string;
@@ -53,7 +54,7 @@ const ConfirmDialog = ({
       case "danger":
         return {
           icon: "alert-circle",
-          iconBgColor: "#FEF2F2",
+          iconBgColor: COLORS.errorLight,
           iconColor: COLORS.error,
           defaultConfirmColor: COLORS.error,
           gradientColors: ["#EF4444", "#DC2626"] as const,
@@ -61,7 +62,7 @@ const ConfirmDialog = ({
       case "warning":
         return {
           icon: "warning",
-          iconBgColor: "#FFFBEB",
+          iconBgColor: COLORS.warningLight,
           iconColor: "#F59E0B",
           defaultConfirmColor: "#F59E0B",
           gradientColors: ["#F59E0B", "#D97706"] as const,
@@ -69,7 +70,7 @@ const ConfirmDialog = ({
       case "success":
         return {
           icon: "checkmark-circle",
-          iconBgColor: "#ECFDF5",
+          iconBgColor: COLORS.successLight,
           iconColor: COLORS.success,
           defaultConfirmColor: COLORS.success,
           gradientColors: ["#10B981", "#059669"] as const,
@@ -78,7 +79,7 @@ const ConfirmDialog = ({
       default:
         return {
           icon: "information-circle",
-          iconBgColor: "#EFF6FF",
+          iconBgColor: COLORS.infoLight,
           iconColor: COLORS.info,
           defaultConfirmColor: COLORS.primary,
           gradientColors: COLORS.primaryGradient as readonly [string, string],
@@ -87,8 +88,6 @@ const ConfirmDialog = ({
   };
 
   const typeConfig = getTypeConfig();
-
-  const finalConfirmColor = confirmColor || typeConfig.defaultConfirmColor;
 
   const getGradientFromColor = (color: string): readonly [string, string] => {
     const darkenColor = (hex: string, percent: number): string => {
@@ -115,30 +114,33 @@ const ConfirmDialog = ({
       onRequestClose={loading ? undefined : onCancel}
     >
       <View style={styles.overlay}>
-        <Surface style={styles.dialog}>
+        <Surface style={[styles.dialog, { backgroundColor: theme.colors.surface }]}>
           {showIcon && (
             <View style={styles.iconContainer}>
-              <LinearGradient
-                colors={[typeConfig.iconBgColor, typeConfig.iconBgColor]}
-                style={styles.iconGradient}
+              <View
+                style={[
+                  styles.iconGradient,
+                  { backgroundColor: typeConfig.iconBgColor },
+                ]}
               >
                 <Ionicons
                   name={typeConfig.icon as any}
                   size={32}
                   color={typeConfig.iconColor}
                 />
-              </LinearGradient>
+              </View>
             </View>
           )}
 
-          <Text style={styles.title}>{title}</Text>
+          <Text style={[styles.title, { color: theme.colors.onSurface }]}>{title}</Text>
 
-          {message && <Text style={styles.message}>{message}</Text>}
+          {message && <Text style={[styles.message, { color: theme.colors.onSurfaceVariant }]}>{message}</Text>}
 
           <View style={styles.actions}>
             <TouchableOpacity
               style={[
                 styles.cancelButton,
+                { backgroundColor: theme.colors.surfaceVariant, borderColor: theme.colors.outlineVariant },
                 cancelColor && { borderColor: cancelColor },
               ]}
               onPress={onCancel}
@@ -147,6 +149,7 @@ const ConfirmDialog = ({
               <Text
                 style={[
                   styles.cancelText,
+                  { color: theme.colors.onSurface },
                   cancelColor && { color: cancelColor },
                 ]}
               >
@@ -194,9 +197,9 @@ const styles = StyleSheet.create({
   dialog: {
     width: "100%",
     maxWidth: 360,
-    borderRadius: 24,
+    borderRadius: UI_RADIUS.overlay,
     padding: 24,
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.surface,
   },
   iconContainer: {
     alignItems: "center",
@@ -231,19 +234,19 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     alignItems: "center",
-    borderRadius: 14,
+    borderRadius: UI_RADIUS.control,
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   cancelText: {
     fontSize: 15,
-    fontWeight: "600",
-    color: COLORS.textSecondary,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
   },
   confirmButton: {
     flex: 1,
-    borderRadius: 14,
+    borderRadius: UI_RADIUS.control,
     overflow: "hidden",
   },
   confirmButtonGradient: {

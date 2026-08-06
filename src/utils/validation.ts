@@ -2,12 +2,19 @@ import * as yup from "yup";
 
 export const profileSchema = yup.object({
   name: yup.string().required("Tên không được để trống"),
-  bank: yup.string().required("Vui lòng chọn ngân hàng"),
-  bankAccNumber: yup.string().required("Số tài khoản không được để trống"),
+  bank: yup.string().defined(),
+  bankAccNumber: yup
+    .string()
+    .when("bank", {
+      is: (value: string) => Boolean(value),
+      then: (schema) => schema.required("Nhập số tài khoản"),
+      otherwise: (schema) => schema.defined(),
+    })
+    .defined(),
   phone: yup
     .string()
-    .matches(/^[0-9]{9,11}$/, "Vui lòng nhập đúng định dạng")
-    .required(),
+    .matches(/^$|^[0-9]{9,11}$/, "Số điện thoại gồm 9–11 chữ số")
+    .defined(),
 });
 
 export const changePasswordSchema = yup.object({

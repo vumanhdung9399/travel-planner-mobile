@@ -7,12 +7,19 @@ import { DrawerActions, useNavigation } from "@react-navigation/native";
 import { Tabs, useFocusEffect, useSegments } from "expo-router";
 import { useCallback } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { COLORS } from "@/src/utils/constants";
+import { useSettingsStore } from "@/src/store/settings.store";
 
 export default function TabLayout() {
   const navigation = useNavigation();
   const { setUser } = useUserStore();
   const segments = useSegments() as string[];
   const { fetchNotifications, count } = useNotificationStore();
+  const darkMode = useSettingsStore((state) => state.darkMode);
+  const notificationsEnabled = useSettingsStore((state) => state.notificationsEnabled);
+  const surface = darkMode ? "#141E2E" : COLORS.surface;
+  const border = darkMode ? "#2A384C" : COLORS.border;
+  const muted = darkMode ? "#A9B7CA" : COLORS.textSecondary;
 
   const hideTab =
     segments.includes("groups") ||
@@ -23,10 +30,10 @@ export default function TabLayout() {
     useCallback(() => {
       const init = async () => {
         await getProfile();
-        await fetchNotifications();
+        if (notificationsEnabled) await fetchNotifications();
       };
       init();
-    }, []),
+    }, [notificationsEnabled]),
   );
 
   const getProfile = async () => {
@@ -42,7 +49,18 @@ export default function TabLayout() {
         backBehavior="history"
         screenOptions={{
           headerShown: false,
-          tabBarStyle: hideTab ? { display: "none" } : {},
+          tabBarActiveTintColor: COLORS.primary,
+          tabBarInactiveTintColor: muted,
+          tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
+          tabBarStyle: hideTab
+            ? { display: "none" }
+            : {
+                height: 68,
+                paddingTop: 7,
+                paddingBottom: 7,
+                backgroundColor: surface,
+                borderTopColor: border,
+              },
         }}
       >
         <Tabs.Screen
@@ -83,7 +101,7 @@ export default function TabLayout() {
             tabBarIcon: ({ color }) => (
               <Ionicons name="notifications-outline" size={20} color={color} />
             ),
-            tabBarBadge: count > 0 ? count : undefined,
+            tabBarBadge: notificationsEnabled && count > 0 ? count : undefined,
             tabBarBadgeStyle: {
               backgroundColor: "#FF3B30",
               color: "white",
@@ -107,8 +125,8 @@ export default function TabLayout() {
             ),
           }}
           listeners={{
-            tabPress: (e) => {
-              e.preventDefault();
+            tabPress: (event) => {
+              event.preventDefault();
               navigation.dispatch(DrawerActions.openDrawer());
             },
           }}
