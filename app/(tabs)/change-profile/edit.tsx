@@ -1,5 +1,6 @@
 import { CommonHeader } from "@/src/components/layout/CommonHeader";
 import { AvatarPicker } from "@/src/components/profile/AvatarEdit";
+import { useAppPalette } from "@/src/hook/useAppPalette";
 import { api } from "@/src/services/api";
 import { UserProfile } from "@/src/type/user";
 import { COLORS } from "@/src/utils/constants";
@@ -35,6 +36,7 @@ type FormValues = {
 };
 
 export default function EditProfileScreen() {
+  const palette = useAppPalette();
   const { user, setUser } = useUserStore();
   const [banks, setBanks] = useState<any[]>([]);
   const [openBank, setOpenBank] = useState(false);
@@ -153,7 +155,7 @@ export default function EditProfileScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: COLORS.surface }}>
+    <View style={{ flex: 1, backgroundColor: palette.surface }}>
       <CommonHeader title="Chỉnh sửa cá nhân" />
 
       <KeyboardAvoidingView
@@ -163,6 +165,7 @@ export default function EditProfileScreen() {
       >
         {/* ScrollView cho form - sẽ bị đẩy lên khi bàn phím hiện */}
         <ScrollView
+          style={{ backgroundColor: palette.surface }}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
@@ -214,17 +217,27 @@ export default function EditProfileScreen() {
             name="bank"
             render={({ field }) => (
               <View style={{ marginBottom: 20 }}>
-                <Text style={styles.label}>Ngân hàng</Text>
+                <Text style={[styles.label, { color: palette.textPrimary }]}>
+                  Ngân hàng
+                </Text>
                 <TouchableOpacity
-                  style={[styles.input, styles.bankSelector]}
+                  style={[
+                    styles.input,
+                    styles.bankSelector,
+                    {
+                      backgroundColor: palette.surface,
+                      borderColor: palette.border,
+                    },
+                    errors.bank?.message ? styles.inputError : null,
+                  ]}
                   onPress={() => setOpenBank(true)}
                   activeOpacity={0.7}
                 >
                   <Text
                     style={{
                       color: field.value
-                        ? COLORS.textPrimary
-                        : COLORS.textLight,
+                        ? palette.textPrimary
+                        : palette.textLight,
                     }}
                   >
                     {banks.find((b) => String(b.bin) === field.value)
@@ -233,7 +246,7 @@ export default function EditProfileScreen() {
                   <Ionicons
                     name="chevron-down"
                     size={20}
-                    color={COLORS.textSecondary}
+                    color={palette.textSecondary}
                   />
                 </TouchableOpacity>
                 {errors.bank?.message && (
@@ -245,23 +258,45 @@ export default function EditProfileScreen() {
                   animationType="slide"
                   onRequestClose={() => setOpenBank(false)}
                 >
-                  <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.surface }}>
-                    <View style={styles.modalHeader}>
-                      <Text style={styles.modalTitle}>Danh sách ngân hàng</Text>
+                  <SafeAreaView
+                    style={{ flex: 1, backgroundColor: palette.surface }}
+                  >
+                    <View
+                      style={[
+                        styles.modalHeader,
+                        {
+                          backgroundColor: palette.surface,
+                          borderColor: palette.border,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.modalTitle,
+                          { color: palette.textPrimary },
+                        ]}
+                      >
+                        Danh sách ngân hàng
+                      </Text>
                       <TouchableOpacity onPress={() => setOpenBank(false)}>
                         <Text style={styles.closeBtn}>Đóng</Text>
                       </TouchableOpacity>
                     </View>
 
                     <FlatList
+                      style={{ backgroundColor: palette.surface }}
                       data={banks}
                       keyExtractor={(item) => String(item.bin)}
                       renderItem={({ item }) => (
                         <TouchableOpacity
                           style={[
                             styles.menuItem,
+                            { borderColor: palette.border },
                             field.value === String(item.bin) &&
                               styles.menuItemActive,
+                            field.value === String(item.bin) && {
+                              backgroundColor: palette.purpleLight,
+                            },
                           ]}
                           onPress={() => {
                             field.onChange(String(item.bin));
@@ -271,6 +306,7 @@ export default function EditProfileScreen() {
                           <Text
                             style={[
                               styles.menuItemText,
+                              { color: palette.textPrimary },
                               field.value === String(item.bin) &&
                                 styles.menuItemTextActive,
                             ]}
@@ -313,7 +349,15 @@ export default function EditProfileScreen() {
         </ScrollView>
 
         {/* Button cố định ở cuối màn hình */}
-        <View style={styles.footer}>
+        <View
+          style={[
+            styles.footer,
+            {
+              backgroundColor: palette.surface,
+              borderTopColor: palette.border,
+            },
+          ]}
+        >
           <TouchableOpacity
             style={[styles.btn, isSubmitting && styles.btnDisabled]}
             onPress={handleSubmit(onSubmit)}
@@ -333,16 +377,31 @@ export default function EditProfileScreen() {
 }
 
 function Input({ label, error, disabled, ...props }: any) {
+  const palette = useAppPalette();
+
   return (
     <View style={{ marginBottom: 20 }}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, { color: palette.textPrimary }]}>
+        {label}
+      </Text>
       <TextInput
         {...props}
         editable={!disabled}
-        placeholderTextColor={COLORS.textLight}
+        placeholderTextColor={palette.textLight}
+        selectionColor={COLORS.primary}
+        keyboardAppearance={palette.isDark ? "dark" : "light"}
         style={[
           styles.input,
+          {
+            backgroundColor: palette.surface,
+            borderColor: palette.border,
+            color: palette.textPrimary,
+          },
           disabled && styles.inputDisabled,
+          disabled && {
+            backgroundColor: palette.surfaceMuted,
+            color: palette.textSecondary,
+          },
           error && styles.inputError,
         ]}
       />

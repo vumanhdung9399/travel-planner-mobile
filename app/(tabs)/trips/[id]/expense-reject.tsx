@@ -1,5 +1,7 @@
 import { CommonHeader } from "@/src/components/layout/CommonHeader";
+import { useAppPalette } from "@/src/hook/useAppPalette";
 import { api } from "@/src/services/api";
+import { useTripStore } from "@/src/store/trip.store";
 import { COLORS } from "@/src/utils/constants";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
@@ -7,16 +9,17 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
     ActivityIndicator,
-    SafeAreaView,
     StyleSheet,
     TextInput,
     TouchableOpacity,
     View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "react-native-paper";
 
 const RejectExpenseScreen = () => {
   const router = useRouter();
+  const palette = useAppPalette();
   const params = useLocalSearchParams<{
     id: string;
     expenseId: string;
@@ -45,6 +48,7 @@ const RejectExpenseScreen = () => {
       });
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      useTripStore.getState().markContentChanged();
       router.back();
     } catch (err) {
       console.error(err);
@@ -55,7 +59,10 @@ const RejectExpenseScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: palette.background }]}
+      edges={["bottom"]}
+    >
       <CommonHeader
         title="Từ chối chi phí"
         fallbackHref={{
@@ -67,21 +74,36 @@ const RejectExpenseScreen = () => {
       <View style={styles.content}>
         <View style={styles.iconContainer}>
           <View
-            style={[styles.iconGradient, { backgroundColor: COLORS.errorLight }]}
+            style={[
+              styles.iconGradient,
+              { backgroundColor: palette.errorLight },
+            ]}
           >
             <Text style={styles.iconEmoji}>❌</Text>
           </View>
         </View>
 
-        <Text style={styles.title}>Lý do từ chối</Text>
-        <Text style={styles.subtitle}>
+        <Text style={[styles.title, { color: palette.textPrimary }]}>
+          Lý do từ chối
+        </Text>
+        <Text style={[styles.subtitle, { color: palette.textSecondary }]}>
           Vui lòng nhập lý do từ chối chi phí này
         </Text>
 
         <TextInput
-          style={[styles.input, error ? styles.inputError : null]}
+          style={[
+            styles.input,
+            {
+              backgroundColor: palette.surface,
+              borderColor: palette.border,
+              color: palette.textPrimary,
+            },
+            error ? styles.inputError : null,
+          ]}
           placeholder="Nhập lý do..."
-          placeholderTextColor={COLORS.textLight}
+          placeholderTextColor={palette.textLight}
+          selectionColor={COLORS.primary}
+          keyboardAppearance={palette.isDark ? "dark" : "light"}
           value={reason}
           onChangeText={(text) => {
             setReason(text);
@@ -93,16 +115,34 @@ const RejectExpenseScreen = () => {
           maxLength={255}
         />
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
-        <Text style={styles.charCount}>{reason.length}/255</Text>
+        <Text style={[styles.charCount, { color: palette.textLight }]}>
+          {reason.length}/255
+        </Text>
       </View>
 
-      <View style={styles.bottomBar}>
+      <View
+        style={[
+          styles.bottomBar,
+          {
+            backgroundColor: palette.surface,
+            borderTopColor: palette.border,
+          },
+        ]}
+      >
         <TouchableOpacity
-          style={styles.cancelButton}
+          style={[
+            styles.cancelButton,
+            {
+              backgroundColor: palette.surfaceMuted,
+              borderColor: palette.border,
+            },
+          ]}
           onPress={() => router.back()}
           disabled={loading}
         >
-          <Text style={styles.cancelText}>Hủy</Text>
+          <Text style={[styles.cancelText, { color: palette.textPrimary }]}>
+            Hủy
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.submitButton, loading && styles.submitButtonDisabled]}

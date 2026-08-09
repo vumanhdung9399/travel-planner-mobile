@@ -1,5 +1,6 @@
 import TripDetailFormSheet from "@/src/components/trip/TripDetailFormSheet";
 import { api } from "@/src/services/api";
+import { useAppPalette } from "@/src/hook/useAppPalette";
 import { useAuthStore } from "@/src/store/auth.store";
 import { useTripStore } from "@/src/store/trip.store";
 import type { ExpenseItem, UserGroupRole } from "@/src/type/trip";
@@ -8,11 +9,13 @@ import { formatMoney, getNameFirstLetterUpper } from "@/src/utils/helper";
 import dayjs from "dayjs";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   Modal,
   SafeAreaView,
   ScrollView,
@@ -25,6 +28,8 @@ import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Avatar, Checkbox, IconButton, Surface, Text } from "react-native-paper";
 
 const parseTripDate = (value: string) => dayjs(String(value).slice(0, 10));
+const MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024;
+const SUPPORTED_ATTACHMENT_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 const getBoundedExpenseTime = (
   startDate: string,
@@ -45,6 +50,7 @@ const getBoundedExpenseTime = (
 
 const ExpenseFormScreen = () => {
   const router = useRouter();
+  const palette = useAppPalette();
   const { trip } = useTripStore();
   const { user } = useAuthStore();
   const params = useLocalSearchParams<{
@@ -71,6 +77,12 @@ const ExpenseFormScreen = () => {
   const [paidBy, setPaidBy] = useState(user?.id || "");
   const [participants, setParticipants] = useState<string[]>([]);
   const [note, setNote] = useState("");
+  const [attachment, setAttachment] =
+    useState<ImagePicker.ImagePickerAsset | null>(null);
+  const [attachmentPreview, setAttachmentPreview] = useState("");
+  const [existingAttachment, setExistingAttachment] = useState("");
+  const [removeAttachment, setRemoveAttachment] = useState(false);
+  const [attachmentError, setAttachmentError] = useState("");
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   // UI state
@@ -103,6 +115,11 @@ const ExpenseFormScreen = () => {
           .filter(Boolean) || [],
       );
       setNote(item.note || "");
+      setAttachment(null);
+      setAttachmentPreview(item.attachmentImage || "");
+      setExistingAttachment(item.attachmentImage || "");
+      setRemoveAttachment(false);
+      setAttachmentError("");
     } catch (err) {
       console.error(err);
     } finally {
@@ -175,13 +192,47 @@ const ExpenseFormScreen = () => {
       setLoading(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
+      let savedExpenseId = expenseId;
       if (isEditMode) {
         await api.patch(`/expenses/${tripId}/${expenseId}`, data);
       } else {
-        await api.post(`/expenses/${tripId}`, data);
+        const response = await api.post<ExpenseItem>(`/expenses/${tripId}`, data);
+        savedExpenseId = response.data.id;
+      }
+
+      if (attachment && savedExpenseId) {
+        const formData = new FormData();
+        const webFile = (attachment as ImagePicker.ImagePickerAsset & {
+          file?: File;
+        }).file;
+        const fileExtension = attachment.uri.split(".").pop()?.toLowerCase();
+        const mimeType =
+          attachment.mimeType ||
+          (fileExtension === "png"
+            ? "image/png"
+            : fileExtension === "webp"
+              ? "image/webp"
+              : "image/jpeg");
+
+        formData.append(
+          "file",
+          (webFile || {
+            uri: attachment.uri,
+            name: attachment.fileName || `expense-${Date.now()}.${fileExtension || "jpg"}`,
+            type: mimeType,
+          }) as any,
+        );
+        await api.patch(
+          `/expenses/${tripId}/${savedExpenseId}/attachment`,
+          formData,
+          { headers: { "Content-Type": "multipart/form-data" } },
+        );
+      } else if (removeAttachment && savedExpenseId) {
+        await api.delete(`/expenses/${tripId}/${savedExpenseId}/attachment`);
       }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      useTripStore.getState().markContentChanged();
       router.back();
     } catch (err) {
       console.error(err);
@@ -194,6 +245,54 @@ const ExpenseFormScreen = () => {
   const handleAmountChange = (value: string) => {
     const raw = value.replace(/\D/g, "");
     setAmount(raw);
+  };
+
+  const pickAttachment = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      setAttachmentError("Vui lòng cấp quyền truy cập thư viện ảnh");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: false,
+      quality: 0.9,
+    });
+    if (result.canceled) return;
+
+    const selected = result.assets[0];
+    const extension = selected.uri.split(".").pop()?.toLowerCase();
+    const mimeType =
+      selected.mimeType ||
+      (extension === "png"
+        ? "image/png"
+        : extension === "webp"
+          ? "image/webp"
+          : extension === "jpg" || extension === "jpeg"
+            ? "image/jpeg"
+            : "");
+
+    if (!SUPPORTED_ATTACHMENT_TYPES.includes(mimeType)) {
+      setAttachmentError("Chỉ hỗ trợ ảnh JPG, PNG hoặc WEBP");
+      return;
+    }
+    if (selected.fileSize && selected.fileSize > MAX_ATTACHMENT_SIZE) {
+      setAttachmentError("Kích thước ảnh tối đa là 5 MB");
+      return;
+    }
+
+    setAttachment({ ...selected, mimeType });
+    setAttachmentPreview(selected.uri);
+    setRemoveAttachment(false);
+    setAttachmentError("");
+  };
+
+  const clearAttachment = () => {
+    setAttachment(null);
+    setAttachmentPreview("");
+    setRemoveAttachment(Boolean(existingAttachment));
+    setAttachmentError("");
   };
 
   const toggleParticipant = (userId: string) => {
@@ -232,7 +331,9 @@ const ExpenseFormScreen = () => {
 
   if (fetching) {
     return (
-      <SafeAreaView style={styles.centered}>
+      <SafeAreaView
+        style={[styles.centered, { backgroundColor: palette.background }]}
+      >
         <ActivityIndicator size="large" color={COLORS.primary} />
       </SafeAreaView>
     );
@@ -249,18 +350,26 @@ const ExpenseFormScreen = () => {
     >
       <>
         <ScrollView
-          style={styles.scrollView}
+          style={[styles.scrollView, { backgroundColor: palette.surface }]}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
           {/* Tiêu đề */}
           <View style={styles.field}>
-            <Text style={styles.label}>Tiêu đề</Text>
+            <Text style={[styles.label, { color: palette.textPrimary }]}>Tiêu đề</Text>
             <TextInput
-              style={[styles.input, errors.title ? styles.inputError : null]}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: palette.surface,
+                  borderColor: palette.border,
+                  color: palette.textPrimary,
+                },
+                errors.title ? styles.inputError : null,
+              ]}
               placeholder="Nhập tiêu đề"
-              placeholderTextColor={COLORS.textLight}
+              placeholderTextColor={palette.textLight}
               value={title}
               onChangeText={setTitle}
               maxLength={100}
@@ -272,16 +381,21 @@ const ExpenseFormScreen = () => {
 
           {/* Số tiền */}
           <View style={styles.field}>
-            <Text style={styles.label}>Số tiền</Text>
+            <Text style={[styles.label, { color: palette.textPrimary }]}>Số tiền</Text>
             <View style={styles.amountContainer}>
               <TextInput
                 style={[
                   styles.input,
                   styles.amountInput,
+                  {
+                    backgroundColor: palette.surface,
+                    borderColor: palette.border,
+                    color: palette.textPrimary,
+                  },
                   errors.amount ? styles.inputError : null,
                 ]}
                 placeholder="0"
-                placeholderTextColor={COLORS.textLight}
+                placeholderTextColor={palette.textLight}
                 value={
                   amount
                     ? formatMoney(Number(amount)).replace(/\s?đ$/, "")
@@ -290,7 +404,11 @@ const ExpenseFormScreen = () => {
                 onChangeText={handleAmountChange}
                 keyboardType="numeric"
               />
-              <Text style={styles.currencySymbol}>đ</Text>
+              <Text
+                style={[styles.currencySymbol, { color: palette.textSecondary }]}
+              >
+                đ
+              </Text>
             </View>
             {errors.amount ? (
               <Text style={styles.errorText}>{errors.amount}</Text>
@@ -299,7 +417,7 @@ const ExpenseFormScreen = () => {
 
           {/* Danh mục */}
           <View style={styles.field}>
-            <Text style={styles.label}>Danh mục</Text>
+            <Text style={[styles.label, { color: palette.textPrimary }]}>Danh mục</Text>
             <View style={styles.categoryGrid}>
               {categories.map((item) => {
                 const isSelected = category === item.value;
@@ -308,7 +426,14 @@ const ExpenseFormScreen = () => {
                     key={item.value}
                     style={[
                       styles.categoryTile,
-                      isSelected && styles.categoryTileSelected,
+                      {
+                        backgroundColor: palette.surface,
+                        borderColor: palette.border,
+                      },
+                      isSelected && [
+                        styles.categoryTileSelected,
+                        { backgroundColor: palette.successLight },
+                      ],
                     ]}
                     onPress={() => {
                       setCategory(item.value);
@@ -320,6 +445,7 @@ const ExpenseFormScreen = () => {
                     <Text
                       style={[
                         styles.categoryTileLabel,
+                        { color: palette.textSecondary },
                         isSelected && styles.categoryTileLabelSelected,
                       ]}
                       numberOfLines={1}
@@ -337,28 +463,38 @@ const ExpenseFormScreen = () => {
 
           {/* Thời gian */}
           <View style={styles.field}>
-            <Text style={styles.label}>Thời gian</Text>
+            <Text style={[styles.label, { color: palette.textPrimary }]}>Thời gian</Text>
             <TouchableOpacity
-              style={styles.selectButton}
+              style={[
+                styles.selectButton,
+                {
+                  backgroundColor: palette.surface,
+                  borderColor: palette.border,
+                },
+              ]}
               onPress={() => setShowTimePicker(true)}
             >
-              <Text style={styles.selectText}>
+              <Text style={[styles.selectText, { color: palette.textPrimary }]}>
                 {dayjs(time).format("DD/MM/YYYY • HH:mm")}
               </Text>
               <Ionicons
                 name="chevron-forward"
                 size={21}
-                color={COLORS.textSecondary}
+                color={palette.textSecondary}
               />
             </TouchableOpacity>
           </View>
 
           {/* Người trả */}
           <View style={styles.field}>
-            <Text style={styles.label}>Người trả</Text>
+            <Text style={[styles.label, { color: palette.textPrimary }]}>Người trả</Text>
             <TouchableOpacity
               style={[
                 styles.selectButton,
+                {
+                  backgroundColor: palette.surface,
+                  borderColor: palette.border,
+                },
                 errors.paidBy ? styles.inputError : null,
               ]}
               onPress={() => setShowPayerModal(true)}
@@ -367,14 +503,16 @@ const ExpenseFormScreen = () => {
                 {selectedPayer && (
                   <>
                     {renderMemberAvatar(selectedPayer, 30)}
-                    <Text style={styles.payerName}>{selectedPayer.name}</Text>
+                    <Text style={[styles.payerName, { color: palette.textPrimary }]}>
+                      {selectedPayer.name}
+                    </Text>
                   </>
                 )}
               </View>
               <Ionicons
                 name="chevron-down"
                 size={20}
-                color={COLORS.textSecondary}
+                color={palette.textSecondary}
               />
             </TouchableOpacity>
             {errors.paidBy ? (
@@ -384,10 +522,14 @@ const ExpenseFormScreen = () => {
 
           {/* Người tham gia */}
           <View style={styles.field}>
-            <Text style={styles.label}>Chia cho</Text>
+            <Text style={[styles.label, { color: palette.textPrimary }]}>Chia cho</Text>
             <TouchableOpacity
               style={[
                 styles.selectButton,
+                {
+                  backgroundColor: palette.surface,
+                  borderColor: palette.border,
+                },
                 errors.participants ? styles.inputError : null,
               ]}
               onPress={() => setShowParticipantsModal(true)}
@@ -395,19 +537,24 @@ const ExpenseFormScreen = () => {
               <View style={styles.participantSummary}>
                 <View style={styles.avatarStack}>
                   {selectedParticipants.slice(0, 4).map((member) => (
-                    <View key={member.id} style={styles.stackedAvatar}>
+                    <View
+                      key={member.id}
+                      style={[styles.stackedAvatar, { borderColor: palette.surface }]}
+                    >
                       {renderMemberAvatar(member, 30)}
                     </View>
                   ))}
                 </View>
-                <Text style={styles.participantCount}>
+                <Text
+                  style={[styles.participantCount, { color: palette.textPrimary }]}
+                >
                   {participants.length} người
                 </Text>
               </View>
               <Ionicons
                 name="chevron-down"
                 size={20}
-                color={COLORS.textSecondary}
+                color={palette.textSecondary}
               />
             </TouchableOpacity>
             {errors.participants ? (
@@ -417,11 +564,19 @@ const ExpenseFormScreen = () => {
 
           {/* Ghi chú */}
           <View style={styles.field}>
-            <Text style={styles.label}>Ghi chú</Text>
+            <Text style={[styles.label, { color: palette.textPrimary }]}>Ghi chú</Text>
             <TextInput
-              style={[styles.input, styles.textArea]}
+              style={[
+                styles.input,
+                styles.textArea,
+                {
+                  backgroundColor: palette.surface,
+                  borderColor: palette.border,
+                  color: palette.textPrimary,
+                },
+              ]}
               placeholder="Thêm ghi chú (không bắt buộc)"
-              placeholderTextColor={COLORS.textLight}
+              placeholderTextColor={palette.textLight}
               value={note}
               onChangeText={setNote}
               multiline
@@ -429,6 +584,82 @@ const ExpenseFormScreen = () => {
               textAlignVertical="top"
               maxLength={500}
             />
+          </View>
+
+          {/* Ảnh hóa đơn / chứng từ */}
+          <View style={styles.field}>
+            <Text style={[styles.label, { color: palette.textPrimary }]}>Ảnh đính kèm</Text>
+            {attachmentPreview ? (
+              <View
+                style={[
+                  styles.attachmentPreviewContainer,
+                  {
+                    backgroundColor: palette.surfaceMuted,
+                    borderColor: palette.border,
+                  },
+                ]}
+              >
+                <Image
+                  source={{ uri: attachmentPreview }}
+                  style={styles.attachmentPreview}
+                  resizeMode="cover"
+                />
+                <View style={styles.attachmentActions}>
+                  <TouchableOpacity
+                    style={styles.changeAttachmentButton}
+                    onPress={pickAttachment}
+                    accessibilityLabel="Đổi ảnh đính kèm"
+                  >
+                    <Ionicons name="images-outline" size={17} color="#fff" />
+                    <Text style={styles.changeAttachmentText}>Đổi ảnh</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.removeAttachmentButton}
+                    onPress={clearAttachment}
+                    accessibilityLabel="Xóa ảnh đính kèm"
+                  >
+                    <Ionicons name="trash-outline" size={19} color={COLORS.error} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={[
+                  styles.attachmentPicker,
+                  {
+                    backgroundColor: palette.surfaceMuted,
+                    borderColor: palette.border,
+                  },
+                  attachmentError ? styles.inputError : null,
+                ]}
+                onPress={pickAttachment}
+                activeOpacity={0.75}
+                accessibilityLabel="Chọn ảnh hóa đơn hoặc chứng từ"
+              >
+                <Ionicons
+                  name="image-outline"
+                  size={24}
+                  color={palette.textSecondary}
+                />
+                <Text
+                  style={[
+                    styles.attachmentPickerText,
+                    { color: palette.textSecondary },
+                  ]}
+                >
+                  Chọn ảnh hóa đơn hoặc chứng từ
+                </Text>
+              </TouchableOpacity>
+            )}
+            <Text
+              style={
+                attachmentError
+                  ? styles.errorText
+                  : [styles.attachmentHint, { color: palette.textLight }]
+              }
+            >
+              {attachmentError || "JPG, PNG hoặc WEBP · tối đa 5 MB"}
+            </Text>
           </View>
         </ScrollView>
 
@@ -445,15 +676,20 @@ const ExpenseFormScreen = () => {
         minimumDate={parseTripDate(trip.startDate).startOf("day").toDate()}
         maximumDate={parseTripDate(trip.endDate).endOf("day").toDate()}
         is24Hour={true}
+        isDarkModeEnabled={palette.isDark}
       />
 
       {/* Payer Modal */}
       <Modal visible={showPayerModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <Surface style={styles.modalContent}>
-            <View style={styles.modalHandle} />
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Chọn người trả</Text>
+          <Surface
+            style={[styles.modalContent, { backgroundColor: palette.surface }]}
+          >
+            <View style={[styles.modalHandle, { backgroundColor: palette.border }]} />
+            <View style={[styles.modalHeader, { borderBottomColor: palette.border }]}>
+              <Text style={[styles.modalTitle, { color: palette.textPrimary }]}>
+                Chọn người trả
+              </Text>
               <IconButton
                 icon="close"
                 onPress={() => setShowPayerModal(false)}
@@ -466,7 +702,7 @@ const ExpenseFormScreen = () => {
                 const userId = item.id;
                 return (
                   <TouchableOpacity
-                    style={styles.memberItem}
+                    style={[styles.memberItem, { borderBottomColor: palette.border }]}
                     onPress={() => {
                       setPaidBy(userId);
                       setShowPayerModal(false);
@@ -474,7 +710,9 @@ const ExpenseFormScreen = () => {
                   >
                     {renderMemberAvatar(item, 40)}
                     <View style={styles.memberInfo}>
-                      <Text style={styles.memberName}>{item.name}</Text>
+                      <Text style={[styles.memberName, { color: palette.textPrimary }]}>
+                        {item.name}
+                      </Text>
                     </View>
                     {paidBy === userId && (
                       <IconButton
@@ -494,16 +732,20 @@ const ExpenseFormScreen = () => {
       {/* Participants Modal */}
       <Modal visible={showParticipantsModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <Surface style={styles.modalContent}>
-            <View style={styles.modalHandle} />
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Chia chi phí cho</Text>
+          <Surface
+            style={[styles.modalContent, { backgroundColor: palette.surface }]}
+          >
+            <View style={[styles.modalHandle, { backgroundColor: palette.border }]} />
+            <View style={[styles.modalHeader, { borderBottomColor: palette.border }]}>
+              <Text style={[styles.modalTitle, { color: palette.textPrimary }]}>
+                Chia chi phí cho
+              </Text>
               <IconButton
                 icon="close"
                 onPress={() => setShowParticipantsModal(false)}
               />
             </View>
-            <View style={styles.modalActions}>
+            <View style={[styles.modalActions, { borderBottomColor: palette.border }]}>
               <TouchableOpacity onPress={selectAllParticipants}>
                 <Text style={styles.modalActionText}>Chọn tất cả</Text>
               </TouchableOpacity>
@@ -522,13 +764,13 @@ const ExpenseFormScreen = () => {
                 const isSelected = participants.includes(userId);
                 return (
                   <TouchableOpacity
-                    style={styles.memberItem}
+                    style={[styles.memberItem, { borderBottomColor: palette.border }]}
                     onPress={() => toggleParticipant(userId)}
                     disabled={isPayer}
                   >
                     {renderMemberAvatar(item, 40)}
                     <View style={styles.memberInfo}>
-                      <Text style={styles.memberName}>
+                      <Text style={[styles.memberName, { color: palette.textPrimary }]}>
                         {item.name} {isPayer && "(Người trả)"}
                       </Text>
                     </View>
@@ -588,6 +830,70 @@ const styles = StyleSheet.create({
   textArea: {
     minHeight: 78,
     paddingTop: 13,
+  },
+  attachmentPicker: {
+    minHeight: 76,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    backgroundColor: COLORS.surfaceMuted,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 9,
+    paddingHorizontal: 16,
+  },
+  attachmentPickerText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  attachmentPreviewContainer: {
+    height: 158,
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surfaceMuted,
+  },
+  attachmentPreview: {
+    width: "100%",
+    height: "100%",
+  },
+  attachmentActions: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    flexDirection: "row",
+    gap: 7,
+  },
+  changeAttachmentButton: {
+    minHeight: 34,
+    borderRadius: 9,
+    paddingHorizontal: 11,
+    backgroundColor: "rgba(20, 33, 61, 0.84)",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  changeAttachmentText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  removeAttachmentButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 9,
+    backgroundColor: "rgba(255,255,255,0.94)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  attachmentHint: {
+    color: COLORS.textLight,
+    fontSize: 12,
+    marginTop: 6,
   },
   errorText: {
     fontSize: 12,

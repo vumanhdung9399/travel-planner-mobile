@@ -16,8 +16,12 @@ export const EmptyState = ({ onCreatePress }: { onCreatePress: () => void }) => 
         <Text style={styles.emptyEmoji}>👥</Text>
       </LinearGradient>
 
-      <Text style={styles.emptyTitle}>Chưa có nhóm nào</Text>
-      <Text style={styles.emptySubtext}>
+      <Text
+        style={[styles.emptyTitle, { color: palette.textPrimary }]}
+      >
+        Chưa có nhóm nào
+      </Text>
+      <Text style={[styles.emptySubtext, { color: palette.textSecondary }]}>
         Tạo nhóm đầu tiên để bắt đầu chia sẻ chi tiêu cùng bạn bè
       </Text>
 
@@ -57,12 +61,10 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 22,
     fontWeight: "700",
-    color: COLORS.textPrimary,
     marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 15,
-    color: COLORS.textSecondary,
     textAlign: "center",
     lineHeight: 22,
     marginBottom: 28,

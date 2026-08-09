@@ -1,3 +1,4 @@
+import { useAppPalette } from "@/src/hook/useAppPalette";
 import { useAuthStore } from "@/src/store/auth.store";
 import { COLORS } from "@/src/utils/constants";
 import { LinearGradient } from "expo-linear-gradient";
@@ -48,6 +49,7 @@ const slides: Slide[] = [
 
 const OnboardingScreen = () => {
   const router = useRouter();
+  const palette = useAppPalette();
   const { completeFirstTime } = useAuthStore();
   const sliderRef = useRef<AppIntroSlider>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -64,7 +66,7 @@ const OnboardingScreen = () => {
 
   const renderItem = ({ item }: { item: Slide }) => {
     return (
-      <View style={styles.slide}>
+      <View style={[styles.slide, { backgroundColor: palette.surface }]}>
         {/* Background Decorations */}
         <View style={styles.bgDecorTop}>
           <LinearGradient
@@ -103,8 +105,12 @@ const OnboardingScreen = () => {
 
         {/* Content */}
         <View style={styles.contentContainer}>
-          <Text style={styles.title}>{item.title}</Text>
-          <Text style={styles.text}>{item.text}</Text>
+          <Text style={[styles.title, { color: palette.textPrimary }]}>
+            {item.title}
+          </Text>
+          <Text style={[styles.text, { color: palette.textSecondary }]}>
+            {item.text}
+          </Text>
         </View>
       </View>
     );
@@ -137,8 +143,13 @@ const OnboardingScreen = () => {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: palette.surface }]}
+    >
+      <StatusBar
+        barStyle={palette.isDark ? "light-content" : "dark-content"}
+        backgroundColor={palette.surface}
+      />
 
       {/* Skip button */}
       {activeIndex < slides.length - 1 && (
@@ -161,7 +172,7 @@ const OnboardingScreen = () => {
         onDone={handleDone}
         bottomButton
         activeDotStyle={styles.activeDotStyle}
-        dotStyle={styles.dotStyle}
+        dotStyle={{ ...styles.dotStyle, backgroundColor: palette.border }}
       />
     </SafeAreaView>
   );

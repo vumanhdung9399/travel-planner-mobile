@@ -1,6 +1,6 @@
 import { useAuthStore } from "@/src/store/auth.store";
+import { useAppPalette } from "@/src/hook/useAppPalette";
 import type { UserGroup } from "@/src/type/user";
-import { COLORS } from "@/src/utils/constants";
 import { formatMoney, getNameFirstLetterUpper } from "@/src/utils/helper";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
@@ -14,7 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Avatar, Button, Surface, Text } from "react-native-paper";
+import { Avatar, Button, Surface, Text, useTheme } from "react-native-paper";
 
 interface BalanceItem {
   id: string;
@@ -52,6 +52,8 @@ const BalanceCard = ({
   debtItems,
   isCurrent,
 }: Props) => {
+  const palette = useAppPalette();
+  const theme = useTheme();
   const currentUser = useAuthStore((state) => state.user);
 
   const [expanded, setExpanded] = useState(false);
@@ -61,6 +63,14 @@ const BalanceCard = ({
   const isNeedToPay = paymentStatus === "pay";
   const isNeedToReceive = paymentStatus === "receive";
   const isSettled = paymentStatus === "settled";
+
+  const successColor = palette.isDark ? "#6EE7B7" : "#15803D";
+  const successBorder = palette.isDark ? "#23664D" : "#BBF7D0";
+  const errorColor = palette.isDark ? "#FDA4AF" : "#DC2626";
+  const errorBorder = palette.isDark ? "#7A3038" : "#FECACA";
+  const primaryContentColor = palette.isDark
+    ? theme.colors.onPrimaryContainer
+    : theme.colors.primary;
 
   const receiver = isNeedToPay ? leader : user;
   const sender = isNeedToPay ? user : leader;
@@ -110,9 +120,9 @@ const BalanceCard = ({
   };
 
   const getStatusColor = () => {
-    if (isNeedToPay) return COLORS.error;
-    if (isNeedToReceive) return COLORS.success;
-    return COLORS.textSecondary;
+    if (isNeedToPay) return errorColor;
+    if (isNeedToReceive) return successColor;
+    return palette.textSecondary;
   };
 
   const getDescriptionText = () => {
@@ -134,7 +144,16 @@ const BalanceCard = ({
   return (
     <>
       <Surface
-        style={[styles.container, isCurrent && styles.containerActive]}
+        style={[
+          styles.container,
+          {
+            backgroundColor: isCurrent
+              ? palette.errorLight
+              : palette.surface,
+            borderColor: isCurrent ? errorBorder : palette.border,
+            shadowColor: palette.isDark ? "#000000" : "#3D4E62",
+          },
+        ]}
         elevation={isCurrent ? 2 : 0}
       >
         {/* Header */}
@@ -146,17 +165,32 @@ const BalanceCard = ({
               <Avatar.Text
                 size={48}
                 label={getNameFirstLetterUpper(user?.name || "")}
-                style={styles.avatar}
+                style={{ backgroundColor: theme.colors.primary }}
               />
             )}
             <View style={styles.userText}>
               <View style={styles.nameRow}>
-                <Text style={styles.userName} numberOfLines={1}>
+                <Text
+                  style={[styles.userName, { color: palette.textPrimary }]}
+                  numberOfLines={1}
+                >
                   {user?.name}
                 </Text>
                 {isCurrent && (
-                  <View style={styles.youBadge}>
-                    <Text style={styles.youBadgeText}>Bạn</Text>
+                  <View
+                    style={[
+                      styles.youBadge,
+                      { backgroundColor: theme.colors.error },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.youBadgeText,
+                        { color: theme.colors.onError },
+                      ]}
+                    >
+                      Bạn
+                    </Text>
                   </View>
                 )}
               </View>
@@ -180,30 +214,43 @@ const BalanceCard = ({
         </View>
 
         {/* Description */}
-        <View style={styles.subLine}>
-          <Text style={styles.subText} numberOfLines={2}>
+        <View style={[styles.subLine, { borderTopColor: palette.border }]}>
+          <Text
+            style={[styles.subText, { color: palette.textSecondary }]}
+            numberOfLines={2}
+          >
             {getDescriptionText()}
           </Text>
           <View style={styles.actions}>
             {(isLeader || isCurrent) && (
               <TouchableOpacity
-                style={styles.qrButton}
+                style={[
+                  styles.qrButton,
+                  { backgroundColor: palette.surfaceMuted },
+                ]}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setQrModalVisible(true);
                 }}
               >
-                <Ionicons name="qr-code" size={20} color={COLORS.primary} />
+                <Ionicons
+                  name="qr-code"
+                  size={20}
+                  color={theme.colors.primary}
+                />
               </TouchableOpacity>
             )}
             <TouchableOpacity
-              style={styles.expandButton}
+              style={[
+                styles.expandButton,
+                { backgroundColor: palette.surfaceMuted },
+              ]}
               onPress={() => setExpanded(!expanded)}
             >
               <Ionicons
                 name={expanded ? "chevron-up" : "chevron-down"}
                 size={20}
-                color={COLORS.textSecondary}
+                color={palette.textSecondary}
               />
             </TouchableOpacity>
           </View>
@@ -211,36 +258,58 @@ const BalanceCard = ({
 
         {/* Expanded Details */}
         {expanded && (
-          <View style={styles.details}>
+          <View style={[styles.details, { borderTopColor: palette.border }]}>
             {/* Fund Information */}
             {fundAmount > 0 && (
-              <View style={styles.fundSection}>
+              <View
+                style={[
+                  styles.fundSection,
+                  { backgroundColor: palette.primaryLight },
+                ]}
+              >
                 <View style={styles.fundHeader}>
                   <Ionicons
                     name="briefcase-outline"
                     size={16}
-                    color={COLORS.primary}
+                    color={primaryContentColor}
                   />
-                  <Text style={styles.fundTitle}>Thông tin quỹ</Text>
+                  <Text
+                    style={[
+                      styles.fundTitle,
+                      { color: primaryContentColor },
+                    ]}
+                  >
+                    Thông tin quỹ
+                  </Text>
                 </View>
                 <View style={styles.fundRow}>
-                  <Text style={styles.fundLabel}>Đã đóng quỹ:</Text>
-                  <Text style={styles.fundValue}>
+                  <Text
+                    style={[styles.fundLabel, { color: palette.textSecondary }]}
+                  >
+                    Đã đóng quỹ:
+                  </Text>
+                  <Text
+                    style={[styles.fundValue, { color: palette.textPrimary }]}
+                  >
                     {formatMoney(fundAmount)}
                   </Text>
                 </View>
                 <View style={styles.fundRow}>
-                  <Text style={styles.fundLabel}>Số dư từ chi tiêu:</Text>
+                  <Text
+                    style={[styles.fundLabel, { color: palette.textSecondary }]}
+                  >
+                    Số dư từ chi tiêu:
+                  </Text>
                   <Text
                     style={[
                       styles.fundValue,
                       {
                         color:
                           balanceFromExpense > 0
-                            ? COLORS.success
+                            ? successColor
                             : balanceFromExpense < 0
-                              ? COLORS.error
-                              : COLORS.textSecondary,
+                              ? errorColor
+                              : palette.textSecondary,
                       },
                     ]}
                   >
@@ -249,8 +318,20 @@ const BalanceCard = ({
                       : formatMoney(balanceFromExpense)}
                   </Text>
                 </View>
-                <View style={styles.fundTotalRow}>
-                  <Text style={styles.fundTotalLabel}>Tổng kết:</Text>
+                <View
+                  style={[
+                    styles.fundTotalRow,
+                    { borderTopColor: palette.border },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.fundTotalLabel,
+                      { color: palette.textPrimary },
+                    ]}
+                  >
+                    Tổng kết:
+                  </Text>
                   <Text
                     style={[styles.fundTotalValue, { color: getStatusColor() }]}
                   >
@@ -267,9 +348,23 @@ const BalanceCard = ({
             {paidItems.length > 0 && (
               <View style={styles.itemsSection}>
                 <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>💸 Khoản đã trả</Text>
-                  <View style={styles.sectionBadge}>
-                    <Text style={styles.sectionBadgeText}>
+                  <Text
+                    style={[
+                      styles.sectionTitle,
+                      { color: palette.textSecondary },
+                    ]}
+                  >
+                    💸 Khoản đã trả
+                  </Text>
+                  <View
+                    style={[
+                      styles.sectionBadge,
+                      { backgroundColor: palette.successLight },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.sectionBadgeText, { color: successColor }]}
+                    >
                       {formatMoney(
                         paidItems.reduce((sum, i) => sum + i.amount, 0),
                       )}
@@ -278,21 +373,50 @@ const BalanceCard = ({
                 </View>
 
                 {paidItems.map((item) => (
-                  <View key={`paid-${item.id}`} style={styles.paidItem}>
+                  <View
+                    key={`paid-${item.id}`}
+                    style={[
+                      styles.paidItem,
+                      {
+                        backgroundColor: palette.successLight,
+                        borderColor: successBorder,
+                      },
+                    ]}
+                  >
                     <View style={styles.itemLeft}>
                       <Text style={styles.categoryIcon}>
                         {getCategoryIcon(item.category)}
                       </Text>
                       <View style={styles.itemInfo}>
-                        <Text style={styles.itemTitle} numberOfLines={1}>
+                        <Text
+                          style={[
+                            styles.itemTitle,
+                            { color: palette.textPrimary },
+                          ]}
+                          numberOfLines={1}
+                        >
                           {item.title}
                         </Text>
-                        <View style={styles.paidChip}>
-                          <Text style={styles.paidChipText}>Bạn đã trả</Text>
+                        <View
+                          style={[
+                            styles.paidChip,
+                            { backgroundColor: palette.surface },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.paidChipText,
+                              { color: successColor },
+                            ]}
+                          >
+                            Bạn đã trả
+                          </Text>
                         </View>
                       </View>
                     </View>
-                    <Text style={styles.paidAmount}>
+                    <Text
+                      style={[styles.paidAmount, { color: successColor }]}
+                    >
                       -{formatMoney(item.amount)}
                     </Text>
                   </View>
@@ -304,9 +428,21 @@ const BalanceCard = ({
             {debtItems.length > 0 && (
               <View style={styles.itemsSection}>
                 <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>📝 Khoản đang nợ</Text>
-                  <View style={[styles.sectionBadge, styles.debtBadge]}>
-                    <Text style={styles.debtBadgeText}>
+                  <Text
+                    style={[
+                      styles.sectionTitle,
+                      { color: palette.textSecondary },
+                    ]}
+                  >
+                    📝 Khoản đang nợ
+                  </Text>
+                  <View
+                    style={[
+                      styles.sectionBadge,
+                      { backgroundColor: palette.errorLight },
+                    ]}
+                  >
+                    <Text style={{ color: errorColor }}>
                       {formatMoney(
                         debtItems.reduce((sum, i) => sum + i.amount, 0),
                       )}
@@ -315,23 +451,48 @@ const BalanceCard = ({
                 </View>
 
                 {debtItems.map((item) => (
-                  <View key={`debt-${item.id}`} style={styles.debtItem}>
+                  <View
+                    key={`debt-${item.id}`}
+                    style={[
+                      styles.debtItem,
+                      {
+                        backgroundColor: palette.errorLight,
+                        borderColor: errorBorder,
+                      },
+                    ]}
+                  >
                     <View style={styles.itemLeft}>
                       <Text style={styles.categoryIcon}>
                         {getCategoryIcon(item.category)}
                       </Text>
                       <View style={styles.itemInfo}>
-                        <Text style={styles.itemTitle} numberOfLines={1}>
+                        <Text
+                          style={[
+                            styles.itemTitle,
+                            { color: palette.textPrimary },
+                          ]}
+                          numberOfLines={1}
+                        >
                           {item.title}
                         </Text>
-                        <View style={styles.debtChip}>
-                          <Text style={styles.debtChipText}>
+                        <View
+                          style={[
+                            styles.debtChip,
+                            { backgroundColor: palette.surface },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.debtChipText,
+                              { color: errorColor },
+                            ]}
+                          >
                             Nợ {item.payerName}
                           </Text>
                         </View>
                       </View>
                     </View>
-                    <Text style={styles.debtAmount}>
+                    <Text style={[styles.debtAmount, { color: errorColor }]}>
                       +{formatMoney(item.amount)}
                     </Text>
                   </View>
@@ -342,7 +503,9 @@ const BalanceCard = ({
             {paidItems.length === 0 &&
               debtItems.length === 0 &&
               fundAmount === 0 && (
-                <Text style={styles.emptyDetails}>
+                <Text
+                  style={[styles.emptyDetails, { color: palette.textLight }]}
+                >
                   Không có chi tiêu nào liên quan
                 </Text>
               )}
@@ -357,12 +520,35 @@ const BalanceCard = ({
         animationType="fade"
         onRequestClose={() => setQrModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <Surface style={styles.modalContent}>
+        <View
+          style={[
+            styles.modalOverlay,
+            {
+              backgroundColor: palette.isDark
+                ? "rgba(0,0,0,0.72)"
+                : "rgba(0,0,0,0.5)",
+            },
+          ]}
+        >
+          <Surface
+            style={[
+              styles.modalContent,
+              { backgroundColor: palette.surface },
+            ]}
+            elevation={5}
+          >
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Thanh toán</Text>
+              <Text
+                style={[styles.modalTitle, { color: palette.textPrimary }]}
+              >
+                Thanh toán
+              </Text>
               <TouchableOpacity onPress={() => setQrModalVisible(false)}>
-                <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+                <Ionicons
+                  name="close"
+                  size={24}
+                  color={palette.textSecondary}
+                />
               </TouchableOpacity>
             </View>
 
@@ -373,20 +559,42 @@ const BalanceCard = ({
                 <Avatar.Text
                   size={72}
                   label={getNameFirstLetterUpper(receiver?.name || "")}
-                  style={styles.receiverAvatar}
+                  style={[
+                    styles.receiverAvatar,
+                    { backgroundColor: theme.colors.primary },
+                  ]}
                 />
               )}
 
-              <Text style={styles.receiverName}>
+              <Text
+                style={[styles.receiverName, { color: palette.textPrimary }]}
+              >
                 Thanh toán cho {receiver?.name}
               </Text>
-              <Text style={styles.receiverAmount}>
+              <Text
+                style={[
+                  styles.receiverAmount,
+                  { color: theme.colors.primary },
+                ]}
+              >
                 {formatMoney(paymentAmount)}
               </Text>
 
-              <View style={styles.qrContainer}>
+              <View
+                style={[
+                  styles.qrContainer,
+                  {
+                    backgroundColor:
+                      isValidQR && !qrError ? "#FFFFFF" : palette.surfaceMuted,
+                    borderColor: palette.border,
+                    shadowColor: "#000000",
+                  },
+                ]}
+              >
                 {!isValidQR && (
-                  <Text style={styles.qrErrorText}>
+                  <Text
+                    style={[styles.qrErrorText, { color: errorColor }]}
+                  >
                     Người nhận chưa thiết lập thông tin ngân hàng, vui lòng vào
                     trang cá nhân để thêm thông tin tài khoản ngân hàng.
                   </Text>
@@ -409,7 +617,9 @@ const BalanceCard = ({
                 )}
 
                 {isValidQR && qrError && (
-                  <Text style={styles.qrErrorText}>
+                  <Text
+                    style={[styles.qrErrorText, { color: errorColor }]}
+                  >
                     Không thể tạo mã QR. Vui lòng kiểm tra lại thông tin ngân
                     hàng trong trang cá nhân.
                   </Text>
@@ -419,8 +629,11 @@ const BalanceCard = ({
               <Button
                 mode="outlined"
                 onPress={handleCopyContent}
-                style={styles.copyButton}
-                textColor={COLORS.primary}
+                style={[
+                  styles.copyButton,
+                  { borderColor: theme.colors.primary },
+                ]}
+                textColor={theme.colors.primary}
                 icon="content-copy"
               >
                 Copy nội dung
@@ -435,21 +648,13 @@ const BalanceCard = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.surface,
     borderRadius: 18,
     padding: 15,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    shadowColor: "#3D4E62",
     shadowOpacity: 0.04,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 1,
-  },
-  containerActive: {
-    borderColor: COLORS.error,
-    borderWidth: 1,
-    backgroundColor: COLORS.errorLight,
   },
   header: {
     marginBottom: 12,
@@ -457,9 +662,6 @@ const styles = StyleSheet.create({
   userInfo: {
     flexDirection: "row",
     alignItems: "center",
-  },
-  avatar: {
-    backgroundColor: COLORS.primary,
   },
   userText: {
     flex: 1,
@@ -473,12 +675,10 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 16,
     fontWeight: "600",
-    color: COLORS.textPrimary,
     flexShrink: 1,
     marginRight: 8,
   },
   youBadge: {
-    backgroundColor: COLORS.error,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,
@@ -486,7 +686,6 @@ const styles = StyleSheet.create({
   youBadgeText: {
     fontSize: 10,
     fontWeight: "600",
-    color: "#fff",
   },
   amountRow: {
     flexDirection: "row",
@@ -507,11 +706,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
   },
   subText: {
     fontSize: 12,
-    color: COLORS.textSecondary,
     flex: 1,
     marginRight: 12,
   },
@@ -524,7 +721,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: COLORS.surface,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -532,7 +728,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: COLORS.surface,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -540,11 +735,9 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
     gap: 16,
   },
   fundSection: {
-    backgroundColor: COLORS.infoLight,
     borderRadius: 12,
     padding: 12,
   },
@@ -557,7 +750,6 @@ const styles = StyleSheet.create({
   fundTitle: {
     fontSize: 13,
     fontWeight: "600",
-    color: COLORS.primary,
   },
   fundRow: {
     flexDirection: "row",
@@ -566,12 +758,10 @@ const styles = StyleSheet.create({
   },
   fundLabel: {
     fontSize: 12,
-    color: COLORS.textSecondary,
   },
   fundValue: {
     fontSize: 12,
     fontWeight: "500",
-    color: COLORS.textPrimary,
   },
   fundTotalRow: {
     flexDirection: "row",
@@ -579,12 +769,10 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: "#BFDBFE",
   },
   fundTotalLabel: {
     fontSize: 12,
     fontWeight: "600",
-    color: COLORS.textPrimary,
   },
   fundTotalValue: {
     fontSize: 12,
@@ -602,10 +790,8 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 12,
     fontWeight: "500",
-    color: COLORS.textSecondary,
   },
   sectionBadge: {
-    backgroundColor: COLORS.successLight,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 12,
@@ -613,13 +799,6 @@ const styles = StyleSheet.create({
   sectionBadgeText: {
     fontSize: 10,
     fontWeight: "600",
-    color: "#16A34A",
-  },
-  debtBadge: {
-    backgroundColor: COLORS.errorLight,
-  },
-  debtBadgeText: {
-    color: "#DC2626",
   },
   paidItem: {
     flexDirection: "row",
@@ -627,9 +806,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 10,
     borderRadius: 12,
-    backgroundColor: COLORS.successLight,
     borderWidth: 1,
-    borderColor: "#BBF7D0",
   },
   debtItem: {
     flexDirection: "row",
@@ -637,9 +814,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 10,
     borderRadius: 12,
-    backgroundColor: COLORS.errorLight,
     borderWidth: 1,
-    borderColor: "#FECACA",
   },
   itemLeft: {
     flexDirection: "row",
@@ -657,10 +832,8 @@ const styles = StyleSheet.create({
   itemTitle: {
     fontSize: 13,
     fontWeight: "500",
-    color: COLORS.textPrimary,
   },
   paidChip: {
-    backgroundColor: COLORS.successLight,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
@@ -668,11 +841,9 @@ const styles = StyleSheet.create({
   },
   paidChipText: {
     fontSize: 9,
-    color: "#16A34A",
     fontWeight: "500",
   },
   debtChip: {
-    backgroundColor: COLORS.errorLight,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
@@ -680,29 +851,24 @@ const styles = StyleSheet.create({
   },
   debtChipText: {
     fontSize: 9,
-    color: "#DC2626",
     fontWeight: "500",
   },
   paidAmount: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#16A34A",
   },
   debtAmount: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#DC2626",
   },
   emptyDetails: {
     fontSize: 13,
-    color: COLORS.textLight,
     fontStyle: "italic",
     textAlign: "center",
     paddingVertical: 12,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 20,
@@ -711,7 +877,6 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 360,
     borderRadius: 24,
-    backgroundColor: COLORS.surface,
   },
   modalHeader: {
     flexDirection: "row",
@@ -723,7 +888,6 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: COLORS.textPrimary,
   },
   modalBody: {
     padding: 24,
@@ -731,29 +895,25 @@ const styles = StyleSheet.create({
   },
   receiverAvatar: {
     marginBottom: 16,
-    backgroundColor: COLORS.primary,
   },
   receiverName: {
     fontSize: 16,
     fontWeight: "600",
-    color: COLORS.textPrimary,
     marginBottom: 4,
   },
   receiverAmount: {
     fontSize: 20,
     fontWeight: "700",
-    color: COLORS.primary,
     marginBottom: 20,
   },
   qrContainer: {
     width: 220,
     height: 260,
-    backgroundColor: COLORS.surface,
     borderRadius: 16,
+    borderWidth: 1,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 20,
-    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -766,13 +926,11 @@ const styles = StyleSheet.create({
   },
   qrErrorText: {
     fontSize: 13,
-    color: COLORS.error,
     textAlign: "center",
     paddingHorizontal: 8,
   },
   copyButton: {
     width: "100%",
-    borderColor: COLORS.primary,
   },
 });
 

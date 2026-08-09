@@ -7,11 +7,10 @@ import { exportPdf, formatPdfCurrency } from "@/src/utils/pdfExport";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  FlatList,
   Modal,
   RefreshControl,
   ScrollView,
@@ -22,10 +21,13 @@ import {
 import { Surface, Text } from "react-native-paper";
 import ConfirmDialog from "../ConfirmDialog";
 import { ExpenseCard } from "./ExpenseCard";
-import { useAppPalette } from "@/src/hook/useAppPalette";
+import { type AppPalette, useAppPalette } from "@/src/hook/useAppPalette";
 
 interface ExpenseListProps {
   trip: Trip;
+  refreshKey?: number;
+  contentInsetTop?: number;
+  onScrollOffsetChange?: (offset: number) => void;
   onExportReady?: (handler: (() => Promise<void>) | null) => void;
   onSummaryChange?: (summary: {
     eyebrow: string;
@@ -36,55 +38,76 @@ interface ExpenseListProps {
 
 type FilterType = "all" | "today" | "thisWeek" | "highAmount" | "lowAmount";
 type SortType = "newest" | "oldest" | "highest" | "lowest";
+type DayFilter = number | "all";
 
-const expenseCategoryTabs = [
+const getExpenseSemanticColors = (palette: AppPalette) => ({
+  primary: palette.isDark ? "#8CCBFF" : COLORS.primary,
+  success: palette.isDark ? "#6EE7B7" : COLORS.success,
+  error: palette.isDark ? "#FDA4AF" : COLORS.error,
+  warning: palette.isDark ? "#FDE68A" : "#8A5A00",
+  warningBorder: palette.isDark ? "#805D15" : "#FACC15",
+});
+
+const getExpenseCategoryTabs = (palette: AppPalette) => [
   {
     value: "all",
     label: "Tất cả",
     icon: "grid-outline",
-    color: COLORS.primary,
-    background: COLORS.primaryLight,
+    color: getExpenseSemanticColors(palette).primary,
+    background: palette.primaryLight,
   },
   {
     value: "Di chuyển",
     label: "Di chuyển",
     icon: "bus-outline",
-    color: "#1A9A68",
-    background: COLORS.successLight,
+    color: palette.isDark ? "#6EE7B7" : "#1A9A68",
+    background: palette.successLight,
   },
   {
     value: "Ăn uống",
     label: "Ăn uống",
     icon: "restaurant-outline",
-    color: "#ED7A35",
-    background: COLORS.orangeLight,
+    color: palette.isDark ? "#FDBA74" : "#ED7A35",
+    background: palette.orangeLight,
   },
   {
     value: "Mua sắm",
     label: "Mua sắm",
     icon: "bag-handle-outline",
-    color: "#7465D7",
-    background: COLORS.purpleLight,
+    color: palette.isDark ? "#C4B5FD" : "#7465D7",
+    background: palette.purpleLight,
   },
   {
     value: "Khác",
     label: "Khác",
     icon: "ellipsis-horizontal",
-    color: COLORS.textSecondary,
-    background: COLORS.surfaceMuted,
+    color: palette.textSecondary,
+    background: palette.surfaceMuted,
   },
 ] as const;
 
 const ExpenseList = ({
   trip,
+  refreshKey = 0,
+  contentInsetTop = 0,
+  onScrollOffsetChange,
   onExportReady,
   onSummaryChange,
 }: ExpenseListProps) => {
   const palette = useAppPalette();
+  const styles = useMemo(() => createStyles(palette), [palette]);
+  const expenseCategoryTabs = useMemo(
+    () => getExpenseCategoryTabs(palette),
+    [palette],
+  );
+  const semanticColors = useMemo(
+    () => getExpenseSemanticColors(palette),
+    [palette],
+  );
   const router = useRouter();
   const { user } = useAuthStore();
 
-  const [selectedDay, setSelectedDay] = useState(1);
+  const [selectedDay, setSelectedDay] = useState<DayFilter>("all");
   const [listExpenses, setListExpenses] = useState<ExpenseItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -178,9 +201,11 @@ const ExpenseList = ({
     items = items.filter((i) => i.status === EXPENSE_STATUS.APPROVED);
 
     // Filter by day
-    items = items.filter(
-      (i) => getDayFromTime(i.time, trip.startDate) === selectedDay,
-    );
+    if (selectedDay !== "all") {
+      items = items.filter(
+        (i) => getDayFromTime(i.time, trip.startDate) === selectedDay,
+      );
+    }
 
     // Filter by category
     if (selectedCategory !== "all") {
@@ -246,7 +271,8 @@ const ExpenseList = ({
         .filter(
           (item) =>
             item.status === EXPENSE_STATUS.APPROVED &&
-            getDayFromTime(item.time, trip.startDate) === selectedDay,
+            (selectedDay === "all" ||
+              getDayFromTime(item.time, trip.startDate) === selectedDay),
         )
         .reduce((sum, item) => sum + Number(item.amount), 0),
     [listExpenses, selectedDay, trip.startDate],
@@ -260,11 +286,15 @@ const ExpenseList = ({
             value: `${countPending} khoản`,
             pill: "Chờ duyệt",
           }
-        : {
-            eyebrow: `Tổng chi Ngày ${selectedDay}`,
-            value: formatMoney(totalDay),
-            pill: `Ngày ${selectedDay}`,
-          },
+        : selectedDay === "all"
+          ? {
+              eyebrow: "Tổng chi chuyến đi",
+              value: formatMoney(totalDay),
+            }
+          : {
+              eyebrow: `Tổng chi Ngày ${selectedDay}`,
+              value: formatMoney(totalDay),
+            },
     );
   }, [countPending, onSummaryChange, selectedDay, showPending, totalDay]);
 
@@ -280,13 +310,11 @@ const ExpenseList = ({
     setCountPending(count);
   }, [listExpenses, trip.isLeader, currentUserId]);
 
-  useFocusEffect(
-    useCallback(() => {
-      if (!trip.id) return;
-      getExpenses();
-      getMember();
-    }, [trip.id]),
-  );
+  useEffect(() => {
+    if (!trip.id) return;
+    void getExpenses();
+    void getMember();
+  }, [refreshKey, trip.id]);
 
   const getExpenses = async () => {
     try {
@@ -431,8 +459,14 @@ const ExpenseList = ({
           style={[styles.filterChip, styles.filterButton]}
           onPress={() => setFilterModalVisible(true)}
         >
-          <Ionicons name="funnel-outline" size={14} color={COLORS.primary} />
-          <Text style={[styles.filterChipText, { color: COLORS.primary }]}>
+          <Ionicons
+            name="funnel-outline"
+            size={14}
+            color={semanticColors.primary}
+          />
+          <Text
+            style={[styles.filterChipText, { color: semanticColors.primary }]}
+          >
             Bộ lọc
           </Text>
           {hasActiveFilters && <View style={styles.activeDot} />}
@@ -452,7 +486,7 @@ const ExpenseList = ({
           <Ionicons
             name="options-outline"
             size={14}
-            color={COLORS.textSecondary}
+            color={palette.textSecondary}
           />
           <Text style={styles.filterChipText}>Tất cả</Text>
         </TouchableOpacity>
@@ -468,7 +502,11 @@ const ExpenseList = ({
             )
           }
         >
-          <Ionicons name="trending-up" size={14} color={COLORS.error} />
+          <Ionicons
+            name="trending-up"
+            size={14}
+            color={semanticColors.error}
+          />
           <Text style={styles.filterChipText}>&gt; 500k</Text>
         </TouchableOpacity>
 
@@ -483,7 +521,11 @@ const ExpenseList = ({
             )
           }
         >
-          <Ionicons name="trending-down" size={14} color={COLORS.success} />
+          <Ionicons
+            name="trending-down"
+            size={14}
+            color={semanticColors.success}
+          />
           <Text style={styles.filterChipText}>{"< 100k"}</Text>
         </TouchableOpacity>
 
@@ -493,7 +535,11 @@ const ExpenseList = ({
             onPress={() => setSelectedCategory("all")}
           >
             <Text style={styles.filterChipText}>{selectedCategory}</Text>
-            <Ionicons name="close-circle" size={14} color={COLORS.primary} />
+            <Ionicons
+              name="close-circle"
+              size={14}
+              color={semanticColors.primary}
+            />
           </TouchableOpacity>
         )}
 
@@ -505,7 +551,11 @@ const ExpenseList = ({
             <Text style={styles.filterChipText}>
               {availablePayers.find((p) => p.id === selectedPayer)?.name}
             </Text>
-            <Ionicons name="close-circle" size={14} color={COLORS.primary} />
+            <Ionicons
+              name="close-circle"
+              size={14}
+              color={semanticColors.primary}
+            />
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -528,7 +578,7 @@ const ExpenseList = ({
               <Ionicons
                 name="close-outline"
                 size={24}
-                color={COLORS.textSecondary}
+                color={palette.textSecondary}
               />
             </TouchableOpacity>
           </View>
@@ -560,8 +610,8 @@ const ExpenseList = ({
                       size={16}
                       color={
                         sortBy === sort.id
-                          ? COLORS.primary
-                          : COLORS.textSecondary
+                          ? semanticColors.primary
+                          : palette.textSecondary
                       }
                     />
                     <Text
@@ -776,13 +826,33 @@ const ExpenseList = ({
   if (loading && !refreshing) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={semanticColors.primary} />
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: palette.background }]}> 
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingTop: contentInsetTop }}
+      showsVerticalScrollIndicator={false}
+      onScroll={(event) =>
+        onScrollOffsetChange?.(event.nativeEvent.contentOffset.y)
+      }
+      scrollEventThrottle={16}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => {
+            setRefreshing(true);
+            getExpenses();
+          }}
+          tintColor={semanticColors.primary}
+          colors={[semanticColors.primary]}
+          progressBackgroundColor={palette.surface}
+        />
+      }
+    >
       {/* HEADER */}
       <Surface style={styles.header} elevation={0}>
         <View style={styles.categoryRail}>
@@ -837,6 +907,32 @@ const ExpenseList = ({
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.dayScroll}
           >
+            <TouchableOpacity
+              style={[
+                styles.dayChip,
+                selectedDay === "all" &&
+                  !showPending &&
+                  styles.dayChipActive,
+              ]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setSelectedDay("all");
+                setShowPending(false);
+              }}
+            >
+              {selectedDay === "all" && !showPending ? (
+                <LinearGradient
+                  colors={COLORS.primaryGradient as readonly [string, string]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.dayChipGradient}
+                >
+                  <Text style={styles.dayChipTextActive}>Tất cả ngày</Text>
+                </LinearGradient>
+              ) : (
+                <Text style={styles.dayChipText}>Tất cả ngày</Text>
+              )}
+            </TouchableOpacity>
             {days.map((d) => (
               <TouchableOpacity
                 key={d}
@@ -871,7 +967,11 @@ const ExpenseList = ({
             onPress={() => setFilterModalVisible(true)}
             accessibilityLabel="Mở bộ lọc chi phí"
           >
-            <Ionicons name="options-outline" size={18} color={COLORS.primary} />
+            <Ionicons
+              name="options-outline"
+              size={18}
+              color={semanticColors.primary}
+            />
             {hasActiveFilters ? <View style={styles.compactFilterDot} /> : null}
           </TouchableOpacity>
           <TouchableOpacity
@@ -891,7 +991,9 @@ const ExpenseList = ({
               <Ionicons
                 name="time-outline"
                 size={14}
-                color={showPending ? "#8A5A00" : COLORS.textSecondary}
+                color={
+                  showPending ? semanticColors.warning : palette.textSecondary
+                }
               />
               <Text
                 style={[
@@ -909,11 +1011,10 @@ const ExpenseList = ({
       </Surface>
 
       {/* LIST */}
-      <FlatList
-        data={filteredItems}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
+      <View style={styles.listContent}>
+        {filteredItems.map((item) => (
           <ExpenseCard
+            key={item.id}
             trip={trip}
             item={item}
             currentUserId={currentUserId}
@@ -928,20 +1029,8 @@ const ExpenseList = ({
               !trip.isLeader && item.status === EXPENSE_STATUS.PENDING
             }
           />
-        )}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => {
-              setRefreshing(true);
-              getExpenses();
-            }}
-            tintColor={COLORS.primary}
-          />
-        }
-        ListEmptyComponent={
+        ))}
+        {filteredItems.length === 0 ? (
           <Surface style={styles.emptyContainer} elevation={0}>
             <Text style={styles.emptyEmoji}>
               {hasActiveFilters && !showPending ? "🔍" : "💰"}
@@ -960,8 +1049,8 @@ const ExpenseList = ({
               </TouchableOpacity>
             )}
           </Surface>
-        }
-      />
+        ) : null}
+      </View>
 
       {renderFilterModal()}
 
@@ -975,22 +1064,23 @@ const ExpenseList = ({
         onConfirm={confirmConfig.onConfirm}
         onCancel={() => setConfirmOpen(false)}
       />
-    </View>
+    </ScrollView>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (palette: AppPalette) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: palette.background,
   },
   centered: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: palette.background,
   },
   header: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: palette.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 14,
@@ -998,7 +1088,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     marginBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: palette.border,
   },
   categoryRail: {
     flexDirection: "row",
@@ -1025,17 +1115,17 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   categoryLabel: {
-    color: COLORS.textSecondary,
+    color: palette.textSecondary,
     fontSize: 10,
     fontWeight: "500",
   },
   categoryLabelActive: {
-    color: COLORS.primary,
+    color: getExpenseSemanticColors(palette).primary,
     fontWeight: "700",
   },
   headerDivider: {
     height: 1,
-    backgroundColor: COLORS.border,
+    backgroundColor: palette.border,
     marginTop: 14,
     marginHorizontal: -10,
   },
@@ -1063,7 +1153,7 @@ const styles = StyleSheet.create({
   dayChipText: {
     fontSize: 13,
     fontWeight: "600",
-    color: COLORS.textSecondary,
+    color: palette.textSecondary,
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
@@ -1077,25 +1167,25 @@ const styles = StyleSheet.create({
     height: 34,
     paddingHorizontal: 10,
     borderRadius: 12,
-    backgroundColor: COLORS.surface,
+    backgroundColor: palette.surface,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: palette.border,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 3,
   },
   pendingChipActive: {
-    backgroundColor: "#facc15",
-    borderColor: "#facc15",
+    backgroundColor: palette.warningLight,
+    borderColor: getExpenseSemanticColors(palette).warningBorder,
   },
   pendingChipText: {
     fontSize: 12,
     fontWeight: "600",
-    color: COLORS.textSecondary,
+    color: palette.textSecondary,
   },
   pendingChipTextActive: {
-    color: "#8A5A00",
+    color: getExpenseSemanticColors(palette).warning,
   },
   pendingChipContent: {
     flexDirection: "row",
@@ -1108,8 +1198,8 @@ const styles = StyleSheet.create({
     height: 34,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: COLORS.primary + "55",
-    backgroundColor: COLORS.primaryLight,
+    borderColor: getExpenseSemanticColors(palette).primary,
+    backgroundColor: palette.primaryLight,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1136,22 +1226,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: COLORS.surfaceMuted,
+    backgroundColor: palette.surfaceMuted,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: palette.border,
     position: "relative",
   },
   filterChipActive: {
-    backgroundColor: COLORS.primary + "15",
-    borderColor: COLORS.primary,
+    backgroundColor: palette.primaryLight,
+    borderColor: getExpenseSemanticColors(palette).primary,
   },
   filterChipText: {
     fontSize: 12,
-    color: COLORS.textSecondary,
+    color: palette.textSecondary,
   },
   filterButton: {
-    backgroundColor: COLORS.primary + "08",
-    borderColor: COLORS.primary,
+    backgroundColor: palette.primaryLight,
+    borderColor: getExpenseSemanticColors(palette).primary,
   },
   activeDot: {
     position: "absolute",
@@ -1173,20 +1263,20 @@ const styles = StyleSheet.create({
   },
   totalLabel: {
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: palette.textSecondary,
   },
   itemCount: {
     fontSize: 11,
-    color: COLORS.textSecondary,
+    color: palette.textSecondary,
   },
   totalAmount: {
     fontSize: 24,
     fontWeight: "800",
-    color: COLORS.success,
+    color: getExpenseSemanticColors(palette).success,
   },
   pendingHint: {
     fontSize: 12,
-    color: "#facc15",
+    color: getExpenseSemanticColors(palette).warning,
     marginTop: 8,
   },
   listContent: {
@@ -1195,12 +1285,12 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   emptyContainer: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: palette.surface,
     borderRadius: 20,
     padding: 40,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: palette.border,
   },
   emptyEmoji: {
     fontSize: 48,
@@ -1208,28 +1298,30 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 15,
-    color: COLORS.textSecondary,
+    color: palette.textSecondary,
   },
   clearFilterButton: {
     marginTop: 12,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: COLORS.primary + "10",
+    backgroundColor: palette.primaryLight,
   },
   clearFilterText: {
     fontSize: 13,
-    color: COLORS.primary,
+    color: getExpenseSemanticColors(palette).primary,
     fontWeight: "500",
   },
   // Modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: palette.isDark
+      ? "rgba(0,0,0,0.72)"
+      : "rgba(0,0,0,0.5)",
     justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: palette.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: "85%",
@@ -1243,22 +1335,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: palette.border,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: COLORS.textPrimary,
+    color: palette.textPrimary,
   },
   filterSection: {
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: palette.border,
   },
   filterSectionTitle: {
     fontSize: 14,
     fontWeight: "600",
-    color: COLORS.textPrimary,
+    color: palette.textPrimary,
     marginBottom: 12,
   },
   sortGrid: {
@@ -1273,62 +1365,62 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: COLORS.surfaceMuted,
+    backgroundColor: palette.surfaceMuted,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: palette.border,
   },
   sortButtonActive: {
-    backgroundColor: COLORS.primary + "15",
-    borderColor: COLORS.primary,
+    backgroundColor: palette.primaryLight,
+    borderColor: getExpenseSemanticColors(palette).primary,
   },
   sortButtonText: {
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: palette.textSecondary,
   },
   sortButtonTextActive: {
-    color: COLORS.primary,
+    color: getExpenseSemanticColors(palette).primary,
     fontWeight: "500",
   },
   categoryButton: {
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: COLORS.surfaceMuted,
+    backgroundColor: palette.surfaceMuted,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: palette.border,
     marginRight: 8,
   },
   categoryButtonActive: {
-    backgroundColor: COLORS.primary + "15",
-    borderColor: COLORS.primary,
+    backgroundColor: palette.primaryLight,
+    borderColor: getExpenseSemanticColors(palette).primary,
   },
   categoryButtonText: {
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: palette.textSecondary,
   },
   categoryButtonTextActive: {
-    color: COLORS.primary,
+    color: getExpenseSemanticColors(palette).primary,
     fontWeight: "500",
   },
   payerButton: {
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: COLORS.surfaceMuted,
+    backgroundColor: palette.surfaceMuted,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: palette.border,
     marginRight: 8,
   },
   payerButtonActive: {
-    backgroundColor: COLORS.primary + "15",
-    borderColor: COLORS.primary,
+    backgroundColor: palette.primaryLight,
+    borderColor: getExpenseSemanticColors(palette).primary,
   },
   payerButtonText: {
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: palette.textSecondary,
   },
   payerButtonTextActive: {
-    color: COLORS.primary,
+    color: getExpenseSemanticColors(palette).primary,
     fontWeight: "500",
   },
   amountGrid: {
@@ -1339,27 +1431,27 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     borderRadius: 20,
-    backgroundColor: COLORS.surfaceMuted,
+    backgroundColor: palette.surfaceMuted,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: palette.border,
     alignItems: "center",
   },
   amountButtonActive: {
-    backgroundColor: COLORS.primary + "15",
-    borderColor: COLORS.primary,
+    backgroundColor: palette.primaryLight,
+    borderColor: getExpenseSemanticColors(palette).primary,
   },
   amountButtonText: {
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: palette.textSecondary,
     fontWeight: "500",
   },
   activeFiltersSection: {
     padding: 16,
-    backgroundColor: COLORS.surfaceMuted,
+    backgroundColor: palette.surfaceMuted,
   },
   activeFiltersTitle: {
     fontSize: 12,
-    color: COLORS.textSecondary,
+    color: palette.textSecondary,
     marginBottom: 8,
   },
   activeFiltersContainer: {
@@ -1368,33 +1460,34 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   activeFilterBadge: {
-    backgroundColor: COLORS.primary + "10",
+    backgroundColor: palette.primaryLight,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 16,
   },
   activeFilterText: {
     fontSize: 12,
-    color: COLORS.primary,
+    color: getExpenseSemanticColors(palette).primary,
   },
   modalFooter: {
     flexDirection: "row",
     padding: 16,
     gap: 12,
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
+    borderTopColor: palette.border,
+    backgroundColor: palette.surface,
   },
   resetButton: {
     flex: 1,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: COLORS.surfaceMuted,
+    backgroundColor: palette.surfaceMuted,
     alignItems: "center",
   },
   resetButtonText: {
     fontSize: 15,
     fontWeight: "600",
-    color: COLORS.textSecondary,
+    color: palette.textSecondary,
   },
   applyButton: {
     flex: 1,

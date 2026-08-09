@@ -1,6 +1,7 @@
 import type { ExpenseItem, Trip } from "@/src/type/trip";
 import type { UserGroup } from "@/src/type/user";
-import { COLORS, EXPENSE_STATUS } from "@/src/utils/constants";
+import { useAppPalette } from "@/src/hook/useAppPalette";
+import { EXPENSE_STATUS } from "@/src/utils/constants";
 import {
   formatMoney,
   formatTime,
@@ -8,8 +9,8 @@ import {
 } from "@/src/utils/helper";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
-import { Avatar, Surface, Text } from "react-native-paper";
+import { Image, Modal, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Avatar, Surface, Text, useTheme } from "react-native-paper";
 import ActionSheet from "../ActionSheet";
 
 interface Category {
@@ -44,7 +45,12 @@ export const ExpenseCard = ({
   onApproval,
   onReject,
 }: ExpenseCardProps) => {
+  const palette = useAppPalette();
+  const theme = useTheme();
   const [actionOpen, setActionOpen] = useState(false);
+  const [attachmentOpen, setAttachmentOpen] = useState(false);
+  const successColor = palette.isDark ? "#6EE7B7" : "#159A6F";
+  const errorColor = palette.isDark ? "#FDA4AF" : theme.colors.error;
   const canEdit =
     !isApproval &&
     item.status !== EXPENSE_STATUS.REJECTED &&
@@ -58,25 +64,40 @@ export const ExpenseCard = ({
 
   const category = categories.find((c) => c.value === item.category);
   const categoryColors: Record<string, { background: string; color: string }> = {
-    "Ăn uống": { background: COLORS.orangeLight, color: "#ED7A35" },
-    "Di chuyển": { background: COLORS.successLight, color: "#1A9A68" },
-    "Mua sắm": { background: COLORS.purpleLight, color: "#7465D7" },
-    Khác: { background: COLORS.surfaceMuted, color: COLORS.textSecondary },
+    "Ăn uống": {
+      background: palette.orangeLight,
+      color: palette.isDark ? "#FDBA74" : "#ED7A35",
+    },
+    "Di chuyển": {
+      background: palette.successLight,
+      color: palette.isDark ? "#6EE7B7" : "#1A9A68",
+    },
+    "Mua sắm": {
+      background: palette.purpleLight,
+      color: palette.isDark ? "#C4B5FD" : "#7465D7",
+    },
+    Khác: { background: palette.surfaceMuted, color: palette.textSecondary },
   };
   const categoryTone = categoryColors[item.category] || categoryColors.Khác;
+  const secondaryText = item.note || category?.label || item.category;
 
   const isMePaid = item.paidBy?.id === currentUserId;
   const isMeInvolved = item.participants?.find((p) => p.id === currentUserId);
 
   const getAmountColor = () => {
-    if (isMePaid) return COLORS.success;
-    if (isMeInvolved) return COLORS.error;
-    return COLORS.textPrimary;
+    if (isMePaid) return successColor;
+    if (isMeInvolved) return errorColor;
+    return palette.textPrimary;
   };
 
   return (
-    <Surface style={styles.container} elevation={0}>
-      {/* TOP */}
+    <Surface
+      style={[
+        styles.container,
+        { backgroundColor: palette.surface, borderColor: palette.border },
+      ]}
+      elevation={0}
+    >
       <View style={styles.topRow}>
         <View
           style={[
@@ -84,83 +105,130 @@ export const ExpenseCard = ({
             { backgroundColor: categoryTone.background },
           ]}
         >
-          <Text
-            style={[styles.categoryIcon, { color: categoryTone.color }]}
-          >
+          <Text style={[styles.categoryIcon, { color: categoryTone.color }]}>
             {category?.icon || "💸"}
           </Text>
         </View>
 
         <View style={styles.content}>
-          <View style={styles.titleRow}>
-            <View style={styles.titleBlock}>
-              <Text style={styles.categoryLabel}>
-                {category?.label || item.category}
-              </Text>
-              <Text style={styles.title} numberOfLines={2}>
-                {item.title}
-              </Text>
-            </View>
-            <Text style={[styles.amount, { color: getAmountColor() }]}>
-              {formatMoney(item.amount)}
+          <View style={styles.titleWithAttachment}>
+            <Text
+              style={[styles.title, { color: palette.textPrimary }]}
+              numberOfLines={1}
+            >
+              {item.title}
             </Text>
+            {item.attachmentImage ? (
+              <TouchableOpacity
+                style={styles.attachmentButton}
+                onPress={() => setAttachmentOpen(true)}
+                accessibilityLabel={`Xem ảnh đính kèm của ${item.title}`}
+              >
+                <Ionicons
+                  name="attach-outline"
+                  size={18}
+                  color={palette.textSecondary}
+                />
+              </TouchableOpacity>
+            ) : null}
           </View>
-
-          <Text style={styles.meta}>
-            {formatTime(item.time)} • {isMePaid ? "Bạn trả" : item.paidBy?.name}
-          </Text>
+          {secondaryText ? (
+            <Text
+              style={[styles.subtitle, { color: palette.textSecondary }]}
+              numberOfLines={1}
+            >
+              {secondaryText}
+            </Text>
+          ) : null}
         </View>
+
+        <Text style={[styles.amount, { color: getAmountColor() }]} numberOfLines={1}>
+          {formatMoney(item.amount)}
+        </Text>
       </View>
 
-      {/* NOTE */}
-      {item.note && (
-        <Text style={styles.note} numberOfLines={2}>
-          {item.note}
-        </Text>
-      )}
-
-      {/* BOTTOM */}
       <View style={styles.bottomRow}>
-        {/* PARTICIPANTS */}
-        <View style={styles.participants}>
-          {participants.slice(0, 5).map((u) => (
-            <View key={u.id} style={styles.participantAvatar}>
-              {u.avatar ? (
-                <Avatar.Image source={{ uri: u.avatar }} size={24} />
-              ) : (
-                <Avatar.Text
-                  size={24}
-                  label={getNameFirstLetterUpper(u.name)}
-                />
-              )}
-            </View>
-          ))}
-          {participants.length > 5 && (
-            <View style={styles.moreAvatar}>
-              <Text style={styles.moreText}>+{participants.length - 5}</Text>
-            </View>
-          )}
-        </View>
+        <Text
+          style={[styles.meta, { color: palette.textSecondary }]}
+          numberOfLines={1}
+        >
+          {formatTime(item.time)} • {isMePaid ? "Bạn trả" : item.paidBy?.name}
+        </Text>
 
-        {(canEdit || (isApproval && !trip.isCloseTrip)) && (
-          <TouchableOpacity
-            style={styles.actionButton}
-            accessibilityLabel="Mở thao tác chi phí"
-            onPress={() => setActionOpen(true)}
-          >
-            <Ionicons
-              name="ellipsis-horizontal"
-              size={22}
-              color={COLORS.textSecondary}
-            />
-          </TouchableOpacity>
-        )}
+        <View style={styles.footerActions}>
+          <View style={styles.participants}>
+            {participants.slice(0, 5).map((u) => (
+              <View
+                key={u.id}
+                style={[
+                  styles.participantAvatar,
+                  { borderColor: palette.surface },
+                ]}
+              >
+                {u.avatar ? (
+                  <Avatar.Image source={{ uri: u.avatar }} size={22} />
+                ) : (
+                  <Avatar.Text
+                    size={22}
+                    label={getNameFirstLetterUpper(u.name)}
+                    color={theme.colors.onPrimary}
+                    style={{ backgroundColor: theme.colors.primary }}
+                  />
+                )}
+              </View>
+            ))}
+            {participants.length > 5 && (
+              <View
+                style={[
+                  styles.moreAvatar,
+                  {
+                    backgroundColor: palette.surfaceMuted,
+                    borderColor: palette.surface,
+                  },
+                ]}
+              >
+                <Text style={[styles.moreText, { color: palette.textSecondary }]}>
+                  +{participants.length - 5}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {(canEdit || (isApproval && !trip.isCloseTrip)) ? (
+            <TouchableOpacity
+              style={[
+                styles.actionButton,
+                { backgroundColor: palette.surfaceMuted },
+              ]}
+              accessibilityLabel="Mở thao tác chi phí"
+              onPress={() => setActionOpen(true)}
+            >
+              <Ionicons
+                name="ellipsis-horizontal"
+                size={17}
+                color={palette.textSecondary}
+              />
+            </TouchableOpacity>
+          ) : null}
+        </View>
       </View>
 
       {/* REJECTION REASON */}
       {item.rejectionReason && (
-        <View style={styles.rejectionContainer}>
-          <Text style={styles.rejectionText}>{item.rejectionReason}</Text>
+        <View
+          style={[
+            styles.rejectionContainer,
+            { backgroundColor: palette.errorLight },
+          ]}
+        >
+          <Text
+            style={[
+              styles.rejectionText,
+              { color: theme.colors.onErrorContainer },
+            ]}
+          >
+            {item.rejectionReason}
+          </Text>
         </View>
       )}
       <ActionSheet
@@ -177,7 +245,7 @@ export const ExpenseCard = ({
                 {
                   label: "Từ chối chi phí",
                   icon: "close-circle-outline",
-                  color: COLORS.error,
+                  color: errorColor,
                   onPress: () => onReject(item.id),
                 },
               ]
@@ -192,80 +260,106 @@ export const ExpenseCard = ({
                 {
                   label: "Xóa chi phí",
                   icon: "trash-outline",
-                  color: COLORS.error,
+                  color: errorColor,
                   onPress: () => onDelete(item.id),
                 },
               ]
             : []),
         ]}
       />
+      <Modal
+        visible={attachmentOpen}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setAttachmentOpen(false)}
+      >
+        <View style={styles.attachmentModal}>
+          <TouchableOpacity
+            style={styles.attachmentClose}
+            onPress={() => setAttachmentOpen(false)}
+            accessibilityLabel="Đóng ảnh đính kèm"
+          >
+            <Ionicons name="close" size={25} color="#fff" />
+          </TouchableOpacity>
+          {item.attachmentImage ? (
+            <Image
+              source={{ uri: item.attachmentImage }}
+              style={styles.attachmentImage}
+              resizeMode="contain"
+              accessibilityLabel={`Ảnh đính kèm của ${item.title}`}
+            />
+          ) : null}
+        </View>
+      </Modal>
     </Surface>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 18,
-    padding: 15,
+    borderRadius: 16,
+    paddingHorizontal: 11,
+    paddingVertical: 12,
     borderWidth: 1,
-    borderColor: COLORS.border,
   },
   topRow: {
     flexDirection: "row",
-    marginBottom: 10,
+    alignItems: "flex-start",
+    marginBottom: 12,
   },
   iconContainer: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    justifyContent: "center",
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
-    marginRight: 12,
+    justifyContent: "center",
+    marginRight: 10,
   },
   categoryIcon: {
-    fontSize: 18,
+    fontSize: 17,
   },
   content: {
     flex: 1,
-  },
-  titleRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 2,
-  },
-  titleBlock: {
-    flex: 1,
     minWidth: 0,
-    marginRight: 8,
-  },
-  categoryLabel: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    marginBottom: 4,
+    paddingTop: 1,
   },
   title: {
-    fontSize: 14,
-    lineHeight: 19,
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
     fontWeight: "700",
-    color: COLORS.textPrimary,
   },
-  amount: {
-    fontSize: 15,
-    fontWeight: "800",
+  titleWithAttachment: {
+    flexDirection: "row",
+    alignItems: "center",
+    minWidth: 0,
+  },
+  attachmentButton: {
+    width: 24,
+    height: 20,
+    marginLeft: 3,
+    alignItems: "center",
+    justifyContent: "center",
+    transform: [{ rotate: "-12deg" }],
+  },
+  subtitle: {
+    fontSize: 12,
+    lineHeight: 17,
     marginTop: 1,
   },
-  meta: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    marginTop: 7,
+  amount: {
+    fontSize: 14,
+    fontWeight: "800",
+    marginLeft: 10,
+    marginTop: 1,
+    flexShrink: 0,
   },
-  note: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    marginBottom: 10,
-    lineHeight: 18,
+  meta: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 10,
+    marginRight: 10,
   },
   bottomRow: {
     flexDirection: "row",
@@ -276,51 +370,68 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
+  footerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   participantAvatar: {
-    marginRight: -8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: "hidden",
+    marginLeft: -6,
   },
   moreAvatar: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: COLORS.surface,
     borderWidth: 1,
-    borderColor: COLORS.border,
     justifyContent: "center",
     alignItems: "center",
-    marginLeft: 4,
+    marginLeft: -6,
   },
   moreText: {
     fontSize: 9,
     fontWeight: "600",
-    color: COLORS.textSecondary,
-  },
-  actions: {
-    flexDirection: "row",
-    alignItems: "center",
   },
   actionButton: {
-    padding: 4,
-    borderRadius: 8,
-    marginLeft: 4,
-  },
-  approveButton: {
-    backgroundColor: COLORS.successLight,
-  },
-  rejectButton: {
-    backgroundColor: COLORS.errorLight,
-  },
-  editButton: {
-    margin: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 8,
   },
   rejectionContainer: {
     marginTop: 10,
     padding: 10,
     borderRadius: 10,
-    backgroundColor: COLORS.errorLight,
   },
   rejectionText: {
     fontSize: 12,
-    color: COLORS.error,
+  },
+  attachmentModal: {
+    flex: 1,
+    backgroundColor: "rgba(4, 8, 14, 0.96)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+  },
+  attachmentClose: {
+    position: "absolute",
+    top: 48,
+    right: 18,
+    zIndex: 2,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  attachmentImage: {
+    width: "100%",
+    height: "88%",
   },
 });

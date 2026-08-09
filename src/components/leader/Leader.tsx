@@ -31,9 +31,19 @@ interface LeaderProps {
   onUpdate?: () => void;
   onOpenTasks?: () => void;
   isActive?: boolean;
+  onScrollOffsetChange?: (offset: number) => void;
+  contentInsetTop?: number;
 }
 
-const Leader = ({ trip, setTrip, onUpdate, onOpenTasks, isActive }: LeaderProps) => {
+const Leader = ({
+  trip,
+  setTrip,
+  onUpdate,
+  onOpenTasks,
+  isActive,
+  contentInsetTop = 0,
+  onScrollOffsetChange,
+}: LeaderProps) => {
   const palette = useAppPalette();
   const currentUser = useAuthStore((state) => state.user);
   const [tasks, setTasks] = useState<TripTask[]>([]);
@@ -134,86 +144,102 @@ const Leader = ({ trip, setTrip, onUpdate, onOpenTasks, isActive }: LeaderProps)
       : recipients.filter((member) => selectedUserIds.includes(member.id)).map((member) => member.name).join(', ');
 
   return (
-    <View style={[styles.container, { backgroundColor: palette.background }]}> 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <View style={[styles.container, { backgroundColor: palette.background }]}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingTop: contentInsetTop + 14 }]}
+        showsVerticalScrollIndicator={false}
+        onScroll={(event) =>
+          onScrollOffsetChange?.(event.nativeEvent.contentOffset.y)
+        }
+        scrollEventThrottle={16}
+      >
         <View style={styles.statsRow}>
-          <View style={styles.statCard}>
+          <View style={[styles.statCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
             <View style={styles.statTitleRow}>
               <Ionicons name="people-outline" size={24} color={COLORS.primary} />
-              <Text style={styles.statValue}>{allMembers.length} thành viên</Text>
+              <Text style={[styles.statValue, { color: palette.textPrimary }]}>{allMembers.length} thành viên</Text>
             </View>
             <View style={styles.avatarStack}>
               {allMembers.slice(0, 4).map((member, index) => (
                 member.avatar ? (
                   <Image key={member.id} source={{ uri: member.avatar }} style={[styles.stackAvatar, { marginLeft: index ? -9 : 0, zIndex: 5 - index }]} />
                 ) : (
-                  <View key={member.id} style={[styles.stackAvatar, styles.stackAvatarFallback, { marginLeft: index ? -9 : 0, zIndex: 5 - index }]}>
+                  <View key={member.id} style={[styles.stackAvatar, styles.stackAvatarFallback, { borderColor: palette.surface, marginLeft: index ? -9 : 0, zIndex: 5 - index }]}>
                     <Text style={styles.avatarInitial}>{getNameFirstLetterUpper(member.name || '')}</Text>
                   </View>
                 )
               ))}
-              {allMembers.length > 4 && <View style={[styles.stackAvatar, styles.moreAvatar, { marginLeft: -9 }]}><Text style={styles.moreText}>+{allMembers.length - 4}</Text></View>}
+              {allMembers.length > 4 && <View style={[styles.stackAvatar, styles.moreAvatar, { backgroundColor: palette.surfaceMuted, borderColor: palette.surface, marginLeft: -9 }]}><Text style={[styles.moreText, { color: palette.textSecondary }]}>+{allMembers.length - 4}</Text></View>}
             </View>
           </View>
 
-          <View style={styles.statCard}>
+          <View style={[styles.statCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
             <View style={styles.statTitleRow}>
               <Ionicons name="checkmark-circle-outline" size={25} color={COLORS.success} />
-              <Text style={styles.statValue}>{tasks.length} việc cần làm</Text>
+              <Text style={[styles.statValue, { color: palette.textPrimary }]}>{tasks.length} việc cần làm</Text>
             </View>
             <Text style={styles.completedText}>{completedCount} đã hoàn thành</Text>
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Phân công gần đây</Text>
+        <Text style={[styles.sectionTitle, { color: palette.textPrimary }]}>Phân công gần đây</Text>
         <View style={styles.taskList}>
           {tasksLoading ? (
-            <ActivityIndicator style={styles.taskLoading} color={COLORS.primary} />
+            <ActivityIndicator
+              style={[styles.taskLoading, { backgroundColor: palette.surface }]}
+              color={COLORS.primary}
+            />
           ) : recentTasks.length ? recentTasks.map((task) => (
             <TouchableOpacity key={task.id} activeOpacity={0.72} onPress={onOpenTasks}
-              style={styles.taskRow}>
-              <View style={[styles.taskIcon, task.isCompleted && styles.taskIconDone]}>
+              style={[styles.taskRow, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+              <View
+                style={[
+                  styles.taskIcon,
+                  task.isCompleted && styles.taskIconDone,
+                  { backgroundColor: palette.successLight },
+                ]}
+              >
                 <Ionicons name={task.isCompleted ? 'checkmark' : 'clipboard-outline'} size={22} color={COLORS.secondary} />
               </View>
               <View style={styles.taskBody}>
-                <Text style={[styles.taskTitle, task.isCompleted && styles.taskTitleDone]} numberOfLines={1}>{task.title}</Text>
-                <Text style={styles.taskMeta} numberOfLines={1}>{task.assignee ? `Giao cho ${task.assignee.name}` : 'Chưa giao cho ai'}</Text>
+                <Text style={[styles.taskTitle, { color: palette.textPrimary }, task.isCompleted && [styles.taskTitleDone, { color: palette.textSecondary }]]} numberOfLines={1}>{task.title}</Text>
+                <Text style={[styles.taskMeta, { color: palette.textLight }]} numberOfLines={1}>{task.assignee ? `Giao cho ${task.assignee.name}` : 'Chưa giao cho ai'}</Text>
               </View>
               <View style={styles.taskRight}>
-                <View style={[styles.statusPill, task.isCompleted ? styles.donePill : styles.doingPill]}>
+                 <View style={[styles.statusPill, task.isCompleted ? [styles.donePill, { backgroundColor: palette.successLight }] : [styles.doingPill, { backgroundColor: palette.warningLight }]]}>
                   <Text style={[styles.statusText, task.isCompleted ? styles.doneText : styles.doingText]}>{task.isCompleted ? 'Hoàn thành' : 'Đang làm'}</Text>
                 </View>
-                <Text style={styles.taskDate}>{task.dueDate ? new Date(task.dueDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : '—'}</Text>
+                <Text style={[styles.taskDate, { color: palette.textLight }]}>{task.dueDate ? new Date(task.dueDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : '—'}</Text>
               </View>
-              <Ionicons name="chevron-forward" size={21} color={COLORS.textLight} />
+              <Ionicons name="chevron-forward" size={21} color={palette.textLight} />
             </TouchableOpacity>
           )) : (
-            <View style={styles.emptyTasks}>
-              <Ionicons name="clipboard-outline" size={28} color={COLORS.textLight} />
-              <Text style={styles.emptyText}>Chưa có phân công nào</Text>
+            <View style={[styles.emptyTasks, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+              <Ionicons name="clipboard-outline" size={28} color={palette.textLight} />
+              <Text style={[styles.emptyText, { color: palette.textSecondary }]}>Chưa có phân công nào</Text>
             </View>
           )}
         </View>
 
-        <TouchableOpacity style={styles.addTaskButton} onPress={onOpenTasks} activeOpacity={0.75}>
+        <TouchableOpacity style={[styles.addTaskButton, { backgroundColor: palette.surfaceMuted }]} onPress={onOpenTasks} activeOpacity={0.75}>
           <Ionicons name="add" size={23} color={COLORS.primary} />
           <Text style={styles.addTaskText}>Thêm việc cần làm</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.notificationButton} onPress={() => setNotificationOpen(true)} activeOpacity={0.75}>
-          <View style={styles.notificationIcon}><Ionicons name="notifications-outline" size={22} color={COLORS.primary} /></View>
+        <TouchableOpacity style={[styles.notificationButton, { backgroundColor: palette.surface, borderColor: palette.border }]} onPress={() => setNotificationOpen(true)} activeOpacity={0.75}>
+          <View style={[styles.notificationIcon, { backgroundColor: palette.primaryLight }]}><Ionicons name="notifications-outline" size={22} color={COLORS.primary} /></View>
           <View style={styles.actionBody}>
-            <Text style={styles.notificationTitle}>Tạo thông báo</Text>
-            <Text style={styles.actionSubtitle}>Gửi cập nhật đến các thành viên</Text>
+            <Text style={[styles.notificationTitle, { color: palette.textPrimary }]}>Tạo thông báo</Text>
+            <Text style={[styles.actionSubtitle, { color: palette.textSecondary }]}>Gửi cập nhật đến các thành viên</Text>
           </View>
-          <Ionicons name="chevron-forward" size={21} color={COLORS.textLight} />
+          <Ionicons name="chevron-forward" size={21} color={palette.textLight} />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.endTripCard} onPress={() => setConfirmOpen(true)} disabled={loading} activeOpacity={0.72}>
-          <View style={styles.endTripIcon}><Ionicons name="trash-outline" size={25} color={COLORS.error} /></View>
+        <TouchableOpacity style={[styles.endTripCard, { backgroundColor: palette.errorLight, borderColor: palette.isDark ? "#633039" : "#F7D8D8" }]} onPress={() => setConfirmOpen(true)} disabled={loading} activeOpacity={0.72}>
+          <View style={[styles.endTripIcon, { backgroundColor: palette.errorLight }]}><Ionicons name="trash-outline" size={25} color={COLORS.error} /></View>
           <View style={styles.actionBody}>
             <Text style={styles.endTripTitle}>Kết thúc chuyến đi</Text>
-            <Text style={styles.actionSubtitle}>Lưu lại dữ liệu và đóng chuyến đi</Text>
+            <Text style={[styles.actionSubtitle, { color: palette.textSecondary }]}>Lưu lại dữ liệu và đóng chuyến đi</Text>
           </View>
           <Ionicons name="chevron-forward" size={22} color={COLORS.error} />
         </TouchableOpacity>
@@ -221,25 +247,25 @@ const Leader = ({ trip, setTrip, onUpdate, onOpenTasks, isActive }: LeaderProps)
 
       <Modal visible={notificationOpen} transparent animationType="slide" onRequestClose={() => setNotificationOpen(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setNotificationOpen(false)}>
-          <Pressable style={styles.notificationSheet} onPress={(event) => event.stopPropagation()}>
-            <View style={styles.sheetHandle} />
+          <Pressable style={[styles.notificationSheet, { backgroundColor: palette.surface }]} onPress={(event) => event.stopPropagation()}>
+            <View style={[styles.sheetHandle, { backgroundColor: palette.border }]} />
             <View style={styles.sheetHeader}>
-              <View><Text style={styles.sheetTitle}>Tạo thông báo</Text><Text style={styles.sheetSubtitle}>Gửi đến thành viên trong chuyến đi</Text></View>
-              <TouchableOpacity onPress={() => setNotificationOpen(false)} style={styles.closeButton}><Ionicons name="close" size={21} color={COLORS.textSecondary} /></TouchableOpacity>
+              <View><Text style={[styles.sheetTitle, { color: palette.textPrimary }]}>Tạo thông báo</Text><Text style={[styles.sheetSubtitle, { color: palette.textSecondary }]}>Gửi đến thành viên trong chuyến đi</Text></View>
+              <TouchableOpacity onPress={() => setNotificationOpen(false)} style={[styles.closeButton, { backgroundColor: palette.surfaceMuted }]}><Ionicons name="close" size={21} color={palette.textSecondary} /></TouchableOpacity>
             </View>
-            <Text style={styles.label}>Tiêu đề</Text>
+            <Text style={[styles.label, { color: palette.textPrimary }]}>Tiêu đề</Text>
             <TextInput value={title} onChangeText={(value) => { setTitle(value); setErrors((current) => ({ ...current, title: '' })); }}
-              placeholder="Nhập tiêu đề thông báo" placeholderTextColor={COLORS.textLight} style={[styles.input, errors.title && styles.inputError]} />
+              placeholder="Nhập tiêu đề thông báo" placeholderTextColor={palette.textLight} style={[styles.input, { backgroundColor: palette.surfaceMuted, borderColor: palette.border, color: palette.textPrimary }, errors.title && styles.inputError]} />
             {errors.title ? <Text style={styles.errorText}>{errors.title}</Text> : null}
-            <Text style={styles.label}>Nội dung</Text>
+            <Text style={[styles.label, { color: palette.textPrimary }]}>Nội dung</Text>
             <TextInput value={content} onChangeText={(value) => { setContent(value); setErrors((current) => ({ ...current, content: '' })); }}
-              placeholder="Nhập nội dung" placeholderTextColor={COLORS.textLight} multiline textAlignVertical="top"
-              style={[styles.input, styles.textArea, errors.content && styles.inputError]} />
+              placeholder="Nhập nội dung" placeholderTextColor={palette.textLight} multiline textAlignVertical="top"
+              style={[styles.input, styles.textArea, { backgroundColor: palette.surfaceMuted, borderColor: palette.border, color: palette.textPrimary }, errors.content && styles.inputError]} />
             {errors.content ? <Text style={styles.errorText}>{errors.content}</Text> : null}
-            <Text style={styles.label}>Người nhận</Text>
-            <TouchableOpacity style={[styles.selectButton, errors.userIds && styles.inputError]} onPress={() => setMemberModalVisible(true)}>
-              <Text style={[styles.selectText, !selectedUserIds.length && styles.placeholder]} numberOfLines={1}>{selectedNames}</Text>
-              <Ionicons name="chevron-down" size={20} color={COLORS.textSecondary} />
+            <Text style={[styles.label, { color: palette.textPrimary }]}>Người nhận</Text>
+            <TouchableOpacity style={[styles.selectButton, { backgroundColor: palette.surfaceMuted, borderColor: palette.border }, errors.userIds && styles.inputError]} onPress={() => setMemberModalVisible(true)}>
+              <Text style={[styles.selectText, { color: palette.textPrimary }, !selectedUserIds.length && [styles.placeholder, { color: palette.textLight }]]} numberOfLines={1}>{selectedNames}</Text>
+              <Ionicons name="chevron-down" size={20} color={palette.textSecondary} />
             </TouchableOpacity>
             {errors.userIds ? <Text style={styles.errorText}>{errors.userIds}</Text> : null}
             <TouchableOpacity style={[styles.sendButton, loading && styles.disabled]} onPress={handleSubmitNotification} disabled={loading}>
@@ -251,17 +277,17 @@ const Leader = ({ trip, setTrip, onUpdate, onOpenTasks, isActive }: LeaderProps)
 
       <Modal visible={memberModalVisible} transparent animationType="slide" onRequestClose={() => setMemberModalVisible(false)}>
         <View style={styles.modalOverlay}>
-          <View style={styles.memberSheet}>
-            <View style={styles.sheetHandle} />
+          <View style={[styles.memberSheet, { backgroundColor: palette.surface }]}>
+            <View style={[styles.sheetHandle, { backgroundColor: palette.border }]} />
             <View style={styles.memberHeader}>
-              <Text style={styles.sheetTitle}>Chọn người nhận</Text>
+              <Text style={[styles.sheetTitle, { color: palette.textPrimary }]}>Chọn người nhận</Text>
               <TouchableOpacity onPress={() => setSelectedUserIds(recipients.map((member) => member.id))}><Text style={styles.selectAllText}>Chọn tất cả</Text></TouchableOpacity>
             </View>
             <FlatList data={recipients} keyExtractor={(item) => item.id} renderItem={({ item }) => {
               const selected = selectedUserIds.includes(item.id);
-              return <TouchableOpacity style={styles.memberRow} onPress={() => toggleRecipient(item.id)}>
+               return <TouchableOpacity style={[styles.memberRow, { borderBottomColor: palette.border }]} onPress={() => toggleRecipient(item.id)}>
                 {item.avatar ? <Avatar.Image source={{ uri: item.avatar }} size={40} /> : <Avatar.Text size={40} label={getNameFirstLetterUpper(item.name || '')} style={styles.memberAvatar} />}
-                <Text style={styles.memberName}>{item.name}</Text>
+                 <Text style={[styles.memberName, { color: palette.textPrimary }]}>{item.name}</Text>
                 <Checkbox status={selected ? 'checked' : 'unchecked'} color={COLORS.primary} />
               </TouchableOpacity>;
             }} />

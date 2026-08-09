@@ -1,18 +1,28 @@
 import { api } from "@/src/services/api";
 import { useNotificationStore } from "@/src/store/notification.store";
+import { useAuthStore } from "@/src/store/auth.store";
 import { useUserStore } from "@/src/store/user.store";
 import { UserProfile } from "@/src/type/user";
 import { Ionicons } from "@expo/vector-icons";
-import { DrawerActions, useNavigation } from "@react-navigation/native";
-import { Tabs, useFocusEffect, useSegments } from "expo-router";
+import {
+  DrawerActions,
+  StackActions,
+  useNavigation,
+} from "@react-navigation/native";
+import { Redirect, Tabs, useFocusEffect, usePathname, useSegments } from "expo-router";
 import { useCallback } from "react";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { ActivityIndicator, View } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { COLORS } from "@/src/utils/constants";
 import { useSettingsStore } from "@/src/store/settings.store";
 
 export default function TabLayout() {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
+  const pathname = usePathname();
   const { setUser } = useUserStore();
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const hasHydrated = useAuthStore((state) => state.hasHydrated);
   const segments = useSegments() as string[];
   const { fetchNotifications, count } = useNotificationStore();
   const darkMode = useSettingsStore((state) => state.darkMode);
@@ -25,26 +35,52 @@ export default function TabLayout() {
     segments.includes("groups") ||
     (segments.includes("trips") && segments.length > 2) ||
     segments.includes("change-profile");
+  const immersiveDetail =
+    /^\/groups\/[^/]+\/?$/.test(pathname) ||
+    /^\/trips\/[^/]+\/?$/.test(pathname);
 
-  useFocusEffect(
-    useCallback(() => {
-      const init = async () => {
-        await getProfile();
-        if (notificationsEnabled) await fetchNotifications();
-      };
-      init();
-    }, [notificationsEnabled]),
-  );
-
-  const getProfile = async () => {
+  const getProfile = useCallback(async () => {
     try {
       const res = await api.get<UserProfile>("users/me");
       setUser(res.data);
     } catch {}
-  };
+  }, [setUser]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!hasHydrated || !accessToken) return;
+      const init = async () => {
+        await getProfile();
+        await fetchNotifications(true);
+      };
+      void init();
+    }, [accessToken, fetchNotifications, getProfile, hasHydrated]),
+  );
+
+  if (!hasHydrated) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: darkMode ? "#0B1220" : COLORS.background,
+        }}
+      >
+        <ActivityIndicator color={COLORS.primary} />
+      </View>
+    );
+  }
+
+  if (!accessToken) {
+    return <Redirect href="/(auth)/login" />;
+  }
 
   return (
-    <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: surface }}
+      edges={immersiveDetail ? [] : ["top"]}
+    >
       <Tabs
         backBehavior="history"
         screenOptions={{
@@ -55,9 +91,9 @@ export default function TabLayout() {
           tabBarStyle: hideTab
             ? { display: "none" }
             : {
-                height: 68,
+                height: 61 + Math.max(7, insets.bottom),
                 paddingTop: 7,
-                paddingBottom: 7,
+                paddingBottom: Math.max(7, insets.bottom),
                 backgroundColor: surface,
                 borderTopColor: border,
               },
@@ -82,6 +118,22 @@ export default function TabLayout() {
               <Ionicons name="airplane-outline" size={22} color={color} />
             ),
           }}
+          listeners={({ navigation: tabsNavigation, route }) => ({
+            tabPress: () => {
+              const tripsState = tabsNavigation
+                .getState()
+                .routes.find(
+                  (tabRoute: { key: string }) => tabRoute.key === route.key,
+                )?.state;
+
+              if (tripsState?.type === "stack" && tripsState.key) {
+                tabsNavigation.dispatch({
+                  ...StackActions.popToTop(),
+                  target: tripsState.key,
+                });
+              }
+            },
+          })}
         />
 
         <Tabs.Screen

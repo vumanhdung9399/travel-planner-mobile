@@ -6,6 +6,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { api } from "@/src/services/api";
 import { removeCurrentDeviceToken } from "@/src/hook/usePushNotification";
+import { useAppPalette } from "@/src/hook/useAppPalette";
 import {
   ActivityIndicator,
   Image,
@@ -18,18 +19,20 @@ import {
   View,
 } from "react-native";
 import { useSettingsStore } from "@/src/store/settings.store";
-import { useMemo } from "react";
 
 export default function ProfileScreen() {
   const { user } = useUserStore();
   const { logout } = useAuthStore();
   const router = useRouter();
   const { notificationsEnabled, darkMode, setNotificationsEnabled, setDarkMode } = useSettingsStore();
-  const colors = useMemo(() => getAppColors(darkMode), [darkMode]);
+  const palette = useAppPalette();
 
   const handleLogout = async () => {
     try {
       await removeCurrentDeviceToken();
+    } catch {}
+
+    try {
       await api.post("/auth/logout");
     } finally {
       logout();
@@ -39,7 +42,7 @@ export default function ProfileScreen() {
 
   if (!user) {
     return (
-      <View style={styles.loading}>
+      <View style={[styles.loading, { backgroundColor: palette.background }]}>
         <ActivityIndicator color={COLORS.primary} />
       </View>
     );
@@ -47,15 +50,15 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
+      style={[styles.container, { backgroundColor: palette.background }]}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.titleRow}>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>Tài khoản</Text>
+        <Text style={[styles.title, { color: palette.textPrimary }]}>Tài khoản</Text>
       </View>
 
-      <View style={[styles.profileCard, { backgroundColor: colors.surface }]}> 
+      <View style={[styles.profileCard, { backgroundColor: palette.surface }]}>
         <ImageBackground
           source={require("@/assets/images/trip-hero-cao-bang.png")}
           style={styles.cover}
@@ -76,13 +79,24 @@ export default function ProfileScreen() {
                 ? { uri: user.avatar }
                 : require("@/assets/avatar-default.svg")
             }
-            style={styles.avatar}
+            style={[
+              styles.avatar,
+              {
+                borderColor: palette.surface,
+                backgroundColor: palette.surfaceMuted,
+              },
+            ]}
           />
-          <Text style={[styles.name, { color: colors.textPrimary }]}>{user.name}</Text>
+          <Text style={[styles.name, { color: palette.textPrimary }]}>{user.name}</Text>
         </View>
       </View>
 
-      <View style={[styles.stats, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
+      <View
+        style={[
+          styles.stats,
+          { backgroundColor: palette.surface, borderColor: palette.border },
+        ]}
+      >
           <StatItem
             icon="airplane-outline"
             label="Chuyến đi"
@@ -100,7 +114,12 @@ export default function ProfileScreen() {
           />
       </View>
 
-      <View style={[styles.menuCard, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
+      <View
+        style={[
+          styles.menuCard,
+          { backgroundColor: palette.surface, borderColor: palette.border },
+        ]}
+      >
         <MenuItem
           icon="create-outline"
           text="Chỉnh sửa"
@@ -114,8 +133,14 @@ export default function ProfileScreen() {
         />
       </View>
 
-      <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>TUỲ CHỌN ỨNG DỤNG</Text>
-      <View style={[styles.menuCard, styles.settingsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
+      <Text style={[styles.sectionLabel, { color: palette.textSecondary }]}>TUỲ CHỌN ỨNG DỤNG</Text>
+      <View
+        style={[
+          styles.menuCard,
+          styles.settingsCard,
+          { backgroundColor: palette.surface, borderColor: palette.border },
+        ]}
+      >
         <SettingItem
           icon="notifications-outline"
           text="Thông báo"
@@ -133,7 +158,10 @@ export default function ProfileScreen() {
         />
       </View>
 
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+      <TouchableOpacity
+        style={[styles.logoutButton, { backgroundColor: palette.errorLight }]}
+        onPress={handleLogout}
+      >
         <Ionicons name="log-out-outline" size={20} color={COLORS.error} />
         <Text style={styles.logoutText}>Đăng xuất</Text>
       </TouchableOpacity>
@@ -150,15 +178,14 @@ function StatItem({
   label: string;
   value?: number;
 }) {
-  const darkMode = useSettingsStore((state) => state.darkMode);
-  const colors = getAppColors(darkMode);
+  const palette = useAppPalette();
   return (
     <View style={styles.statItem}>
-      <View style={styles.statIcon}>
+      <View style={[styles.statIcon, { backgroundColor: palette.primaryLight }]}>
         <Ionicons name={icon} size={17} color={COLORS.primary} />
       </View>
-      <Text style={[styles.statValue, { color: colors.textPrimary }]}>{value || 0}</Text>
-      <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{label}</Text>
+      <Text style={[styles.statValue, { color: palette.textPrimary }]}>{value || 0}</Text>
+      <Text style={[styles.statLabel, { color: palette.textSecondary }]}>{label}</Text>
     </View>
   );
 }
@@ -174,21 +201,24 @@ function MenuItem({
   onPress: () => void;
   last?: boolean;
 }) {
-  const darkMode = useSettingsStore((state) => state.darkMode);
-  const colors = getAppColors(darkMode);
+  const palette = useAppPalette();
   return (
     <TouchableOpacity
-      style={[styles.menuItem, { borderBottomColor: colors.border }, last && styles.menuItemLast]}
+      style={[
+        styles.menuItem,
+        { borderBottomColor: palette.border },
+        last && styles.menuItemLast,
+      ]}
       onPress={onPress}
     >
-      <View style={styles.menuIcon}>
+      <View style={[styles.menuIcon, { backgroundColor: palette.primaryLight }]}>
         <Ionicons name={icon} size={20} color={COLORS.primary} />
       </View>
-      <Text style={[styles.menuText, { color: colors.textPrimary }]}>{text}</Text>
+      <Text style={[styles.menuText, { color: palette.textPrimary }]}>{text}</Text>
       <Ionicons
         name="chevron-forward"
         size={18}
-        color={colors.textSecondary}
+        color={palette.textSecondary}
       />
     </TouchableOpacity>
   );
@@ -198,27 +228,38 @@ function SettingItem({ icon, text, description, value, onValueChange, last }: {
   icon: keyof typeof Ionicons.glyphMap; text: string; description: string;
   value: boolean; onValueChange: (value: boolean) => void; last?: boolean;
 }) {
-  const darkMode = useSettingsStore((state) => state.darkMode);
-  const colors = getAppColors(darkMode);
+  const palette = useAppPalette();
   return (
-    <View style={[styles.menuItem, { borderBottomColor: colors.border }, last && styles.menuItemLast]}>
-      <View style={styles.menuIcon}><Ionicons name={icon} size={20} color={COLORS.primary} /></View>
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.menuText, { color: colors.textPrimary }]}>{text}</Text>
-        <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 2 }}>{description}</Text>
+    <View
+      style={[
+        styles.menuItem,
+        styles.settingItem,
+        { borderBottomColor: palette.border },
+        last && styles.menuItemLast,
+      ]}
+    >
+      <View
+        style={[styles.menuIcon, { backgroundColor: palette.primaryLight }]}
+      >
+        <Ionicons name={icon} size={20} color={COLORS.primary} />
       </View>
-      <Switch value={value} onValueChange={onValueChange} trackColor={{ false: colors.border, true: COLORS.primary }} thumbColor="#FFFFFF" />
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.menuText, { color: palette.textPrimary }]}>{text}</Text>
+        <Text
+          style={{ color: palette.textSecondary, fontSize: 12, marginTop: 2 }}
+        >
+          {description}
+        </Text>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        trackColor={{ false: palette.border, true: COLORS.primary }}
+        thumbColor="#FFFFFF"
+      />
     </View>
   );
 }
-
-const getAppColors = (darkMode: boolean) => ({
-  background: darkMode ? "#0B1220" : COLORS.surface,
-  surface: darkMode ? "#141E2E" : COLORS.surface,
-  border: darkMode ? "#2A384C" : COLORS.border,
-  textPrimary: darkMode ? "#F2F6FC" : COLORS.textPrimary,
-  textSecondary: darkMode ? "#A9B7CA" : COLORS.textSecondary,
-});
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.surface },
@@ -351,6 +392,7 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.border,
   },
   menuItemLast: { borderBottomWidth: 0 },
+  settingItem: { paddingVertical: 10 },
   menuIcon: {
     width: 34,
     height: 34,

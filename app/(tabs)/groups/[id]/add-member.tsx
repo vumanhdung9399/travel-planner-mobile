@@ -1,4 +1,5 @@
 import { CommonHeader } from "@/src/components/layout/CommonHeader";
+import { useAppPalette } from "@/src/hook/useAppPalette";
 import { api } from "@/src/services/api";
 import { useAuthStore } from "@/src/store/auth.store";
 import { useGroupStore } from "@/src/store/group.store";
@@ -12,12 +13,12 @@ import {
   ActivityIndicator,
   FlatList,
   Keyboard,
-  SafeAreaView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Avatar, Button, Chip, Text } from "react-native-paper";
 
 interface User {
@@ -36,6 +37,7 @@ interface SelectedMember {
 
 const AddMembersScreen = () => {
   const router = useRouter();
+  const palette = useAppPalette();
   const { group } = useGroupStore();
   const { user: currentUser } = useAuthStore();
   const { id: groupId } = useLocalSearchParams<{ id: string }>();
@@ -188,7 +190,11 @@ const AddMembersScreen = () => {
 
     return (
       <TouchableOpacity
-        style={[styles.userItem, isDisabled && styles.userItemDisabled]}
+        style={[
+          styles.userItem,
+          { borderBottomColor: palette.border },
+          isDisabled && styles.userItemDisabled,
+        ]}
         onPress={() => !isDisabled && handleSelectMember(item)}
         activeOpacity={0.7}
         disabled={isDisabled}
@@ -199,12 +205,21 @@ const AddMembersScreen = () => {
           <Avatar.Text
             size={48}
             label={getNameFirstLetterUpper(item.name)}
-            style={[styles.avatar, isDisabled && styles.avatarDisabled]}
+            style={[
+              styles.avatar,
+              isDisabled && { backgroundColor: palette.textLight },
+            ]}
           />
         )}
         <View style={styles.userInfo}>
           <View style={styles.userNameRow}>
-            <Text style={[styles.userName, isDisabled && styles.textDisabled]}>
+            <Text
+              style={[
+                styles.userName,
+                { color: palette.textPrimary },
+                isDisabled && { color: palette.textLight },
+              ]}
+            >
               {item.name}
             </Text>
             {isCurrentUser(item.id) && (
@@ -213,13 +228,31 @@ const AddMembersScreen = () => {
               </View>
             )}
           </View>
-          <Text style={[styles.userEmail, isDisabled && styles.textDisabled]}>
+          <Text
+            style={[
+              styles.userEmail,
+              { color: palette.textSecondary },
+              isDisabled && { color: palette.textLight },
+            ]}
+          >
             {item.email}
           </Text>
         </View>
         {isDisabled ? (
-          <View style={styles.disabledButton}>
-            <Text style={styles.disabledButtonText}>{disabledReason}</Text>
+          <View
+            style={[
+              styles.disabledButton,
+              { backgroundColor: palette.surfaceMuted },
+            ]}
+          >
+            <Text
+              style={[
+                styles.disabledButtonText,
+                { color: palette.textSecondary },
+              ]}
+            >
+              {disabledReason}
+            </Text>
           </View>
         ) : (
           <Ionicons name="add-circle" size={28} color={COLORS.primary} />
@@ -241,8 +274,14 @@ const AddMembersScreen = () => {
       return (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyEmoji}>🔍</Text>
-          <Text style={styles.emptyTitle}>Không tìm thấy</Text>
-          <Text style={styles.emptySubtext}>
+          <Text
+            style={[styles.emptyTitle, { color: palette.textPrimary }]}
+          >
+            Không tìm thấy
+          </Text>
+          <Text
+            style={[styles.emptySubtext, { color: palette.textSecondary }]}
+          >
             Không tìm thấy người dùng nào với từ khóa &quot;{searchQuery}&quot;
           </Text>
         </View>
@@ -253,8 +292,14 @@ const AddMembersScreen = () => {
       return (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyEmoji}>👥</Text>
-          <Text style={styles.emptyTitle}>Tìm kiếm thành viên</Text>
-          <Text style={styles.emptySubtext}>
+          <Text
+            style={[styles.emptyTitle, { color: palette.textPrimary }]}
+          >
+            Tìm kiếm thành viên
+          </Text>
+          <Text
+            style={[styles.emptySubtext, { color: palette.textSecondary }]}
+          >
             Nhập email hoặc số điện thoại để tìm kiếm người dùng
           </Text>
         </View>
@@ -265,7 +310,10 @@ const AddMembersScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: palette.background }]}
+      edges={["bottom"]}
+    >
       <CommonHeader
         title="Thêm thành viên"
         fallbackHref={{ pathname: "/groups/[id]", params: { id: groupId } }}
@@ -275,7 +323,9 @@ const AddMembersScreen = () => {
         {/* Selected Members */}
         {selectedMembers.length > 0 && (
           <View style={styles.selectedSection}>
-            <Text style={styles.selectedTitle}>
+            <Text
+              style={[styles.selectedTitle, { color: palette.textSecondary }]}
+            >
               Đã chọn ({selectedMembers.length})
             </Text>
             <FlatList
@@ -298,8 +348,17 @@ const AddMembersScreen = () => {
                     )
                   }
                   onClose={() => handleRemoveMember(item.id)}
-                  style={styles.chip}
-                  textStyle={styles.chipText}
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor: palette.surface,
+                      borderColor: palette.border,
+                    },
+                  ]}
+                  textStyle={[
+                    styles.chipText,
+                    { color: palette.textPrimary },
+                  ]}
                 >
                   {item.name.split(" ")[0]}
                 </Chip>
@@ -309,17 +368,27 @@ const AddMembersScreen = () => {
         )}
 
         {/* Search Input */}
-        <View style={styles.searchContainer}>
+        <View
+          style={[
+            styles.searchContainer,
+            {
+              backgroundColor: palette.surface,
+              borderColor: palette.border,
+            },
+          ]}
+        >
           <Ionicons
             name="search"
             size={20}
-            color={COLORS.textLight}
+            color={palette.textLight}
             style={styles.searchIcon}
           />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: palette.textPrimary }]}
             placeholder="Nhập số điện thoại hoặc email..."
-            placeholderTextColor={COLORS.textLight}
+            placeholderTextColor={palette.textLight}
+            selectionColor={COLORS.primary}
+            keyboardAppearance={palette.isDark ? "dark" : "light"}
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoCapitalize="none"
@@ -331,7 +400,7 @@ const AddMembersScreen = () => {
               <Ionicons
                 name="close-circle"
                 size={20}
-                color={COLORS.textLight}
+                color={palette.textLight}
               />
             </TouchableOpacity>
           )}
@@ -354,7 +423,15 @@ const AddMembersScreen = () => {
 
       {/* Bottom Button */}
       {selectedMembers.length > 0 && (
-        <View style={styles.footer}>
+        <View
+          style={[
+            styles.footer,
+            {
+              backgroundColor: palette.surface,
+              borderTopColor: palette.border,
+            },
+          ]}
+        >
           <Button
             mode="contained"
             onPress={handleAddAll}
@@ -446,9 +523,6 @@ const styles = StyleSheet.create({
   avatar: {
     backgroundColor: COLORS.primary,
   },
-  avatarDisabled: {
-    backgroundColor: COLORS.textLight,
-  },
   userInfo: {
     flex: 1,
     marginLeft: 14,
@@ -467,9 +541,6 @@ const styles = StyleSheet.create({
   userEmail: {
     fontSize: 13,
     color: COLORS.textSecondary,
-  },
-  textDisabled: {
-    color: COLORS.textLight,
   },
   youBadge: {
     backgroundColor: COLORS.primary,

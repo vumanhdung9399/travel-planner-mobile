@@ -6,9 +6,11 @@ import { COLORS, NOTIFICATION_TYPE } from "@/src/utils/constants";
 import { showSuccess } from "@/src/utils/errorHandler";
 import { formatTimeAgo } from "@/src/utils/helper";
 import ActionSheet from "@components/ActionSheet";
+import { useAppPalette } from "@/src/hook/useAppPalette";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -19,6 +21,7 @@ import {
 } from "react-native";
 
 export default function NotificationScreen() {
+  const palette = useAppPalette();
   const {
     fetchNotifications,
     count,
@@ -27,10 +30,18 @@ export default function NotificationScreen() {
     setListNotification,
     hasMore,
     loading,
+    markAsRead,
+    markAllAsRead,
   } = useNotificationStore();
   const navigateNoti = useNotificationNavigate();
   const [selected, setSelected] = useState<Notification | null>(null);
   const [open, setOpen] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      void fetchNotifications(true);
+    }, [fetchNotifications]),
+  );
 
   const renderFooter = () => {
     if (!loading) return null;
@@ -42,29 +53,13 @@ export default function NotificationScreen() {
   };
 
   const handleReadAll = async () => {
-    try {
-      await api.patch("/notifications/read-all");
-      setListNotification((prev) => prev.map((n) => ({ ...n, isRead: true })));
-      setCount(0);
-    } catch (error) {
-      console.error(error);
-    }
+    await markAllAsRead();
   };
 
   const markRead = async (noti: Notification) => {
     if (noti.isRead) return;
-    try {
-      api.patch(`/notifications/${noti.id}/read`);
-      setListNotification((prev) =>
-        prev.map((n) => (n.id === noti.id ? { ...n, isRead: true } : n)),
-      );
-      setCount((prev: any) =>
-        typeof prev === "number" && prev > 0 ? prev - 1 : 0,
-      );
-      setOpen(false);
-    } catch (error) {
-      console.log(error);
-    }
+    await markAsRead(noti.id);
+    setOpen(false);
   };
 
   const handleDelete = async () => {
@@ -80,12 +75,17 @@ export default function NotificationScreen() {
       }
       setOpen(false);
       showSuccess("Xoá thông báo thành công");
-    } catch (error) {}
+    } catch {}
   };
 
   const renderHeader = () => (
-    <View style={styles.header}>
-      <Text style={styles.headerTitle}>Thông báo</Text>
+    <View
+      style={[
+        styles.header,
+        { backgroundColor: palette.surface, borderBottomColor: palette.border },
+      ]}
+    >
+      <Text style={[styles.headerTitle, { color: palette.textPrimary }]}>Thông báo</Text>
       {count > 0 && (
         <TouchableOpacity onPress={handleReadAll}>
           <Text style={styles.readAllBtn}>Đánh dấu đã đọc</Text>
@@ -99,10 +99,10 @@ export default function NotificationScreen() {
       <MaterialCommunityIcons
         name="bell-off-outline"
         size={80}
-        color="#e0e0e0"
+        color={palette.textLight}
       />
-      <Text style={styles.emptyTitle}>Chưa có thông báo nào</Text>
-      <Text style={styles.emptySubtitle}>
+      <Text style={[styles.emptyTitle, { color: palette.textPrimary }]}>Chưa có thông báo nào</Text>
+      <Text style={[styles.emptySubtitle, { color: palette.textSecondary }]}>
         Chúng tôi sẽ thông báo cho bạn khi có tin tức mới nhất.
       </Text>
     </View>
@@ -111,14 +111,14 @@ export default function NotificationScreen() {
   const getIcon = (type: string, isRead: boolean) => {
     const appearance =
       {
-        [NOTIFICATION_TYPE.EXPENSE]: { color: "#FF6B3D", bg: "#FFF0E8" },
-        [NOTIFICATION_TYPE.TIMELINE]: { color: "#1687F8", bg: COLORS.infoLight },
-        [NOTIFICATION_TYPE.INVITE]: { color: "#23B96F", bg: COLORS.successLight },
-        [NOTIFICATION_TYPE.TRIP]: { color: "#E3A008", bg: COLORS.warningLight },
-        [NOTIFICATION_TYPE.BALANCE]: { color: "#7257D6", bg: COLORS.purpleLight },
-      }[type] || { color: COLORS.primary, bg: COLORS.primaryLight };
-    const color = isRead ? COLORS.textLight : appearance.color;
-    const bg = isRead ? COLORS.surfaceMuted : appearance.bg;
+        [NOTIFICATION_TYPE.EXPENSE]: { color: "#FF6B3D", bg: palette.orangeLight },
+        [NOTIFICATION_TYPE.TIMELINE]: { color: "#1687F8", bg: palette.primaryLight },
+        [NOTIFICATION_TYPE.INVITE]: { color: "#23B96F", bg: palette.successLight },
+        [NOTIFICATION_TYPE.TRIP]: { color: "#E3A008", bg: palette.warningLight },
+        [NOTIFICATION_TYPE.BALANCE]: { color: "#846FE8", bg: palette.purpleLight },
+      }[type] || { color: COLORS.primary, bg: palette.primaryLight };
+    const color = isRead ? palette.textLight : appearance.color;
+    const bg = isRead ? palette.surfaceMuted : appearance.bg;
     let iconName: any = "bell-outline";
 
     switch (type) {
@@ -147,7 +147,7 @@ export default function NotificationScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: palette.surface }]}>
       {renderHeader()}
       <FlatList
         data={listNotification}
@@ -167,7 +167,15 @@ export default function NotificationScreen() {
         renderItem={({ item }) => (
           <TouchableOpacity
             activeOpacity={0.7}
-            style={[styles.item, !item.isRead && styles.unreadItem]}
+            style={[
+              styles.item,
+              {
+                backgroundColor: item.isRead
+                  ? palette.surface
+                  : palette.primaryLight,
+                borderColor: palette.border,
+              },
+            ]}
             onPress={() => {
               markRead(item);
               navigateNoti(item);
@@ -182,15 +190,24 @@ export default function NotificationScreen() {
 
             <View style={styles.contentContainer}>
               <Text
-                style={[styles.title, !item.isRead && styles.boldText]}
+                style={[
+                  styles.title,
+                  { color: palette.textPrimary },
+                  !item.isRead && styles.boldText,
+                ]}
                 numberOfLines={2}
               >
                 {item.title}
               </Text>
-              <Text style={styles.content} numberOfLines={2}>
+              <Text
+                style={[styles.content, { color: palette.textSecondary }]}
+                numberOfLines={2}
+              >
                 {item.content}
               </Text>
-              <Text style={styles.time}>{formatTimeAgo(item.createdAt)}</Text>
+              <Text style={[styles.time, { color: palette.textLight }]}>
+                {formatTimeAgo(item.createdAt)}
+              </Text>
             </View>
 
             <View style={styles.dotContainer}>
@@ -262,7 +279,7 @@ const styles = StyleSheet.create({
 
   contentContainer: { flex: 1 },
   title: { fontSize: 15, color: COLORS.textPrimary, lineHeight: 20 },
-  boldText: { fontWeight: "700", color: COLORS.textPrimary },
+  boldText: { fontWeight: "700" },
   content: { fontSize: 14, color: COLORS.textSecondary, marginTop: 2, lineHeight: 18 },
   time: { fontSize: 12, color: COLORS.textLight, marginTop: 6 },
 

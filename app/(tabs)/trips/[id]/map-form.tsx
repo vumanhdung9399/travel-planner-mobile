@@ -1,6 +1,7 @@
 import ConfirmDialog from "@/src/components/ConfirmDialog";
 import { AppToast } from "@/src/components/AppToast";
 import { CommonHeader } from "@/src/components/layout/CommonHeader";
+import { useAppPalette } from "@/src/hook/useAppPalette";
 import { api } from "@/src/services/api";
 import {
   getGooglePlaceLocation,
@@ -40,8 +41,8 @@ import MapView, {
   Marker,
   Polyline,
   PROVIDER_GOOGLE,
-} from "react-native-maps";
-import { Text } from "react-native-paper";
+} from "../../../../src/components/map/MapViewAdapter";
+import { Text, useTheme } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 type TravelMode = "DRIVING" | "MOTORCYCLE";
@@ -77,6 +78,47 @@ const DEFAULT_REGION = {
   latitudeDelta: 0.08,
   longitudeDelta: 0.08,
 };
+
+const DARK_MAP_STYLE = [
+  { elementType: "geometry", stylers: [{ color: "#172033" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#A9B7CA" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#0B1220" }] },
+  {
+    featureType: "poi",
+    elementType: "geometry",
+    stylers: [{ color: "#1B293D" }],
+  },
+  {
+    featureType: "poi",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#8492A6" }],
+  },
+  {
+    featureType: "road",
+    elementType: "geometry",
+    stylers: [{ color: "#2A384C" }],
+  },
+  {
+    featureType: "road.highway",
+    elementType: "geometry",
+    stylers: [{ color: "#3B526E" }],
+  },
+  {
+    featureType: "transit",
+    elementType: "geometry",
+    stylers: [{ color: "#1B293D" }],
+  },
+  {
+    featureType: "water",
+    elementType: "geometry",
+    stylers: [{ color: "#0A2A43" }],
+  },
+  {
+    featureType: "water",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#6B8FA8" }],
+  },
+];
 
 const decodePolyline = (encoded: string): LatLng[] => {
   const points: LatLng[] = [];
@@ -143,6 +185,8 @@ const formatDuration = (seconds: number) => {
 };
 
 export default function NativeMapScreen() {
+  const palette = useAppPalette();
+  const paperTheme = useTheme();
   const mapRef = useRef<MapView>(null);
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
   const previousOffRouteUsers = useRef<Set<string>>(new Set());
@@ -176,6 +220,11 @@ export default function NativeMapScreen() {
   const [membersOpen, setMembersOpen] = useState(false);
   const [alertThreshold, setAlertThreshold] = useState(0.3);
   const allowEdit = isLeader && !isViewMode && !!id;
+  const successColor = palette.isDark ? "#6EE7B7" : "#16A34A";
+  const warningColor = palette.isDark ? "#FCD34D" : "#F59E0B";
+  const errorColor = palette.isDark ? "#FDA4AF" : paperTheme.colors.error;
+  const mapPointColor = palette.isDark ? "#60A5FA" : "#2563EB";
+  const alertBackgroundColor = palette.isDark ? "#7F1D1D" : "#DC2626";
 
   const fitPoints = useCallback((items: LatLng[]) => {
     const validItems = items.filter(isValidLatLng);
@@ -663,15 +712,20 @@ export default function NativeMapScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text>Đang tải bản đồ...</Text>
+      <SafeAreaView
+        style={[styles.center, { backgroundColor: palette.background }]}
+      >
+        <ActivityIndicator size="large" color={paperTheme.colors.primary} />
+        <Text style={{ color: palette.textPrimary }}>Đang tải bản đồ...</Text>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["bottom"]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: palette.surface }]}
+      edges={["bottom"]}
+    >
       <CommonHeader title="Bản đồ chuyến đi" fallbackHref={fallbackHref} />
       <View style={styles.mapWrap}>
         <MapView
@@ -683,11 +737,13 @@ export default function NativeMapScreen() {
           showsUserLocation
           showsMyLocationButton={false}
           toolbarEnabled={false}
+          userInterfaceStyle={palette.isDark ? "dark" : "light"}
+          customMapStyle={palette.isDark ? DARK_MAP_STYLE : []}
         >
           {routePath.length >= 2 && (
             <Polyline
               coordinates={routePath}
-              strokeColor={savedRoute ? "#16a34a" : "#f59e0b"}
+              strokeColor={savedRoute ? successColor : warningColor}
               strokeWidth={6}
             />
           )}
@@ -702,7 +758,13 @@ export default function NativeMapScreen() {
                     ? "Điểm đến"
                     : `Điểm ${index}`
               }
-              pinColor={index === 0 ? "#16a34a" : index === points.length - 1 ? "#dc2626" : "#2563eb"}
+              pinColor={
+                index === 0
+                  ? successColor
+                  : index === points.length - 1
+                    ? errorColor
+                    : mapPointColor
+              }
             />
           ))}
           {users.filter((user) => user.hasLocation).map((user) => (
@@ -717,42 +779,91 @@ export default function NativeMapScreen() {
 
         <View style={styles.topActions}>
           {isViewMode && (
-          <Pressable style={styles.fab} onPress={() => setMembersOpen(true)}>
-            <View>
-              <Ionicons name="people" size={22} color={COLORS.primary} />
-              {!!offRouteMembers.length && (
-                <View style={styles.alertBadge}>
-                  <Text style={styles.alertBadgeText}>
-                    {offRouteMembers.length}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </Pressable>
+            <Pressable
+              style={[
+                styles.fab,
+                {
+                  backgroundColor: palette.surface,
+                  borderColor: palette.border,
+                },
+              ]}
+              onPress={() => setMembersOpen(true)}
+            >
+              <View>
+                <Ionicons
+                  name="people"
+                  size={22}
+                  color={paperTheme.colors.primary}
+                />
+                {!!offRouteMembers.length && (
+                  <View
+                    style={[
+                      styles.alertBadge,
+                      { backgroundColor: paperTheme.colors.error },
+                    ]}
+                  >
+                    <Text style={styles.alertBadgeText}>
+                      {offRouteMembers.length}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </Pressable>
           )}
           {allowEdit && (
-            <Pressable style={styles.fab} onPress={() => setPanelOpen(true)}>
-              <Ionicons name="options" size={22} color={COLORS.primary} />
+            <Pressable
+              style={[
+                styles.fab,
+                {
+                  backgroundColor: palette.surface,
+                  borderColor: palette.border,
+                },
+              ]}
+              onPress={() => setPanelOpen(true)}
+            >
+              <Ionicons
+                name="options"
+                size={22}
+                color={paperTheme.colors.primary}
+              />
             </Pressable>
           )}
           {isViewMode && myLocation && (
             <Pressable
-              style={styles.fab}
+              style={[
+                styles.fab,
+                {
+                  backgroundColor: palette.surface,
+                  borderColor: palette.border,
+                },
+              ]}
               onPress={() =>
                 mapRef.current?.animateCamera({ center: myLocation, zoom: 16 })
               }
             >
-              <Ionicons name="locate" size={22} color={COLORS.primary} />
+              <Ionicons
+                name="locate"
+                size={22}
+                color={paperTheme.colors.primary}
+              />
             </Pressable>
           )}
         </View>
 
         {(selectedRecord || routePath.length >= 2) && (
-          <View style={styles.routeInfo}>
-            <Text style={styles.routeTitle}>
+          <View
+            style={[
+              styles.routeInfo,
+              {
+                backgroundColor: palette.surface,
+                borderColor: palette.border,
+              },
+            ]}
+          >
+            <Text style={[styles.routeTitle, { color: palette.textPrimary }]}>
               {selectedRecord?.name || routeName || "Tuyến mới"}
             </Text>
-            <Text style={styles.routeMeta}>
+            <Text style={[styles.routeMeta, { color: palette.textSecondary }]}>
               {distance ? formatDistance(distance) : "—"} ·{" "}
               {duration ? formatDuration(duration) : "—"} ·{" "}
               {travelMode === "DRIVING" ? "Ô tô" : "Xe máy"}
@@ -762,7 +873,10 @@ export default function NativeMapScreen() {
         {isViewMode && !!offRouteMembers.length && (
           <Pressable
             onPress={() => setMembersOpen(true)}
-            style={styles.alertBanner}
+            style={[
+              styles.alertBanner,
+              { backgroundColor: alertBackgroundColor },
+            ]}
           >
             <Ionicons name="warning" size={20} color="#fff" />
             <Text style={styles.alertBannerText}>
@@ -784,52 +898,115 @@ export default function NativeMapScreen() {
         onRequestClose={() => setPanelOpen(false)}
       >
         <KeyboardAvoidingView
-          style={styles.modalOverlay}
+          style={[
+            styles.modalOverlay,
+            {
+              backgroundColor: palette.isDark
+                ? "rgba(0,0,0,.58)"
+                : "rgba(0,0,0,.25)",
+            },
+          ]}
           behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
-          <View style={styles.panel}>
+          <View style={[styles.panel, { backgroundColor: palette.surface }]}>
             <View style={styles.panelHeader}>
-              <Text style={styles.panelTitle}>Quản lý lộ trình</Text>
+              <Text style={[styles.panelTitle, { color: palette.textPrimary }]}>
+                Quản lý lộ trình
+              </Text>
               <Pressable onPress={() => setPanelOpen(false)}>
-                <Ionicons name="close" size={26} color={COLORS.textPrimary} />
+                <Ionicons
+                  name="close"
+                  size={26}
+                  color={palette.textPrimary}
+                />
               </Pressable>
             </View>
             <ScrollView keyboardShouldPersistTaps="handled">
               {!!selectedRecord && (
-                <Pressable style={styles.newRouteButton} onPress={startDraft}>
-                  <Ionicons name="add-circle-outline" size={20} color="#fff" />
-                  <Text style={styles.newRouteText}>Tạo lộ trình mới</Text>
+                <Pressable
+                  style={[
+                    styles.newRouteButton,
+                    { backgroundColor: paperTheme.colors.primary },
+                  ]}
+                  onPress={startDraft}
+                >
+                  <Ionicons
+                    name="add-circle-outline"
+                    size={20}
+                    color={paperTheme.colors.onPrimary}
+                  />
+                  <Text
+                    style={[
+                      styles.newRouteText,
+                      { color: paperTheme.colors.onPrimary },
+                    ]}
+                  >
+                    Tạo lộ trình mới
+                  </Text>
                 </Pressable>
               )}
               <View style={styles.searchRow}>
                 <TextInput
                   value={search}
                   placeholder="Tìm địa điểm để thêm..."
-                  style={styles.input}
+                  placeholderTextColor={palette.textLight}
+                  selectionColor={paperTheme.colors.primary}
+                  keyboardAppearance={palette.isDark ? "dark" : "light"}
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: palette.surface,
+                      borderColor: palette.border,
+                      color: palette.textPrimary,
+                    },
+                  ]}
                   onChangeText={(value) => {
                     setSearch(value);
                     setShowSuggestions(false);
                   }}
                   onSubmitEditing={() => void findPlaces()}
                 />
-                <Pressable style={styles.squareButton} onPress={() => void findPlaces()}>
-                  <Ionicons name="search" size={21} color="#fff" />
+                <Pressable
+                  style={[
+                    styles.squareButton,
+                    { backgroundColor: paperTheme.colors.primary },
+                  ]}
+                  onPress={() => void findPlaces()}
+                >
+                  <Ionicons
+                    name="search"
+                    size={21}
+                    color={paperTheme.colors.onPrimary}
+                  />
                 </Pressable>
               </View>
               {showSuggestions && suggestions.length > 0 && (
-                <View style={styles.suggestions}>
+                <View
+                  style={[
+                    styles.suggestions,
+                    {
+                      backgroundColor: palette.surface,
+                      borderColor: palette.border,
+                    },
+                  ]}
+                >
                   {suggestions.map((prediction) => (
                     <Pressable
                       key={prediction.placeId}
                       onPress={() => void selectPlace(prediction)}
-                      style={styles.suggestion}
+                      style={[styles.suggestion, { borderColor: palette.border }]}
                     >
                       <Ionicons
                         name="location-outline"
                         size={19}
-                        color={COLORS.primary}
+                        color={paperTheme.colors.primary}
                       />
-                      <Text style={styles.suggestionText}>
+                      <Text
+                        style={[
+                          styles.suggestionText,
+                          { color: palette.textPrimary },
+                        ]}
+                      >
                         {prediction.description}
                       </Text>
                     </Pressable>
@@ -839,12 +1016,26 @@ export default function NativeMapScreen() {
               <Pressable
                 disabled={busy}
                 onPress={() => void addMyLocation()}
-                style={styles.myLocationButton}
+                style={[
+                  styles.myLocationButton,
+                  { borderColor: paperTheme.colors.primary },
+                ]}
               >
-                <Ionicons name="locate" size={20} color={COLORS.primary} />
-                <Text style={styles.myLocationText}>Sử dụng vị trí của tôi</Text>
+                <Ionicons
+                  name="locate"
+                  size={20}
+                  color={paperTheme.colors.primary}
+                />
+                <Text
+                  style={[
+                    styles.myLocationText,
+                    { color: paperTheme.colors.primary },
+                  ]}
+                >
+                  Sử dụng vị trí của tôi
+                </Text>
               </Pressable>
-              <Text style={styles.help}>
+              <Text style={[styles.help, { color: palette.textSecondary }]}>
                 Chạm trực tiếp lên bản đồ hoặc tìm địa điểm để thêm waypoint.
               </Text>
 
@@ -856,14 +1047,37 @@ export default function NativeMapScreen() {
                       setTravelMode(mode);
                       setRoutePath([]);
                     }}
-                    style={[styles.mode, travelMode === mode && styles.modeActive]}
+                    style={[
+                      styles.mode,
+                      { backgroundColor: palette.surfaceMuted },
+                      travelMode === mode && styles.modeActive,
+                      travelMode === mode && {
+                        backgroundColor: paperTheme.colors.primary,
+                      },
+                    ]}
                   >
                     <Ionicons
                       name={mode === "DRIVING" ? "car" : "bicycle"}
                       size={20}
-                      color={travelMode === mode ? "#fff" : COLORS.textSecondary}
+                      color={
+                        travelMode === mode
+                          ? paperTheme.colors.onPrimary
+                          : palette.textSecondary
+                      }
                     />
-                    <Text style={travelMode === mode ? styles.modeTextActive : styles.modeText}>
+                    <Text
+                      style={[
+                        travelMode === mode
+                          ? styles.modeTextActive
+                          : styles.modeText,
+                        {
+                          color:
+                            travelMode === mode
+                              ? paperTheme.colors.onPrimary
+                              : palette.textSecondary,
+                        },
+                      ]}
+                    >
                       {mode === "DRIVING" ? "Ô tô" : "Xe máy"}
                     </Text>
                   </Pressable>
@@ -871,7 +1085,11 @@ export default function NativeMapScreen() {
               </View>
 
               <View style={styles.pointHeader}>
-                <Text style={styles.sectionTitle}>Điểm đã chọn ({points.length})</Text>
+                <Text
+                  style={[styles.sectionTitle, { color: palette.textPrimary }]}
+                >
+                  Điểm đã chọn ({points.length})
+                </Text>
                 {!!points.length && (
                   <Pressable
                     onPress={() => {
@@ -879,14 +1097,31 @@ export default function NativeMapScreen() {
                       setRoutePath([]);
                     }}
                   >
-                    <Text style={styles.clear}>Xóa tất cả</Text>
+                    <Text style={[styles.clear, { color: errorColor }]}>
+                      Xóa tất cả
+                    </Text>
                   </Pressable>
                 )}
               </View>
               {points.map((point, index) => (
-                <View key={`${point.latitude}-${index}`} style={styles.pointRow}>
-                  <Text style={styles.pointIndex}>{index + 1}</Text>
-                  <Text style={styles.coordinate}>
+                <View
+                  key={`${point.latitude}-${index}`}
+                  style={[styles.pointRow, { borderColor: palette.border }]}
+                >
+                  <Text
+                    style={[
+                      styles.pointIndex,
+                      {
+                        backgroundColor: paperTheme.colors.primary,
+                        color: paperTheme.colors.onPrimary,
+                      },
+                    ]}
+                  >
+                    {index + 1}
+                  </Text>
+                  <Text
+                    style={[styles.coordinate, { color: palette.textSecondary }]}
+                  >
                     {point.latitude.toFixed(5)}, {point.longitude.toFixed(5)}
                   </Text>
                   <Pressable
@@ -895,7 +1130,11 @@ export default function NativeMapScreen() {
                       setRoutePath([]);
                     }}
                   >
-                    <Ionicons name="trash-outline" size={19} color={COLORS.error} />
+                    <Ionicons
+                      name="trash-outline"
+                      size={19}
+                      color={errorColor}
+                    />
                   </Pressable>
                 </View>
               ))}
@@ -903,10 +1142,25 @@ export default function NativeMapScreen() {
               <Pressable
                 disabled={busy || points.length < 2}
                 onPress={() => void calculateRoute(points, travelMode)}
-                style={[styles.outlineButton, points.length < 2 && styles.disabled]}
+                style={[
+                  styles.outlineButton,
+                  { borderColor: paperTheme.colors.primary },
+                  points.length < 2 && styles.disabled,
+                ]}
               >
-                <Ionicons name="navigate" size={20} color={COLORS.primary} />
-                <Text style={styles.outlineText}>Tìm đường</Text>
+                <Ionicons
+                  name="navigate"
+                  size={20}
+                  color={paperTheme.colors.primary}
+                />
+                <Text
+                  style={[
+                    styles.outlineText,
+                    { color: paperTheme.colors.primary },
+                  ]}
+                >
+                  Tìm đường
+                </Text>
               </Pressable>
 
               {!!routePath.length && (
@@ -915,27 +1169,92 @@ export default function NativeMapScreen() {
                     value={routeName}
                     onChangeText={setRouteName}
                     placeholder="Tên lộ trình"
-                    style={[styles.input, styles.nameInput]}
+                    placeholderTextColor={palette.textLight}
+                    selectionColor={paperTheme.colors.primary}
+                    keyboardAppearance={palette.isDark ? "dark" : "light"}
+                    style={[
+                      styles.input,
+                      styles.nameInput,
+                      {
+                        backgroundColor: palette.surface,
+                        borderColor: palette.border,
+                        color: palette.textPrimary,
+                      },
+                    ]}
                   />
-                  <Pressable disabled={busy} onPress={() => void saveRoute()} style={styles.saveButton}>
-                    {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveText}>Lưu lộ trình</Text>}
+                  <Pressable
+                    disabled={busy}
+                    onPress={() => void saveRoute()}
+                    style={[
+                      styles.saveButton,
+                      { backgroundColor: paperTheme.colors.primary },
+                    ]}
+                  >
+                    {busy ? (
+                      <ActivityIndicator color={paperTheme.colors.onPrimary} />
+                    ) : (
+                      <Text
+                        style={[
+                          styles.saveText,
+                          { color: paperTheme.colors.onPrimary },
+                        ]}
+                      >
+                        Lưu lộ trình
+                      </Text>
+                    )}
                   </Pressable>
                 </>
               )}
 
-              {!!records.length && <Text style={[styles.sectionTitle, styles.savedTitle]}>Lộ trình đã lưu</Text>}
+              {!!records.length && (
+                <Text
+                  style={[
+                    styles.sectionTitle,
+                    styles.savedTitle,
+                    { color: palette.textPrimary },
+                  ]}
+                >
+                  Lộ trình đã lưu
+                </Text>
+              )}
               {records.map((record) => (
                 <Pressable
                   key={record.id}
                   onPress={() => void loadRouteFile(record)}
-                  style={[styles.record, selectedRecord?.id === record.id && styles.recordActive]}
+                  style={[
+                    styles.record,
+                    {
+                      backgroundColor: palette.surface,
+                      borderColor: palette.border,
+                    },
+                    selectedRecord?.id === record.id && styles.recordActive,
+                    selectedRecord?.id === record.id && {
+                      backgroundColor: palette.primaryLight,
+                      borderColor: paperTheme.colors.primary,
+                    },
+                  ]}
                 >
                   <View style={styles.recordText}>
-                    <Text style={styles.recordName}>{record.name}</Text>
-                    <Text style={styles.recordStatus}>{record.active ? "Đang hoạt động" : "Chưa chọn"}</Text>
+                    <Text
+                      style={[styles.recordName, { color: palette.textPrimary }]}
+                    >
+                      {record.name}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.recordStatus,
+                        { color: palette.textSecondary },
+                      ]}
+                    >
+                      {record.active ? "Đang hoạt động" : "Chưa chọn"}
+                    </Text>
                   </View>
                   <Pressable onPress={() => setDeleteRecord(record)} hitSlop={8}>
-                    <Ionicons name="trash-outline" size={20} color={COLORS.error} />
+                    <Ionicons
+                      name="trash-outline"
+                      size={20}
+                      color={errorColor}
+                    />
                   </Pressable>
                 </Pressable>
               ))}
@@ -950,38 +1269,79 @@ export default function NativeMapScreen() {
         transparent
         onRequestClose={() => setMembersOpen(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.membersPanel}>
+        <View
+          style={[
+            styles.modalOverlay,
+            {
+              backgroundColor: palette.isDark
+                ? "rgba(0,0,0,.58)"
+                : "rgba(0,0,0,.25)",
+            },
+          ]}
+        >
+          <View
+            style={[styles.membersPanel, { backgroundColor: palette.surface }]}
+          >
             <View style={styles.panelHeader}>
               <View>
-                <Text style={styles.panelTitle}>Thành viên trên bản đồ</Text>
-                <Text style={styles.membersSummary}>
+                <Text
+                  style={[styles.panelTitle, { color: palette.textPrimary }]}
+                >
+                  Thành viên trên bản đồ
+                </Text>
+                <Text
+                  style={[
+                    styles.membersSummary,
+                    { color: palette.textSecondary },
+                  ]}
+                >
                   {memberStatuses.filter((user) => user.hasLocation).length} có
                   vị trí · {offRouteMembers.length} lệch tuyến
                 </Text>
               </View>
               <Pressable onPress={() => setMembersOpen(false)}>
-                <Ionicons name="close" size={26} color={COLORS.textPrimary} />
+                <Ionicons
+                  name="close"
+                  size={26}
+                  color={palette.textPrimary}
+                />
               </Pressable>
             </View>
 
             <View style={styles.thresholdRow}>
-              <Text style={styles.thresholdLabel}>Ngưỡng cảnh báo</Text>
+              <Text
+                style={[
+                  styles.thresholdLabel,
+                  { color: palette.textSecondary },
+                ]}
+              >
+                Ngưỡng cảnh báo
+              </Text>
               {[0.1, 0.3, 0.5, 1].map((threshold) => (
                 <Pressable
                   key={threshold}
                   onPress={() => setAlertThreshold(threshold)}
                   style={[
                     styles.threshold,
+                    { backgroundColor: palette.surfaceMuted },
                     alertThreshold === threshold && styles.thresholdActive,
+                    alertThreshold === threshold && {
+                      backgroundColor: paperTheme.colors.primary,
+                    },
                   ]}
                 >
                   <Text
-                    style={
+                    style={[
                       alertThreshold === threshold
                         ? styles.thresholdTextActive
-                        : styles.thresholdText
-                    }
+                        : styles.thresholdText,
+                      {
+                        color:
+                          alertThreshold === threshold
+                            ? paperTheme.colors.onPrimary
+                            : palette.textSecondary,
+                      },
+                    ]}
                   >
                     {threshold < 1 ? `${threshold * 1000}m` : "1km"}
                   </Text>
@@ -995,9 +1355,14 @@ export default function NativeMapScreen() {
                   <Ionicons
                     name="people-outline"
                     size={38}
-                    color={COLORS.textLight}
+                    color={palette.textLight}
                   />
-                  <Text style={styles.noMembersText}>
+                  <Text
+                    style={[
+                      styles.noMembersText,
+                      { color: palette.textSecondary },
+                    ]}
+                  >
                     Chưa có thành viên online trên bản đồ.
                   </Text>
                 </View>
@@ -1015,7 +1380,12 @@ export default function NativeMapScreen() {
                   }}
                   style={[
                     styles.memberRow,
+                    { backgroundColor: palette.surfaceMuted },
                     user.isOffRoute && styles.memberOffRoute,
+                    user.isOffRoute && {
+                      backgroundColor: palette.errorLight,
+                      borderColor: errorColor,
+                    },
                   ]}
                 >
                   <View
@@ -1029,7 +1399,9 @@ export default function NativeMapScreen() {
                     </Text>
                   </View>
                   <View style={styles.memberText}>
-                    <Text style={styles.memberName}>
+                    <Text
+                      style={[styles.memberName, { color: palette.textPrimary }]}
+                    >
                       {user.userName}
                       {user.userId === currentUser?.id ? " (Bạn)" : ""}
                     </Text>
@@ -1037,6 +1409,13 @@ export default function NativeMapScreen() {
                       style={[
                         styles.memberStatus,
                         user.isOffRoute && styles.memberStatusWarning,
+                        {
+                          color: user.isOffRoute
+                            ? errorColor
+                            : user.hasLocation
+                              ? successColor
+                              : palette.textSecondary,
+                        },
                       ]}
                     >
                       {!user.hasLocation
@@ -1054,7 +1433,7 @@ export default function NativeMapScreen() {
                     <Ionicons
                       name={user.isOffRoute ? "warning" : "navigate-circle"}
                       size={24}
-                      color={user.isOffRoute ? COLORS.error : "#16a34a"}
+                      color={user.isOffRoute ? errorColor : successColor}
                     />
                   )}
                 </Pressable>
@@ -1086,6 +1465,7 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 23,
+    borderWidth: 1,
     backgroundColor: COLORS.surface,
     alignItems: "center",
     justifyContent: "center",
@@ -1125,6 +1505,7 @@ const styles = StyleSheet.create({
     right: 14,
     bottom: 18,
     borderRadius: 16,
+    borderWidth: 1,
     backgroundColor: COLORS.surface,
     padding: 14,
     elevation: 5,

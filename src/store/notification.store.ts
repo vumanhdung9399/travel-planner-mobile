@@ -1,9 +1,7 @@
 import type { Notification } from "@/src/type/notification";
-import axios from "axios";
 import { create } from "zustand";
-import { ENV } from "../constants/env";
+import { api } from "../services/api";
 import { LIMIT_LOAD_MORE } from "../utils/constants";
-import { useAuthStore } from "./auth.store";
 
 interface NotificationStore {
   count: number;
@@ -24,12 +22,6 @@ interface NotificationStore {
   markAllAsRead: () => Promise<void>;
   reset: () => void;
 }
-
-// Helper để lấy headers có token
-const getAuthHeaders = () => {
-  const token = useAuthStore.getState().accessToken;
-  return token ? { Authorization: `Bearer ${token}` } : {};
-};
 
 const initialState = {
   count: 0,
@@ -72,20 +64,21 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     set({ loading: true });
 
     try {
-      const res = await axios.get(
-        `${ENV.API_URL}/notifications?page=${nextPage}&limit=${LIMIT_LOAD_MORE}`,
-        {
-          headers: getAuthHeaders(),
-        },
-      );
+      const res = await api.get("/notifications", {
+        params: { page: nextPage, limit: LIMIT_LOAD_MORE },
+      });
 
       const newData = res.data.data;
       const totalFromServer = res.data.total;
 
       set((state) => {
-        const updatedData = isRefresh
+        const combined = isRefresh
           ? newData
           : [...state.listNotification, ...newData];
+        const updatedData = combined.filter(
+          (notification: Notification, index: number, list: Notification[]) =>
+            list.findIndex((item) => item.id === notification.id) === index,
+        );
 
         return {
           listNotification: updatedData,
@@ -117,17 +110,11 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
 
   markAsRead: async (notificationId: string) => {
     try {
-      await axios.patch(
-        `${ENV.API_URL}/notifications/${notificationId}/read`,
-        {},
-        {
-          headers: getAuthHeaders(),
-        },
-      );
+      await api.patch(`/notifications/${notificationId}/read`);
 
       set((state) => {
         const updatedList = state.listNotification.map((n) =>
-          n.id === notificationId ? { ...n, read: true } : n,
+          n.id === notificationId ? { ...n, isRead: true } : n,
         );
 
         return {
@@ -142,18 +129,12 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
 
   markAllAsRead: async () => {
     try {
-      await axios.patch(
-        `${ENV.API_URL}/notifications/read-all`,
-        {},
-        {
-          headers: getAuthHeaders(),
-        },
-      );
+      await api.patch("/notifications/read-all");
 
       set((state) => ({
         listNotification: state.listNotification.map((n) => ({
           ...n,
-          read: true,
+          isRead: true,
         })),
         count: 0,
       }));

@@ -1,7 +1,10 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { disconnectSocket } from "../utils/socket";
+import { useUserStore } from "./user.store";
 
 type AuthState = {
   user: any | null;
@@ -24,6 +27,7 @@ type AuthState = {
 const secureStorage = {
   getItem: async (name: string) => {
     try {
+      if (Platform.OS === "web") return await AsyncStorage.getItem(name);
       return await SecureStore.getItemAsync(name);
     } catch (e) {
       console.warn("[SecureStore] getItem error:", e);
@@ -32,6 +36,10 @@ const secureStorage = {
   },
   setItem: async (name: string, value: string) => {
     try {
+      if (Platform.OS === "web") {
+        await AsyncStorage.setItem(name, value);
+        return;
+      }
       await SecureStore.setItemAsync(name, value);
     } catch (e) {
       console.warn("[SecureStore] setItem error:", e);
@@ -61,6 +69,10 @@ const secureStorage = {
   },
   removeItem: async (name: string) => {
     try {
+      if (Platform.OS === "web") {
+        await AsyncStorage.removeItem(name);
+        return;
+      }
       await SecureStore.deleteItemAsync(name);
     } catch (e) {
       console.warn("[SecureStore] removeItem error:", e);
@@ -91,6 +103,7 @@ export const useAuthStore = create<AuthState>()(
 
       logout: () => {
         disconnectSocket();
+        useUserStore.getState().clearUser();
         set({ user: null, accessToken: null, refreshToken: null });
 
         try {

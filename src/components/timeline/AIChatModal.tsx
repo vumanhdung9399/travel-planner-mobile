@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import dayjs from "dayjs";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -20,6 +20,7 @@ import {
   View,
 } from "react-native";
 import { Text } from "react-native-paper";
+import { type AppPalette, useAppPalette } from "@/src/hook/useAppPalette";
 
 type AIAction = "add" | "edit" | "replace" | "optimize";
 type AIResponse = {
@@ -60,6 +61,8 @@ interface Props {
 
 export default function AIChatModal({ open, trip, existingTimeline, onClose, onUpdated }: Props) {
   const insets = useSafeAreaInsets();
+  const palette = useAppPalette();
+  const styles = useMemo(() => createStyles(palette), [palette]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([WELCOME]);
@@ -170,7 +173,7 @@ export default function AIChatModal({ open, trip, existingTimeline, onClose, onU
               {!!trip.location && <Text style={styles.location}>📍 {trip.location}</Text>}
             </View>
           </View>
-          <TouchableOpacity onPress={close} disabled={loading}><Ionicons name="close" size={26} color={COLORS.textPrimary} /></TouchableOpacity>
+          <TouchableOpacity onPress={close} disabled={loading}><Ionicons name="close" size={26} color={palette.textPrimary} /></TouchableOpacity>
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.suggestions} contentContainerStyle={styles.suggestionContent}>
@@ -215,6 +218,9 @@ export default function AIChatModal({ open, trip, existingTimeline, onClose, onU
             value={input}
             onChangeText={setInput}
             placeholder="Nhập yêu cầu cho trợ lý AI..."
+            placeholderTextColor={palette.textLight}
+            selectionColor={COLORS.primary}
+            keyboardAppearance={palette.isDark ? "dark" : "light"}
             multiline
             editable={!loading}
             style={styles.input}
@@ -239,42 +245,42 @@ export default function AIChatModal({ open, trip, existingTimeline, onClose, onU
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: COLORS.surface },
-  container: { flex: 1, backgroundColor: COLORS.surface },
-  header: { paddingTop: 12, paddingHorizontal: 18, paddingBottom: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: 1, borderBottomColor: "#E5E7EB" },
+const createStyles = (palette: AppPalette) => StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: palette.surface },
+  container: { flex: 1, backgroundColor: palette.surface },
+  header: { paddingTop: 12, paddingHorizontal: 18, paddingBottom: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: 1, borderBottomColor: palette.border, backgroundColor: palette.surface },
   headerTitle: { flexDirection: "row", alignItems: "center", gap: 10 },
   logo: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.primary, alignItems: "center", justifyContent: "center" },
-  title: { fontSize: 18, fontWeight: "700", color: COLORS.textPrimary },
-  location: { fontSize: 11, color: COLORS.textSecondary, marginTop: 2 },
-  suggestions: { flexGrow: 0, backgroundColor: COLORS.surfaceMuted, borderBottomWidth: 1, borderBottomColor: "#E5E7EB" },
+  title: { fontSize: 18, fontWeight: "700", color: palette.textPrimary },
+  location: { fontSize: 11, color: palette.textSecondary, marginTop: 2 },
+  suggestions: { flexGrow: 0, backgroundColor: palette.surfaceMuted, borderBottomWidth: 1, borderBottomColor: palette.border },
   suggestionContent: { padding: 10, gap: 8 },
-  suggestion: { paddingHorizontal: 12, paddingVertical: 8, backgroundColor: COLORS.surface, borderRadius: 18, borderWidth: 1, borderColor: COLORS.border },
-  suggestionText: { fontSize: 12, color: COLORS.textSecondary },
-  chat: { flex: 1, minHeight: 0 },
+  suggestion: { paddingHorizontal: 12, paddingVertical: 8, backgroundColor: palette.surface, borderRadius: 18, borderWidth: 1, borderColor: palette.border },
+  suggestionText: { fontSize: 12, color: palette.textSecondary },
+  chat: { flex: 1, minHeight: 0, backgroundColor: palette.background },
   chatContent: { padding: 16, gap: 12, flexGrow: 1 },
   bubble: { maxWidth: "88%", padding: 13, borderRadius: 16 },
-  aiBubble: { alignSelf: "flex-start", backgroundColor: COLORS.surfaceMuted, borderBottomLeftRadius: 4 },
+  aiBubble: { alignSelf: "flex-start", backgroundColor: palette.surfaceMuted, borderBottomLeftRadius: 4 },
   userBubble: { alignSelf: "flex-end", backgroundColor: COLORS.primary, borderBottomRightRadius: 4 },
-  message: { fontSize: 14, lineHeight: 20, color: COLORS.textPrimary },
+  message: { fontSize: 14, lineHeight: 20, color: palette.textPrimary },
   userMessage: { color: "#fff" },
   loading: { flexDirection: "row", gap: 10, alignItems: "center" },
-  preview: { backgroundColor: COLORS.successLight, borderWidth: 1, borderColor: "#BBF7D0", borderRadius: 16, padding: 14 },
+  preview: { backgroundColor: palette.successLight, borderWidth: 1, borderColor: palette.isDark ? "#24533F" : "#BBF7D0", borderRadius: 16, padding: 14 },
   previewHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
-  previewTitle: { color: "#166534", fontWeight: "700" },
-  count: { fontSize: 11, color: "#166534", backgroundColor: COLORS.successLight, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
-  previewItem: { paddingVertical: 10, borderTopWidth: 1, borderTopColor: COLORS.successLight },
-  previewTime: { fontSize: 11, color: "#15803D", fontWeight: "600" },
-  previewItemTitle: { fontSize: 14, fontWeight: "700", color: COLORS.textPrimary, marginTop: 3 },
-  previewDescription: { fontSize: 12, lineHeight: 17, color: COLORS.textSecondary, marginTop: 3 },
-  composer: { flexDirection: "row", alignItems: "flex-end", gap: 10, padding: 12, borderTopWidth: 1, borderTopColor: "#E5E7EB" },
-  input: { flex: 1, minHeight: 44, maxHeight: 100, borderWidth: 1, borderColor: COLORS.border, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10, color: COLORS.textPrimary },
+  previewTitle: { color: palette.isDark ? "#86EFAC" : "#166534", fontWeight: "700" },
+  count: { fontSize: 11, color: palette.isDark ? "#86EFAC" : "#166534", backgroundColor: palette.isDark ? palette.surfaceMuted : palette.successLight, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
+  previewItem: { paddingVertical: 10, borderTopWidth: 1, borderTopColor: palette.isDark ? "#24533F" : "#BBF7D0" },
+  previewTime: { fontSize: 11, color: palette.isDark ? "#6EE7B7" : "#15803D", fontWeight: "600" },
+  previewItemTitle: { fontSize: 14, fontWeight: "700", color: palette.textPrimary, marginTop: 3 },
+  previewDescription: { fontSize: 12, lineHeight: 17, color: palette.textSecondary, marginTop: 3 },
+  composer: { flexDirection: "row", alignItems: "flex-end", gap: 10, padding: 12, borderTopWidth: 1, borderTopColor: palette.border, backgroundColor: palette.surface },
+  input: { flex: 1, minHeight: 44, maxHeight: 100, borderWidth: 1, borderColor: palette.border, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10, color: palette.textPrimary, backgroundColor: palette.surfaceMuted },
   send: { width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.primary, alignItems: "center", justifyContent: "center" },
   disabled: { opacity: 0.4 },
-  footer: { flexDirection: "row", alignItems: "center", gap: 16, paddingHorizontal: 16 },
+  footer: { flexDirection: "row", alignItems: "center", gap: 16, paddingHorizontal: 16, backgroundColor: palette.surface },
   footerSpacer: { flex: 1 },
   clear: { color: "#DC2626", fontWeight: "600" },
-  closeText: { color: COLORS.textSecondary, fontWeight: "600" },
+  closeText: { color: palette.textSecondary, fontWeight: "600" },
   confirm: { borderRadius: 14, overflow: "hidden" },
   confirmGradient: { paddingHorizontal: 18, paddingVertical: 10 },
   confirmText: { color: "#fff", fontWeight: "700" },

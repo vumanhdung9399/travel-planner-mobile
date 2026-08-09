@@ -106,9 +106,13 @@ api.interceptors.response.use(
     originalRequest._retry = true;
     isRefreshing = true;
 
-    try {
-      const { refreshToken, user } = useAuthStore.getState();
+    const {
+      accessToken: refreshAccessToken,
+      refreshToken,
+      user,
+    } = useAuthStore.getState();
 
+    try {
       if (!refreshToken) {
         throw new Error("No refresh token");
       }
@@ -119,6 +123,19 @@ api.interceptors.response.use(
 
       if (!response.data.accessToken) {
         throw new Error("Invalid refresh response");
+      }
+
+      const currentAuth = useAuthStore.getState();
+      if (
+        currentAuth.accessToken !== refreshAccessToken ||
+        currentAuth.refreshToken !== refreshToken
+      ) {
+        const sessionChangedError = new AxiosError(
+          "Auth session changed during token refresh",
+          "ERR_CANCELED",
+        );
+        processQueue(sessionChangedError, null);
+        return Promise.reject(sessionChangedError);
       }
 
       useAuthStore.getState().setAuth({
@@ -138,8 +155,14 @@ api.interceptors.response.use(
       console.error("[API] Refresh token failed:", refreshError);
       processQueue(refreshError as AxiosError, null);
 
-      useAuthStore.getState().logout();
-      navigateToLogin();
+      const currentAuth = useAuthStore.getState();
+      if (
+        currentAuth.accessToken === refreshAccessToken &&
+        currentAuth.refreshToken === refreshToken
+      ) {
+        currentAuth.logout();
+        navigateToLogin();
+      }
       return Promise.reject(refreshError);
     } finally {
       isRefreshing = false;

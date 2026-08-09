@@ -9,7 +9,6 @@ import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  FlatList,
   Modal,
   RefreshControl,
   ScrollView,
@@ -20,10 +19,13 @@ import {
 import { Surface, Text } from "react-native-paper";
 import ActionSheet from "../ActionSheet";
 import AIChatModal from "./AIChatModal";
-import { useAppPalette } from "@/src/hook/useAppPalette";
+import { type AppPalette, useAppPalette } from "@/src/hook/useAppPalette";
 
 interface TimelineListProps {
   trip: Trip;
+  refreshKey?: number;
+  contentInsetTop?: number;
+  onScrollOffsetChange?: (offset: number) => void;
   onUpdate?: () => void;
   onSummaryChange?: (summary: {
     eyebrow: string;
@@ -36,10 +38,14 @@ type FilterType = "all" | "active" | "upcoming" | "passed" | "today";
 
 export default function TimelineList({
   trip,
+  refreshKey = 0,
+  contentInsetTop = 0,
+  onScrollOffsetChange,
   onUpdate,
   onSummaryChange,
 }: TimelineListProps) {
   const palette = useAppPalette();
+  const styles = useMemo(() => createStyles(palette), [palette]);
   const router = useRouter();
   const [allData, setAllData] = useState<TimelineItemType[]>([]);
   const [loading, setLoading] = useState(false);
@@ -108,8 +114,8 @@ export default function TimelineList({
   };
 
   useEffect(() => {
-    getTimeline();
-  }, [trip]);
+    void getTimeline();
+  }, [refreshKey, trip.id]);
 
   // Filter data
   const filteredData = useMemo(() => {
@@ -240,7 +246,7 @@ export default function TimelineList({
                 name="filter-outline"
                 size={16}
                 color={
-                  filterModalVisible ? COLORS.primary : COLORS.textSecondary
+                  filterModalVisible ? COLORS.primary : palette.textSecondary
                 }
               />
               <Text
@@ -277,7 +283,7 @@ export default function TimelineList({
                 color={
                   selectedStatus === "all" && selectedDay === null
                     ? COLORS.primary
-                    : COLORS.textSecondary
+                    : palette.textSecondary
                 }
               />
               <Text
@@ -412,7 +418,7 @@ export default function TimelineList({
                   color={
                     selectedStatus === "today"
                       ? "#10B981"
-                      : COLORS.textSecondary
+                      : palette.textSecondary
                   }
                 />
                 <Text
@@ -486,7 +492,7 @@ export default function TimelineList({
                 <Ionicons
                   name="ellipsis-horizontal"
                   size={22}
-                  color={COLORS.textSecondary}
+                  color={palette.textSecondary}
                 />
               </TouchableOpacity>
             </View>
@@ -564,7 +570,7 @@ export default function TimelineList({
               <Ionicons
                 name="close-outline"
                 size={24}
-                color={COLORS.textSecondary}
+                color={palette.textSecondary}
               />
             </TouchableOpacity>
           </View>
@@ -759,11 +765,28 @@ export default function TimelineList({
     );
   }
 
-  const hasFilterApplied = selectedStatus !== "all" || selectedDay !== null;
   const hasNoResults = filteredData.length === 0 && allData.length > 0;
 
   return (
-    <View style={[styles.container, { backgroundColor: palette.background }]}> 
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingTop: contentInsetTop }}
+      showsVerticalScrollIndicator={false}
+      onScroll={(event) =>
+        onScrollOffsetChange?.(event.nativeEvent.contentOffset.y)
+      }
+      scrollEventThrottle={16}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => {
+            setRefreshing(true);
+            getTimeline();
+          }}
+          tintColor={COLORS.primary}
+        />
+      }
+    >
       {trip.isLeader && !trip.isCloseTrip && (
         <View style={styles.aiToolbar}>
           <TouchableOpacity
@@ -775,7 +798,11 @@ export default function TimelineList({
             }}
           >
             <LinearGradient
-              colors={["#F5F3FF", "#EEF2FF"]}
+              colors={
+                palette.isDark
+                  ? [palette.purpleLight, palette.primaryLight]
+                  : ["#F5F3FF", "#EEF2FF"]
+              }
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.aiButtonGradient}
@@ -789,7 +816,11 @@ export default function TimelineList({
                   Tạo và tối ưu lịch trình tự động
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={18} color="#7C3AED" />
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color={palette.isDark ? "#C4B5FD" : "#7C3AED"}
+              />
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -822,23 +853,9 @@ export default function TimelineList({
           </Surface>
         </View>
       ) : (
-        <FlatList
-          data={sortedDays}
-          keyExtractor={(day) => String(day)}
-          renderItem={({ item: day }) => renderDaySection(day)}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => {
-                setRefreshing(true);
-                getTimeline();
-              }}
-              tintColor={COLORS.primary}
-            />
-          }
-        />
+        <View style={styles.listContent}>
+          {sortedDays.map((day) => renderDaySection(day))}
+        </View>
       )}
 
       {renderFilterModal()}
@@ -864,9 +881,9 @@ export default function TimelineList({
             icon: "pencil-outline",
             onPress: () => {
               if (selectedItem) {
-                router.push(
-                  `trips/${trip.id}/timeline-form?timelineId=${selectedItem.id}` as any,
-                );
+                  router.push(
+                    `/trips/${trip.id}/timeline-form?timelineId=${selectedItem.id}` as any,
+                  );
               }
             },
           },
@@ -878,19 +895,20 @@ export default function TimelineList({
           },
         ]}
       />
-    </View>
+    </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: AppPalette) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: palette.background,
   },
   centered: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: palette.background,
   },
   listContent: {
     paddingHorizontal: 12,
@@ -898,7 +916,7 @@ const styles = StyleSheet.create({
     paddingBottom: 96,
   },
   filterChipsContainer: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: palette.surface,
     paddingVertical: 11,
   },
   filterChipsContent: {
@@ -912,17 +930,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 14,
-    backgroundColor: COLORS.surfaceMuted,
+    backgroundColor: palette.surfaceMuted,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: palette.border,
   },
   chipWrapperActive: {
-    backgroundColor: COLORS.primary + "10",
+    backgroundColor: palette.primaryLight,
     borderColor: COLORS.primary,
   },
   chipText: {
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: palette.textSecondary,
   },
   chipTextActive: {
     color: COLORS.primary,
@@ -935,13 +953,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   emptyCard: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: palette.surface,
     borderRadius: 24,
     padding: 32,
     alignItems: "center",
     width: "100%",
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: palette.border,
   },
   emptyEmoji: {
     fontSize: 56,
@@ -950,12 +968,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: COLORS.textPrimary,
+    color: palette.textPrimary,
     marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 14,
-    color: COLORS.textSecondary,
+    color: palette.textSecondary,
     textAlign: "center",
     lineHeight: 20,
   },
@@ -964,7 +982,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: COLORS.primary + "10",
+    backgroundColor: palette.primaryLight,
   },
   clearFilterText: {
     fontSize: 13,
@@ -988,7 +1006,7 @@ const styles = StyleSheet.create({
   dayText: {
     fontSize: 15,
     fontWeight: "700",
-    color: COLORS.textPrimary,
+    color: palette.textPrimary,
   },
   dayTextActive: {
     color: COLORS.primary,
@@ -1018,7 +1036,7 @@ const styles = StyleSheet.create({
     top: 8,
     bottom: 8,
     width: 2,
-    backgroundColor: COLORS.border,
+    backgroundColor: palette.border,
   },
   itemsContainer: {
     gap: 12,
@@ -1034,7 +1052,7 @@ const styles = StyleSheet.create({
     height: 11,
     borderRadius: 6,
     borderWidth: 3,
-    borderColor: COLORS.background,
+    borderColor: palette.background,
     backgroundColor: COLORS.primary,
     zIndex: 1,
   },
@@ -1049,12 +1067,12 @@ const styles = StyleSheet.create({
     // Style cho dot cuối cùng nếu cần
   },
   timelineItem: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: palette.surface,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: palette.border,
     overflow: "hidden",
-    shadowColor: "#3D4E62",
+    shadowColor: palette.isDark ? "#000000" : "#3D4E62",
     shadowOpacity: 0.04,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
@@ -1063,7 +1081,7 @@ const styles = StyleSheet.create({
   timelineItemActive: {
     borderColor: COLORS.primary,
     borderWidth: 2,
-    backgroundColor: COLORS.infoLight,
+    backgroundColor: palette.primaryLight,
   },
   timelineItemContent: {
     flexDirection: "row",
@@ -1081,11 +1099,11 @@ const styles = StyleSheet.create({
   },
   timeText: {
     fontSize: 12,
-    color: COLORS.textSecondary,
+    color: palette.textSecondary,
     fontWeight: "500",
   },
   notifyBadge: {
-    backgroundColor: COLORS.warningLight,
+    backgroundColor: palette.warningLight,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,
@@ -1093,12 +1111,12 @@ const styles = StyleSheet.create({
   itemTitle: {
     fontSize: 15,
     fontWeight: "600",
-    color: COLORS.textPrimary,
+    color: palette.textPrimary,
     marginBottom: 4,
   },
   itemDescription: {
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: palette.textSecondary,
     lineHeight: 18,
   },
   timelineActions: {
@@ -1110,7 +1128,7 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   activeNowBadge: {
-    backgroundColor: COLORS.primary + "20",
+    backgroundColor: palette.primaryLight,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,
@@ -1130,7 +1148,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: palette.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: "80%",
@@ -1144,22 +1162,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: palette.border,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: COLORS.textPrimary,
+    color: palette.textPrimary,
   },
   filterSection: {
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: palette.border,
   },
   filterSectionTitle: {
     fontSize: 14,
     fontWeight: "600",
-    color: COLORS.textPrimary,
+    color: palette.textPrimary,
     marginBottom: 12,
   },
   daysContainer: {
@@ -1169,17 +1187,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: COLORS.surfaceMuted,
+    backgroundColor: palette.surfaceMuted,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: palette.border,
   },
   dayButtonActive: {
-    backgroundColor: COLORS.primary + "20",
+    backgroundColor: palette.primaryLight,
     borderColor: COLORS.primary,
   },
   dayButtonText: {
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: palette.textSecondary,
   },
   dayButtonTextActive: {
     color: COLORS.primary,
@@ -1196,12 +1214,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 12,
     borderRadius: 12,
-    backgroundColor: COLORS.surfaceMuted,
+    backgroundColor: palette.surfaceMuted,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: palette.border,
   },
   statusCardActive: {
-    backgroundColor: COLORS.primary + "10",
+    backgroundColor: palette.primaryLight,
     borderColor: COLORS.primary,
   },
   statusIcon: {
@@ -1211,20 +1229,20 @@ const styles = StyleSheet.create({
   statusName: {
     fontSize: 12,
     fontWeight: "500",
-    color: COLORS.textPrimary,
+    color: palette.textPrimary,
     marginBottom: 2,
   },
   statusCount: {
     fontSize: 11,
-    color: COLORS.textSecondary,
+    color: palette.textSecondary,
   },
   activeFiltersSection: {
     padding: 16,
-    backgroundColor: COLORS.surfaceMuted,
+    backgroundColor: palette.surfaceMuted,
   },
   activeFiltersTitle: {
     fontSize: 12,
-    color: COLORS.textSecondary,
+    color: palette.textSecondary,
     marginBottom: 8,
   },
   activeFiltersContainer: {
@@ -1233,7 +1251,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   activeFilterBadge: {
-    backgroundColor: COLORS.primary + "10",
+    backgroundColor: palette.primaryLight,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 16,
@@ -1247,19 +1265,19 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
+    borderTopColor: palette.border,
   },
   resetButton: {
     flex: 1,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: COLORS.surfaceMuted,
+    backgroundColor: palette.surfaceMuted,
     alignItems: "center",
   },
   resetButtonText: {
     fontSize: 15,
     fontWeight: "600",
-    color: COLORS.textSecondary,
+    color: palette.textSecondary,
   },
   applyButton: {
     flex: 1,
@@ -1277,11 +1295,11 @@ const styles = StyleSheet.create({
   },
 
   filterContainer: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: palette.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: palette.border,
     overflow: "hidden",
   },
   chipContent: {
@@ -1290,7 +1308,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   chipCount: {
-    backgroundColor: COLORS.surfaceMuted,
+    backgroundColor: palette.surfaceMuted,
     borderRadius: 12,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -1300,19 +1318,19 @@ const styles = StyleSheet.create({
   chipCountText: {
     fontSize: 11,
     fontWeight: "600",
-    color: COLORS.textSecondary,
+    color: palette.textSecondary,
   },
   activeCount: {
-    backgroundColor: COLORS.primary + "20",
+    backgroundColor: palette.primaryLight,
   },
   upcomingCount: {
-    backgroundColor: COLORS.warningLight,
+    backgroundColor: palette.warningLight,
   },
   passedCount: {
-    backgroundColor: COLORS.surfaceMuted,
+    backgroundColor: palette.surfaceMuted,
   },
   todayCount: {
-    backgroundColor: COLORS.successLight,
+    backgroundColor: palette.successLight,
   },
   chipDot: {
     width: 6,
@@ -1326,7 +1344,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F59E0B",
   },
   passedDot: {
-    backgroundColor: COLORS.textLight,
+    backgroundColor: palette.textLight,
   },
   activeFilterDot: {
     width: 8,
@@ -1341,25 +1359,25 @@ const styles = StyleSheet.create({
     color: "#F59E0B",
   },
   passedText: {
-    color: COLORS.textSecondary,
+    color: palette.textSecondary,
   },
   todayText: {
     color: "#10B981",
   },
   filterChip: {
-    backgroundColor: COLORS.surfaceMuted,
+    backgroundColor: palette.surfaceMuted,
   },
   aiToolbar: {
     paddingHorizontal: 12,
     paddingTop: 12,
     paddingBottom: 6,
-    backgroundColor: COLORS.surface,
+    backgroundColor: palette.surface,
   },
   aiButton: {
     borderRadius: 16,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "#DDD6FE",
+    borderColor: palette.isDark ? "#4C3E73" : "#DDD6FE",
   },
   aiButtonGradient: {
     minHeight: 62,
@@ -1386,12 +1404,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   aiButtonTitle: {
-    color: "#4C1D95",
+    color: palette.isDark ? "#E9D5FF" : "#4C1D95",
     fontSize: 14,
     fontWeight: "700",
   },
   aiButtonSubtitle: {
-    color: "#7C3AED",
+    color: palette.isDark ? "#C4B5FD" : "#7C3AED",
     fontSize: 11,
     marginTop: 2,
   },

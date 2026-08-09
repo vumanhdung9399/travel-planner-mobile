@@ -29,56 +29,79 @@ export const removeCurrentDeviceToken = async () => {
   });
 };
 
+const getPlatform = async () => {
+  if (Platform.OS === ANDROID) return ANDROID;
+  if (Platform.OS === IOS) return IOS;
+  return "unknown";
+};
+
+const registerCurrentDevice = async (): Promise<boolean> => {
+  try {
+    if (!Device.isDevice) return false;
+    const isExpoGo = Constants.appOwnership === "expo";
+    if (isExpoGo) {
+      console.log("⚠️ Expo Go không hỗ trợ push notification");
+      return false;
+    }
+
+    const { status } = await Notifications.requestPermissionsAsync();
+    if (status !== "granted") return false;
+
+    const pushToken = (await Notifications.getExpoPushTokenAsync()).data;
+    const deviceId = await getCurrentDeviceId();
+    const platform = await getPlatform();
+    console.log("📱 Push token:", pushToken);
+    await api.post("/device-token/save-device-token", {
+      token: pushToken,
+      deviceId,
+      platform,
+    });
+    return true;
+  } catch (err) {
+    console.log("❌ Register push error:", err);
+    return false;
+  }
+};
+
 export const usePushNotification = () => {
   const user = useAuthStore((state) => state.user);
   const token = useAuthStore((state) => state.accessToken);
   const hasRegistered = useRef(false);
-  const notificationsEnabled = useSettingsStore((state) => state.notificationsEnabled);
+  const registeredUserId = useRef<string | null>(null);
+  const notificationsEnabled = useSettingsStore(
+    (state) => state.notificationsEnabled,
+  );
+
   useEffect(() => {
+    const userId = user?.id ? String(user.id) : null;
+
     if (!notificationsEnabled) {
       hasRegistered.current = false;
-      if (token && user?.id) void removeCurrentDeviceToken().catch(() => undefined);
+      registeredUserId.current = null;
+      if (token && userId) {
+        void removeCurrentDeviceToken().catch(() => undefined);
+      }
       return;
     }
-    if (!token || !user?.id) return;
+
+    if (!token || !userId) {
+      hasRegistered.current = false;
+      registeredUserId.current = null;
+      return;
+    }
+
+    if (registeredUserId.current !== userId) {
+      hasRegistered.current = false;
+      registeredUserId.current = userId;
+    }
+
     if (hasRegistered.current) return;
-    register();
+
     hasRegistered.current = true;
-  }, [notificationsEnabled, user?.id, token]);
-
-  const getPlatform = async () => {
-    if (Platform.OS === ANDROID) {
-      return ANDROID;
-    }
-
-    if (Platform.OS === IOS) {
-      return IOS;
-    }
-
-    return "unknown";
-  };
-
-  const register = async () => {
-    try {
-      if (!Device.isDevice) return;
-      const isExpoGo = Constants.appOwnership === "expo";
-      if (isExpoGo) {
-        console.log("⚠️ Expo Go không hỗ trợ push notification");
-        return;
+    void registerCurrentDevice().then((registered) => {
+      if (registeredUserId.current === userId) {
+        hasRegistered.current = registered;
       }
-      const { status } = await Notifications.requestPermissionsAsync();
-      if (status !== "granted") return;
-      const token = (await Notifications.getExpoPushTokenAsync()).data;
-      const deviceId = await getCurrentDeviceId();
-      const platform = await getPlatform();
-      console.log("📱 Push token:", token);
-      await api.post("/device-token/save-device-token", {
-        token: token,
-        deviceId,
-        platform,
-      });
-    } catch (err) {
-      console.log("❌ Register push error:", err);
-    }
-  };
+    });
+  }, [notificationsEnabled, token, user?.id]);
 };

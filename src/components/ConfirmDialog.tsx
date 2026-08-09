@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { Surface, Text, useTheme } from "react-native-paper";
+import { useAppPalette } from "@/src/hook/useAppPalette";
 
 export type ConfirmDialogType = "danger" | "warning" | "success" | "info";
 
@@ -43,6 +44,7 @@ const ConfirmDialog = ({
   onCancel,
 }: ConfirmDialogProps) => {
   const theme = useTheme();
+  const palette = useAppPalette();
   const getTypeConfig = (): {
     icon: string;
     iconBgColor: string;
@@ -54,7 +56,7 @@ const ConfirmDialog = ({
       case "danger":
         return {
           icon: "alert-circle",
-          iconBgColor: COLORS.errorLight,
+          iconBgColor: palette.errorLight,
           iconColor: COLORS.error,
           defaultConfirmColor: COLORS.error,
           gradientColors: ["#EF4444", "#DC2626"] as const,
@@ -62,7 +64,7 @@ const ConfirmDialog = ({
       case "warning":
         return {
           icon: "warning",
-          iconBgColor: COLORS.warningLight,
+          iconBgColor: palette.warningLight,
           iconColor: "#F59E0B",
           defaultConfirmColor: "#F59E0B",
           gradientColors: ["#F59E0B", "#D97706"] as const,
@@ -70,7 +72,7 @@ const ConfirmDialog = ({
       case "success":
         return {
           icon: "checkmark-circle",
-          iconBgColor: COLORS.successLight,
+          iconBgColor: palette.successLight,
           iconColor: COLORS.success,
           defaultConfirmColor: COLORS.success,
           gradientColors: ["#10B981", "#059669"] as const,
@@ -79,7 +81,7 @@ const ConfirmDialog = ({
       default:
         return {
           icon: "information-circle",
-          iconBgColor: COLORS.infoLight,
+          iconBgColor: palette.primaryLight,
           iconColor: COLORS.info,
           defaultConfirmColor: COLORS.primary,
           gradientColors: COLORS.primaryGradient as readonly [string, string],

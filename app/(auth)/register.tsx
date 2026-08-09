@@ -1,3 +1,4 @@
+import { useAppPalette } from "@/src/hook/useAppPalette";
 import { api } from "@/src/services/api";
 import { COLORS } from "@/src/utils/constants";
 import { showError, showSuccess } from "@/src/utils/errorHandler";
@@ -37,6 +38,7 @@ interface FormErrors {
 
 const RegisterScreen = () => {
   const router = useRouter();
+  const palette = useAppPalette();
 
   const [form, setForm] = useState<RegisterForm>({
     name: "",
@@ -143,7 +145,9 @@ const RegisterScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: palette.background }]}
+    >
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -154,27 +158,51 @@ const RegisterScreen = () => {
           keyboardShouldPersistTaps="handled"
         >
           {/* Title */}
-          <Text style={styles.title}>Tạo tài khoản</Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.title, { color: palette.textPrimary }]}>
+            Tạo tài khoản
+          </Text>
+          <Text style={[styles.subtitle, { color: palette.textSecondary }]}>
             Đăng ký để bắt đầu chuyến đi cùng bạn bè
           </Text>
 
           {/* Form */}
-          <Surface style={styles.formCard} elevation={0}>
+          <Surface
+            style={[
+              styles.formCard,
+              {
+                backgroundColor: palette.surface,
+                borderColor: palette.border,
+              },
+            ]}
+            elevation={0}
+          >
             {/* Họ tên */}
             <View style={styles.field}>
-              <Text style={styles.label}>Họ và tên</Text>
-              <View style={styles.inputWrapper}>
+              <Text style={[styles.label, { color: palette.textPrimary }]}>
+                Họ và tên
+              </Text>
+              <View
+                style={[
+                  styles.inputWrapper,
+                  {
+                    backgroundColor: palette.surface,
+                    borderColor: palette.border,
+                  },
+                  errors.name ? styles.inputError : null,
+                ]}
+              >
                 <Ionicons
                   name="person-outline"
                   size={20}
-                  color={COLORS.textLight}
+                  color={palette.textLight}
                   style={styles.inputIcon}
                 />
                 <TextInput
-                  style={[styles.input, errors.name ? styles.inputError : null]}
+                  style={[styles.input, { color: palette.textPrimary }]}
                   placeholder="Nguyễn Văn A"
-                  placeholderTextColor={COLORS.textLight}
+                  placeholderTextColor={palette.textLight}
+                  selectionColor={COLORS.primary}
+                  keyboardAppearance={palette.isDark ? "dark" : "light"}
                   value={form.name}
                   onChangeText={(text) => updateForm("name", text)}
                   editable={!loading}
@@ -188,21 +216,31 @@ const RegisterScreen = () => {
 
             {/* Số điện thoại */}
             <View style={styles.field}>
-              <Text style={styles.label}>Số điện thoại</Text>
-              <View style={styles.inputWrapper}>
+              <Text style={[styles.label, { color: palette.textPrimary }]}>
+                Số điện thoại
+              </Text>
+              <View
+                style={[
+                  styles.inputWrapper,
+                  {
+                    backgroundColor: palette.surface,
+                    borderColor: palette.border,
+                  },
+                  errors.phone ? styles.inputError : null,
+                ]}
+              >
                 <Ionicons
                   name="call-outline"
                   size={20}
-                  color={COLORS.textLight}
+                  color={palette.textLight}
                   style={styles.inputIcon}
                 />
                 <TextInput
-                  style={[
-                    styles.input,
-                    errors.phone ? styles.inputError : null,
-                  ]}
+                  style={[styles.input, { color: palette.textPrimary }]}
                   placeholder="0912345678"
-                  placeholderTextColor={COLORS.textLight}
+                  placeholderTextColor={palette.textLight}
+                  selectionColor={COLORS.primary}
+                  keyboardAppearance={palette.isDark ? "dark" : "light"}
                   value={form.phone}
                   onChangeText={(text) => updateForm("phone", text)}
                   editable={!loading}
@@ -216,21 +254,31 @@ const RegisterScreen = () => {
 
             {/* Email */}
             <View style={styles.field}>
-              <Text style={styles.label}>Email</Text>
-              <View style={styles.inputWrapper}>
+              <Text style={[styles.label, { color: palette.textPrimary }]}>
+                Email
+              </Text>
+              <View
+                style={[
+                  styles.inputWrapper,
+                  {
+                    backgroundColor: palette.surface,
+                    borderColor: palette.border,
+                  },
+                  errors.email ? styles.inputError : null,
+                ]}
+              >
                 <Ionicons
                   name="mail-outline"
                   size={20}
-                  color={COLORS.textLight}
+                  color={palette.textLight}
                   style={styles.inputIcon}
                 />
                 <TextInput
-                  style={[
-                    styles.input,
-                    errors.email ? styles.inputError : null,
-                  ]}
+                  style={[styles.input, { color: palette.textPrimary }]}
                   placeholder="example@email.com"
-                  placeholderTextColor={COLORS.textLight}
+                  placeholderTextColor={palette.textLight}
+                  selectionColor={COLORS.primary}
+                  keyboardAppearance={palette.isDark ? "dark" : "light"}
                   value={form.email}
                   onChangeText={(text) => updateForm("email", text)}
                   editable={!loading}
@@ -245,21 +293,31 @@ const RegisterScreen = () => {
 
             {/* Mật khẩu */}
             <View style={styles.field}>
-              <Text style={styles.label}>Mật khẩu</Text>
-              <View style={styles.inputWrapper}>
+              <Text style={[styles.label, { color: palette.textPrimary }]}>
+                Mật khẩu
+              </Text>
+              <View
+                style={[
+                  styles.inputWrapper,
+                  {
+                    backgroundColor: palette.surface,
+                    borderColor: palette.border,
+                  },
+                  errors.password ? styles.inputError : null,
+                ]}
+              >
                 <Ionicons
                   name="lock-closed-outline"
                   size={20}
-                  color={COLORS.textLight}
+                  color={palette.textLight}
                   style={styles.inputIcon}
                 />
                 <TextInput
-                  style={[
-                    styles.input,
-                    errors.password ? styles.inputError : null,
-                  ]}
+                  style={[styles.input, { color: palette.textPrimary }]}
                   placeholder="Ít nhất 8 ký tự"
-                  placeholderTextColor={COLORS.textLight}
+                  placeholderTextColor={palette.textLight}
+                  selectionColor={COLORS.primary}
+                  keyboardAppearance={palette.isDark ? "dark" : "light"}
                   value={form.password}
                   onChangeText={(text) => updateForm("password", text)}
                   editable={!loading}
@@ -272,7 +330,7 @@ const RegisterScreen = () => {
                   <Ionicons
                     name={showPassword ? "eye-off-outline" : "eye-outline"}
                     size={20}
-                    color={COLORS.textLight}
+                    color={palette.textLight}
                   />
                 </TouchableOpacity>
               </View>
@@ -283,21 +341,31 @@ const RegisterScreen = () => {
 
             {/* Xác nhận mật khẩu */}
             <View style={styles.field}>
-              <Text style={styles.label}>Xác nhận mật khẩu</Text>
-              <View style={styles.inputWrapper}>
+              <Text style={[styles.label, { color: palette.textPrimary }]}>
+                Xác nhận mật khẩu
+              </Text>
+              <View
+                style={[
+                  styles.inputWrapper,
+                  {
+                    backgroundColor: palette.surface,
+                    borderColor: palette.border,
+                  },
+                  errors.confirmPassword ? styles.inputError : null,
+                ]}
+              >
                 <Ionicons
                   name="lock-closed-outline"
                   size={20}
-                  color={COLORS.textLight}
+                  color={palette.textLight}
                   style={styles.inputIcon}
                 />
                 <TextInput
-                  style={[
-                    styles.input,
-                    errors.confirmPassword ? styles.inputError : null,
-                  ]}
+                  style={[styles.input, { color: palette.textPrimary }]}
                   placeholder="Nhập lại mật khẩu"
-                  placeholderTextColor={COLORS.textLight}
+                  placeholderTextColor={palette.textLight}
+                  selectionColor={COLORS.primary}
+                  keyboardAppearance={palette.isDark ? "dark" : "light"}
                   value={form.confirmPassword}
                   onChangeText={(text) => updateForm("confirmPassword", text)}
                   editable={!loading}
@@ -312,7 +380,7 @@ const RegisterScreen = () => {
                       showConfirmPassword ? "eye-off-outline" : "eye-outline"
                     }
                     size={20}
-                    color={COLORS.textLight}
+                    color={palette.textLight}
                   />
                 </TouchableOpacity>
               </View>
@@ -347,7 +415,9 @@ const RegisterScreen = () => {
 
             {/* Login Link */}
             <View style={styles.loginLinkContainer}>
-              <Text style={styles.loginText}>Đã có tài khoản? </Text>
+              <Text style={[styles.loginText, { color: palette.textSecondary }]}>
+                Đã có tài khoản?{" "}
+              </Text>
               <TouchableOpacity onPress={() => router.push("/login")}>
                 <Text style={styles.loginLink}>Đăng nhập</Text>
               </TouchableOpacity>
@@ -355,7 +425,7 @@ const RegisterScreen = () => {
           </Surface>
 
           {/* Terms */}
-          <Text style={styles.termsText}>
+          <Text style={[styles.termsText, { color: palette.textLight }]}>
             Bằng cách đăng ký, bạn đồng ý với{" "}
             <Text style={styles.termsLink}>Điều khoản dịch vụ</Text> và{" "}
             <Text style={styles.termsLink}>Chính sách bảo mật</Text> của chúng

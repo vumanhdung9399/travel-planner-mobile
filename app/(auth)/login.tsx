@@ -1,11 +1,18 @@
 import { showSuccess } from "@/src/utils/errorHandler";
+import { useAppPalette } from "@/src/hook/useAppPalette";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { api } from "@services/api";
 import { useAuthStore } from "@store/auth.store";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { StyleSheet, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import {
   Avatar,
   Button,
@@ -28,6 +35,7 @@ const schema = yup.object({
 
 export default function LoginScreen() {
   const { setAuth } = useAuthStore();
+  const palette = useAppPalette();
 
   const [secureText, setSecureText] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -63,98 +71,129 @@ export default function LoginScreen() {
     }
   };
 
+  const screenBackground = palette.isDark ? palette.background : "#1687F8";
+
   return (
-    <View style={styles.container}>
-      <Card style={styles.card}>
-        <Card.Content>
-          {/* Logo */}
-          <Avatar.Image
-            size={64}
-            source={require("../../assets/logo.png")}
-            style={{ alignSelf: "center", marginBottom: 16 }}
-          />
-
-          {/* Title */}
-          <Text variant="headlineMedium" style={styles.title}>
-            Đăng nhập
-          </Text>
-
-          <Text style={styles.subtitle}>Tiếp tục hành trình của bạn ✈️</Text>
-
-          {/* Email */}
-          <Controller
-            control={control}
-            name="email"
-            render={({ field: { onChange, value } }) => (
-              <TextInput
-                label="Email"
-                mode="outlined"
-                value={value}
-                onChangeText={onChange}
-                style={styles.input}
-                error={!!errors.email}
+    <SafeAreaView
+      style={[styles.safeArea, { backgroundColor: screenBackground }]}
+    >
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoiding}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <ScrollView
+          style={{ backgroundColor: screenBackground }}
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+          automaticallyAdjustKeyboardInsets
+        >
+          <Card style={[styles.card, { backgroundColor: palette.surface }]}>
+            <Card.Content>
+              <Avatar.Image
+                size={64}
+                source={require("../../assets/logo.png")}
+                style={styles.logo}
               />
-            )}
-          />
-          {errors.email && (
-            <Text style={styles.error}>{errors.email.message}</Text>
-          )}
 
-          {/* Password */}
-          <Controller
-            control={control}
-            name="password"
-            render={({ field: { onChange, value } }) => (
-              <TextInput
-                label="Mật khẩu"
-                mode="outlined"
-                secureTextEntry={secureText}
-                value={value}
-                onChangeText={onChange}
-                style={styles.input}
-                error={!!errors.password}
-                right={
-                  <TextInput.Icon
-                    icon={secureText ? "eye-off" : "eye"}
-                    onPress={() => setSecureText(!secureText)}
+              <Text variant="headlineMedium" style={styles.title}>
+                Đăng nhập
+              </Text>
+
+              <Text
+                style={[styles.subtitle, { color: palette.textSecondary }]}
+              >
+                Tiếp tục hành trình của bạn ✈️
+              </Text>
+
+              <Controller
+                control={control}
+                name="email"
+                render={({ field: { onChange, value } }) => (
+                  <TextInput
+                    label="Email"
+                    mode="outlined"
+                    value={value}
+                    onChangeText={onChange}
+                    style={styles.input}
+                    error={!!errors.email}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    keyboardAppearance={palette.isDark ? "dark" : "light"}
                   />
-                }
+                )}
               />
-            )}
-          />
-          {errors.password && (
-            <Text style={styles.error}>{errors.password.message}</Text>
-          )}
+              {errors.email && (
+                <Text style={styles.error}>{errors.email.message}</Text>
+              )}
 
-          {/* Login */}
-          <Button
-            mode="contained"
-            onPress={handleSubmit(onSubmit)}
-            style={styles.button}
-            loading={loading}
-            disabled={loading}
-          >
-            {loading ? "Đang đăng nhập..." : "Đăng nhập"}
-          </Button>
+              <Controller
+                control={control}
+                name="password"
+                render={({ field: { onChange, value } }) => (
+                  <TextInput
+                    label="Mật khẩu"
+                    mode="outlined"
+                    secureTextEntry={secureText}
+                    value={value}
+                    onChangeText={onChange}
+                    style={styles.input}
+                    error={!!errors.password}
+                    autoComplete="current-password"
+                    keyboardAppearance={palette.isDark ? "dark" : "light"}
+                    right={
+                      <TextInput.Icon
+                        icon={secureText ? "eye-off" : "eye"}
+                        onPress={() => setSecureText(!secureText)}
+                      />
+                    }
+                  />
+                )}
+              />
+              {errors.password && (
+                <Text style={styles.error}>{errors.password.message}</Text>
+              )}
 
-          <Divider style={{ marginVertical: 20 }} />
+              <Button
+                mode="contained"
+                onPress={handleSubmit(onSubmit)}
+                style={styles.button}
+                loading={loading}
+                disabled={loading}
+              >
+                {loading ? "Đang đăng nhập..." : "Đăng nhập"}
+              </Button>
 
-          {/* Register */}
-          <Button mode="outlined" onPress={() => router.push("/register")}>
-            Tạo tài khoản
-          </Button>
+              <Divider
+                style={{ marginVertical: 20, backgroundColor: palette.border }}
+              />
 
-          <Text style={styles.footer}>Chưa có tài khoản Travel Planner?</Text>
-        </Card.Content>
-      </Card>
-    </View>
+              <Button
+                mode="outlined"
+                onPress={() => router.push("/register")}
+              >
+                Tạo tài khoản
+              </Button>
+
+              <Text
+                style={[styles.footer, { color: palette.textSecondary }]}
+              >
+                Chưa có tài khoản Travel Planner?
+              </Text>
+            </Card.Content>
+          </Card>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: { flex: 1 },
+  keyboardAvoiding: { flex: 1 },
   container: {
-    flex: 1,
-    backgroundColor: "#1687F8",
+    flexGrow: 1,
     justifyContent: "center",
     padding: 16,
   },
@@ -162,6 +201,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 10,
   },
+  logo: { alignSelf: "center", marginBottom: 16 },
   title: {
     textAlign: "center",
     fontWeight: "bold",
@@ -170,7 +210,6 @@ const styles = StyleSheet.create({
   subtitle: {
     textAlign: "center",
     marginBottom: 20,
-    color: "#777",
   },
   input: {
     marginBottom: 10,
@@ -183,7 +222,6 @@ const styles = StyleSheet.create({
   footer: {
     textAlign: "center",
     marginTop: 10,
-    color: "#888",
   },
   error: {
     color: "red",

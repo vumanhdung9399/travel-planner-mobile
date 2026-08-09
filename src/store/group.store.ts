@@ -11,22 +11,32 @@ interface GroupStore {
   fetchGroup: (id: string) => Promise<void>;
 }
 
+let latestGroupRequest = 0;
+
 export const useGroupStore = create<GroupStore>((set, get) => ({
   group: null,
   loading: false,
 
   fetchGroup: async (id: string) => {
-    if (!id || get().loading) return;
+    if (!id) return;
 
-    set({ loading: true });
+    const requestId = ++latestGroupRequest;
+    set((state) => ({
+      loading: true,
+      group: state.group?.id === id ? state.group : null,
+    }));
 
     try {
       const res = await api.get<Group>(`/groups/${id}`);
-      set({ group: res.data });
+      if (requestId === latestGroupRequest) {
+        set({ group: res.data });
+      }
     } catch (err) {
       console.error("Fetch Group Error:", err);
     } finally {
-      set({ loading: false });
+      if (requestId === latestGroupRequest) {
+        set({ loading: false });
+      }
     }
   },
 

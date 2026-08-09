@@ -1,8 +1,9 @@
 import { CommonHeader } from "@/src/components/layout/CommonHeader";
+import { useAppPalette } from "@/src/hook/useAppPalette";
 import { api } from "@/src/services/api";
 import { useAuthStore } from "@/src/store/auth.store";
 import { showSuccess } from "@/src/utils/errorHandler";
-import { COLORS, UI_RADIUS } from "@/src/utils/constants";
+import { COLORS } from "@/src/utils/constants";
 import { changePasswordSchema } from "@/src/utils/validation";
 import { removeCurrentDeviceToken } from "@/src/hook/usePushNotification";
 import { yupResolver } from "@hookform/resolvers/yup";
@@ -26,6 +27,7 @@ interface PasswordVisibility {
 type PasswordField = "current" | "new" | "confirm";
 
 export default function ChangePasswordScreen() {
+  const palette = useAppPalette();
   const { logout } = useAuthStore();
   const [show, setShow] = useState({
     current: false,
@@ -53,6 +55,9 @@ export default function ChangePasswordScreen() {
     showSuccess("Đổi mật khẩu thành công, vui lòng đăng nhập lại");
     try {
       await removeCurrentDeviceToken();
+    } catch {}
+
+    try {
       await api.post("/auth/logout");
     } catch {}
     logout();
@@ -64,21 +69,33 @@ export default function ChangePasswordScreen() {
       name={name}
       render={({ field }) => (
         <View style={styles.fieldGroup}>
-          <Text style={styles.label}>{label}</Text>
+          <Text style={[styles.label, { color: palette.textPrimary }]}>
+            {label}
+          </Text>
 
-          <View style={styles.passwordBox}>
+          <View
+            style={[
+              styles.passwordBox,
+              {
+                backgroundColor: palette.surface,
+                borderColor: palette.border,
+              },
+            ]}
+          >
             <TextInput
               secureTextEntry={!show[key]}
-              style={styles.input}
+              style={[styles.input, { color: palette.textPrimary }]}
               onChangeText={field.onChange}
               placeholder="••••••••"
-              placeholderTextColor={COLORS.textLight}
+              placeholderTextColor={palette.textLight}
+              selectionColor={COLORS.primary}
+              keyboardAppearance={palette.isDark ? "dark" : "light"}
             />
             <TouchableOpacity onPress={() => toggle(key)}>
               <Ionicons
                 name={show[key] ? "eye-off-outline" : "eye-outline"}
                 size={22}
-                color={COLORS.textSecondary}
+                color={palette.textSecondary}
               />
             </TouchableOpacity>
           </View>
@@ -94,22 +111,40 @@ export default function ChangePasswordScreen() {
   );
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { backgroundColor: palette.surface }]}>
       <CommonHeader title="Đổi mật khẩu" />
       <View style={styles.container}>
         {renderField("Mật khẩu hiện tại", "currentPassword", "current")}
         {renderField("Mật khẩu mới", "newPassword", "new")}
         {renderField("Xác nhận mật khẩu", "confirmPassword", "confirm")}
 
-        <View style={styles.requirements}>
-          <Text style={styles.requirementTitle}>Mật khẩu an toàn nên có</Text>
+        <View
+          style={[
+            styles.requirements,
+            { backgroundColor: palette.primaryLight },
+          ]}
+        >
+          <Text
+            style={[
+              styles.requirementTitle,
+              { color: palette.textPrimary },
+            ]}
+          >
+            Mật khẩu an toàn nên có
+          </Text>
           <Text style={styles.requirement}>✓ Tối thiểu 8 ký tự</Text>
           <Text style={styles.requirement}>✓ Chữ hoa, chữ thường và chữ số</Text>
         </View>
 
         <TouchableOpacity
           disabled={!isValid || isSubmitting}
-          style={[styles.btn, (!isValid || isSubmitting) && styles.btnDisabled]}
+          style={[
+            styles.btn,
+            (!isValid || isSubmitting) && styles.btnDisabled,
+            (!isValid || isSubmitting) && {
+              backgroundColor: palette.border,
+            },
+          ]}
           onPress={handleSubmit(onSubmit)}
         >
           <Text style={styles.btnText}>

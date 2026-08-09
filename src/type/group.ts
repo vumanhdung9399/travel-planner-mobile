@@ -15,7 +15,7 @@ export interface Group {
   trips: Trip[];
 }
 
-interface Member {
+export interface Member {
   id: string;
   createdAt: string;
   updatedAt: string;

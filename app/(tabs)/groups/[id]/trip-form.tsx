@@ -1,6 +1,8 @@
 import { CommonHeader } from "@/src/components/layout/CommonHeader";
 import { AppToast } from "@/src/components/AppToast";
+import { useAppPalette } from "@/src/hook/useAppPalette";
 import { api } from "@/src/services/api";
+import { useTripStore } from "@/src/store/trip.store";
 import type { Trip } from "@/src/type/trip";
 import { COLORS } from "@/src/utils/constants";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -15,18 +17,19 @@ import {
     ImageBackground,
     KeyboardAvoidingView,
     Platform,
-    SafeAreaView,
     ScrollView,
     StyleSheet,
     TextInput,
     TouchableOpacity,
     View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { IconButton, Text } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
 
 const TripFormScreen = () => {
   const router = useRouter();
+  const palette = useAppPalette();
   const { id: groupId, tripId } = useLocalSearchParams<{
     id: string;
     tripId?: string;
@@ -149,6 +152,9 @@ const TripFormScreen = () => {
       }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (isEditMode && savedTripId) {
+        await useTripStore.getState().fetchTrip(savedTripId);
+      }
       router.back();
     } catch (err) {
       console.error(err);
@@ -200,14 +206,20 @@ const TripFormScreen = () => {
 
   if (fetching) {
     return (
-      <SafeAreaView style={styles.centered}>
+      <SafeAreaView
+        style={[styles.centered, { backgroundColor: palette.background }]}
+        edges={["bottom"]}
+      >
         <ActivityIndicator size="large" color={COLORS.primary} />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: palette.surface }]}
+      edges={["bottom"]}
+    >
       <CommonHeader
         title={isEditMode ? "Chỉnh sửa chuyến đi" : "Tạo chuyến đi mới"}
         fallbackHref={{ pathname: "/groups/[id]", params: { id: groupId } }}
@@ -218,13 +230,13 @@ const TripFormScreen = () => {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView
-          style={styles.scrollView}
+          style={[styles.scrollView, { backgroundColor: palette.surface }]}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
           <TouchableOpacity
-            style={styles.coverPicker}
+            style={[styles.coverPicker, { borderColor: palette.border }]}
             onPress={pickCover}
             activeOpacity={0.85}
           >
@@ -251,13 +263,23 @@ const TripFormScreen = () => {
 
           {/* Tên chuyến đi */}
           <View style={styles.field}>
-            <Text style={styles.label}>
+            <Text style={[styles.label, { color: palette.textPrimary }]}>
               Tên chuyến đi <Text style={styles.required}>*</Text>
             </Text>
             <TextInput
-              style={[styles.input, errors.name ? styles.inputError : null]}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: palette.surface,
+                  borderColor: palette.border,
+                  color: palette.textPrimary,
+                },
+                errors.name ? styles.inputError : null,
+              ]}
               placeholder="Ví dụ: Đà Lạt 2024"
-              placeholderTextColor={COLORS.textLight}
+              placeholderTextColor={palette.textLight}
+              selectionColor={COLORS.primary}
+              keyboardAppearance={palette.isDark ? "dark" : "light"}
               value={name}
               onChangeText={(text) => {
                 setName(text);
@@ -273,11 +295,22 @@ const TripFormScreen = () => {
 
           {/* Địa điểm */}
           <View style={styles.field}>
-            <Text style={styles.label}>Địa điểm</Text>
+            <Text style={[styles.label, { color: palette.textPrimary }]}>
+              Địa điểm
+            </Text>
             <TextInput
-              style={styles.input}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: palette.surface,
+                  borderColor: palette.border,
+                  color: palette.textPrimary,
+                },
+              ]}
               placeholder="Nhập địa điểm (không bắt buộc)"
-              placeholderTextColor={COLORS.textLight}
+              placeholderTextColor={palette.textLight}
+              selectionColor={COLORS.primary}
+              keyboardAppearance={palette.isDark ? "dark" : "light"}
               value={location}
               onChangeText={setLocation}
               editable={!loading}
@@ -288,16 +321,25 @@ const TripFormScreen = () => {
           <View style={styles.dateFields}>
           {/* Ngày bắt đầu */}
           <View style={[styles.field, styles.dateField]}>
-            <Text style={styles.label}>
+            <Text style={[styles.label, { color: palette.textPrimary }]}>
               Ngày bắt đầu <Text style={styles.required}>*</Text>
             </Text>
             <TouchableOpacity
-              style={[styles.dateButton, errors.startDate && styles.inputError]}
+              style={[
+                styles.dateButton,
+                {
+                  backgroundColor: palette.surface,
+                  borderColor: palette.border,
+                },
+                errors.startDate && styles.inputError,
+              ]}
               onPress={() => setShowStartPicker(true)}
               disabled={loading}
               activeOpacity={0.7}
             >
-              <Text style={styles.dateButtonText}>
+              <Text
+                style={[styles.dateButtonText, { color: palette.textPrimary }]}
+              >
                 {dayjs(startDate).format("DD/MM/YYYY")}
               </Text>
               <IconButton
@@ -313,16 +355,25 @@ const TripFormScreen = () => {
 
           {/* Ngày kết thúc */}
           <View style={[styles.field, styles.dateField]}>
-            <Text style={styles.label}>
+            <Text style={[styles.label, { color: palette.textPrimary }]}>
               Ngày kết thúc <Text style={styles.required}>*</Text>
             </Text>
             <TouchableOpacity
-              style={[styles.dateButton, errors.endDate && styles.inputError]}
+              style={[
+                styles.dateButton,
+                {
+                  backgroundColor: palette.surface,
+                  borderColor: palette.border,
+                },
+                errors.endDate && styles.inputError,
+              ]}
               onPress={() => setShowEndPicker(true)}
               disabled={loading}
               activeOpacity={0.7}
             >
-              <Text style={styles.dateButtonText}>
+              <Text
+                style={[styles.dateButtonText, { color: palette.textPrimary }]}
+              >
                 {dayjs(endDate).format("DD/MM/YYYY")}
               </Text>
               <IconButton
@@ -339,11 +390,23 @@ const TripFormScreen = () => {
 
           {!isEditMode ? (
             <View style={styles.field}>
-              <Text style={styles.label}>Thông tin thêm</Text>
+              <Text style={[styles.label, { color: palette.textPrimary }]}>
+                Thông tin thêm
+              </Text>
               <TextInput
-                style={[styles.input, styles.textArea]}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: palette.surface,
+                    borderColor: palette.border,
+                    color: palette.textPrimary,
+                  },
+                  styles.textArea,
+                ]}
                 placeholder="Thêm mô tả, ghi chú cho chuyến đi (không bắt buộc)"
-                placeholderTextColor={COLORS.textLight}
+                placeholderTextColor={palette.textLight}
+                selectionColor={COLORS.primary}
+                keyboardAppearance={palette.isDark ? "dark" : "light"}
                 value={infor}
                 onChangeText={setInfor}
                 multiline
@@ -352,19 +415,37 @@ const TripFormScreen = () => {
                 editable={!loading}
                 maxLength={255}
               />
-              <Text style={styles.charCount}>{infor.length}/255</Text>
+              <Text style={[styles.charCount, { color: palette.textLight }]}>
+                {infor.length}/255
+              </Text>
             </View>
           ) : null}
         </ScrollView>
 
         {/* Bottom Actions */}
-        <View style={styles.footer}>
+        <View
+          style={[
+            styles.footer,
+            {
+              backgroundColor: palette.surface,
+              borderTopColor: palette.border,
+            },
+          ]}
+        >
           <TouchableOpacity
-            style={styles.cancelButton}
+            style={[
+              styles.cancelButton,
+              {
+                backgroundColor: palette.surfaceMuted,
+                borderColor: palette.border,
+              },
+            ]}
             onPress={() => router.back()}
             disabled={loading}
           >
-            <Text style={styles.cancelText}>Hủy</Text>
+            <Text style={[styles.cancelText, { color: palette.textPrimary }]}>
+              Hủy
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[
@@ -397,6 +478,9 @@ const TripFormScreen = () => {
           onChange={handleStartDateChange}
           minimumDate={new Date()}
           maximumDate={endDate}
+          themeVariant={palette.isDark ? "dark" : "light"}
+          accentColor={COLORS.primary}
+          textColor={palette.textPrimary}
         />
       )}
       {showEndPicker && (
@@ -406,6 +490,9 @@ const TripFormScreen = () => {
           display="spinner"
           onChange={handleEndDateChange}
           minimumDate={startDate}
+          themeVariant={palette.isDark ? "dark" : "light"}
+          accentColor={COLORS.primary}
+          textColor={palette.textPrimary}
         />
       )}
     </SafeAreaView>

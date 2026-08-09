@@ -1,4 +1,5 @@
 import TripDetailFormSheet from "@/src/components/trip/TripDetailFormSheet";
+import { useAppPalette } from "@/src/hook/useAppPalette";
 import { api } from "@/src/services/api";
 import { useTripStore } from "@/src/store/trip.store";
 import type { TimelineItemType } from "@/src/type/trip";
@@ -51,6 +52,7 @@ const getDayIndexFromDate = (
 
 const TimelineFormScreen = () => {
   const router = useRouter();
+  const palette = useAppPalette();
   const { trip } = useTripStore();
   const [loading, setLoading] = useState(false);
   const params = useLocalSearchParams<{
@@ -187,6 +189,7 @@ const TimelineFormScreen = () => {
       }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      useTripStore.getState().markContentChanged();
       router.back();
     } catch (err) {
       console.error(err);
@@ -202,7 +205,9 @@ const TimelineFormScreen = () => {
 
   if (fetchingTimeline) {
     return (
-      <SafeAreaView style={styles.centered}>
+      <SafeAreaView
+        style={[styles.centered, { backgroundColor: palette.background }]}
+      >
         <ActivityIndicator size="large" color={COLORS.primary} />
       </SafeAreaView>
     );
@@ -210,8 +215,12 @@ const TimelineFormScreen = () => {
 
   if (!trip) {
     return (
-      <SafeAreaView style={styles.centered}>
-        <Text>Không tìm thấy chuyến đi</Text>
+      <SafeAreaView
+        style={[styles.centered, { backgroundColor: palette.background }]}
+      >
+        <Text style={{ color: palette.textPrimary }}>
+          Không tìm thấy chuyến đi
+        </Text>
       </SafeAreaView>
     );
   }
@@ -230,18 +239,30 @@ const TimelineFormScreen = () => {
     >
       <>
         <ScrollView
-          style={styles.scrollView}
+          style={[styles.scrollView, { backgroundColor: palette.surface }]}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
           {/* Tiêu đề */}
           <View style={styles.field}>
-            <Text style={styles.label}>Tiêu đề</Text>
+            <Text style={[styles.label, { color: palette.textPrimary }]}>
+              Tiêu đề
+            </Text>
             <TextInput
-              style={[styles.input, errors.title ? styles.inputError : null]}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: palette.surface,
+                  borderColor: palette.border,
+                  color: palette.textPrimary,
+                },
+                errors.title ? styles.inputError : null,
+              ]}
               placeholder="Nhập tiêu đề"
-              placeholderTextColor={COLORS.textLight}
+              placeholderTextColor={palette.textLight}
+              selectionColor={COLORS.primary}
+              keyboardAppearance={palette.isDark ? "dark" : "light"}
               value={title}
               onChangeText={(text) => {
                 setTitle(text);
@@ -258,11 +279,23 @@ const TimelineFormScreen = () => {
 
           {/* Mô tả */}
           <View style={styles.field}>
-            <Text style={styles.label}>Mô tả</Text>
+            <Text style={[styles.label, { color: palette.textPrimary }]}>
+              Mô tả
+            </Text>
             <TextInput
-              style={[styles.input, styles.textArea]}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: palette.surface,
+                  borderColor: palette.border,
+                  color: palette.textPrimary,
+                },
+                styles.textArea,
+              ]}
               placeholder="Nhập mô tả (không bắt buộc)"
-              placeholderTextColor={COLORS.textLight}
+              placeholderTextColor={palette.textLight}
+              selectionColor={COLORS.primary}
+              keyboardAppearance={palette.isDark ? "dark" : "light"}
               value={description}
               onChangeText={setDescription}
               multiline
@@ -275,23 +308,34 @@ const TimelineFormScreen = () => {
 
           {/* Thời gian */}
           <View style={styles.field}>
-            <Text style={styles.label}>Thời gian</Text>
+            <Text style={[styles.label, { color: palette.textPrimary }]}>
+              Thời gian
+            </Text>
             <TouchableOpacity
               style={[
                 styles.dateTimeButton,
+                {
+                  backgroundColor: palette.surface,
+                  borderColor: palette.border,
+                },
                 errors.time ? styles.inputError : null,
               ]}
               onPress={() => setShowDateTimePicker(true)}
               disabled={loading}
               activeOpacity={0.7}
             >
-              <Text style={styles.dateTimeButtonText}>
+              <Text
+                style={[
+                  styles.dateTimeButtonText,
+                  { color: palette.textPrimary },
+                ]}
+              >
                 {formatDateTime(time)}
               </Text>
               <Ionicons
                 name="chevron-forward"
                 size={21}
-                color={COLORS.textSecondary}
+                color={palette.textSecondary}
               />
             </TouchableOpacity>
             {errors.time ? (
@@ -300,13 +344,25 @@ const TimelineFormScreen = () => {
           </View>
 
           {/* Thông báo */}
-          <View style={styles.reminderRow}>
-            <Text style={styles.reminderLabel}>Nhắc trước 30 phút</Text>
+          <View
+            style={[
+              styles.reminderRow,
+              {
+                backgroundColor: palette.surface,
+                borderColor: palette.border,
+              },
+            ]}
+          >
+            <Text
+              style={[styles.reminderLabel, { color: palette.textPrimary }]}
+            >
+              Nhắc trước 30 phút
+            </Text>
             <Switch
               value={notify}
               onValueChange={setNotify}
               disabled={loading}
-              trackColor={{ false: "#D9DEE5", true: COLORS.secondary }}
+              trackColor={{ false: palette.border, true: COLORS.secondary }}
               thumbColor="#FFFFFF"
             />
           </View>
@@ -324,6 +380,10 @@ const TimelineFormScreen = () => {
             minuteInterval={15}
             is24Hour={true}
             locale="vi_VN"
+            isDarkModeEnabled={palette.isDark}
+            buttonTextColorIOS={COLORS.primary}
+            modalStyleIOS={{ backgroundColor: palette.surface }}
+            pickerContainerStyleIOS={{ backgroundColor: palette.surface }}
           />
         )}
       </>

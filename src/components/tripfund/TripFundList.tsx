@@ -1,6 +1,5 @@
 import * as Haptics from "expo-haptics";
-import { useFocusEffect } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -34,6 +33,9 @@ interface TripFund {
 
 interface TripFundListProps {
   trip: Trip;
+  refreshKey?: number;
+  contentInsetTop?: number;
+  onScrollOffsetChange?: (offset: number) => void;
   onSummaryChange?: (summary: {
     eyebrow: string;
     value: string;
@@ -41,7 +43,13 @@ interface TripFundListProps {
   }) => void;
 }
 
-const TripFundList = ({ trip, onSummaryChange }: TripFundListProps) => {
+const TripFundList = ({
+  trip,
+  refreshKey = 0,
+  contentInsetTop = 0,
+  onScrollOffsetChange,
+  onSummaryChange,
+}: TripFundListProps) => {
   const palette = useAppPalette();
   const { user: currentUser } = useAuthStore();
 
@@ -54,11 +62,9 @@ const TripFundList = ({ trip, onSummaryChange }: TripFundListProps) => {
 
   const isLeader = trip.isLeader;
 
-  useFocusEffect(
-    useCallback(() => {
-      getFunds();
-    }, [trip.id]),
-  );
+  useEffect(() => {
+    void getFunds();
+  }, [refreshKey, trip.id]);
 
   const getFunds = async () => {
     try {
@@ -117,7 +123,17 @@ const TripFundList = ({ trip, onSummaryChange }: TripFundListProps) => {
     const isMine = item.user.id === currentUser?.id;
 
     return (
-      <Surface style={styles.fundCard} elevation={0}>
+      <Surface
+        style={[
+          styles.fundCard,
+          {
+            backgroundColor: palette.surface,
+            borderColor: palette.border,
+            shadowOpacity: palette.isDark ? 0 : 0.035,
+          },
+        ]}
+        elevation={0}
+      >
         <View style={styles.fundHeader}>
           {item.user.avatar ? (
             <Avatar.Image
@@ -126,7 +142,12 @@ const TripFundList = ({ trip, onSummaryChange }: TripFundListProps) => {
               style={styles.userAvatar}
             />
           ) : (
-            <View style={[styles.userAvatarFallback]}>
+            <View
+              style={[
+                styles.userAvatarFallback,
+                { backgroundColor: palette.primaryLight },
+              ]}
+            >
               <Text style={styles.userAvatarText}>
                 {getNameFirstLetterUpper(item.user.name)}
               </Text>
@@ -135,14 +156,18 @@ const TripFundList = ({ trip, onSummaryChange }: TripFundListProps) => {
 
           <View style={styles.fundInfo}>
             <View style={styles.nameRow}>
-              <Text style={styles.userName}>{item.user.name}</Text>
+              <Text style={[styles.userName, { color: palette.textPrimary }]}>
+                {item.user.name}
+              </Text>
               {isMine && (
                 <View style={styles.youBadge}>
                   <Text style={styles.youBadgeText}>Bạn</Text>
                 </View>
               )}
             </View>
-            <Text style={styles.userEmail}>{item.user.phone}</Text>
+            <Text style={[styles.userEmail, { color: palette.textSecondary }]}>
+              {item.user.phone}
+            </Text>
           </View>
 
           <View style={styles.fundRight}>
@@ -160,8 +185,12 @@ const TripFundList = ({ trip, onSummaryChange }: TripFundListProps) => {
         </View>
 
         {item.note && (
-          <View style={styles.noteContainer}>
-            <Text style={styles.noteText}>{item.note}</Text>
+          <View
+            style={[styles.noteContainer, { borderTopColor: palette.border }]}
+          >
+            <Text style={[styles.noteText, { color: palette.textSecondary }]}>
+              {item.note}
+            </Text>
           </View>
         )}
       </Surface>
@@ -170,10 +199,21 @@ const TripFundList = ({ trip, onSummaryChange }: TripFundListProps) => {
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
-      <Surface style={styles.emptyCard} elevation={0}>
+      <Surface
+        style={[
+          styles.emptyCard,
+          {
+            backgroundColor: palette.surface,
+            borderColor: palette.border,
+          },
+        ]}
+        elevation={0}
+      >
         <Text style={styles.emptyEmoji}>💰</Text>
-        <Text style={styles.emptyTitle}>Chưa có quỹ nào</Text>
-        <Text style={styles.emptySubtext}>
+        <Text style={[styles.emptyTitle, { color: palette.textPrimary }]}>
+          Chưa có quỹ nào
+        </Text>
+        <Text style={[styles.emptySubtext, { color: palette.textSecondary }]}>
           {isLeader
             ? "Hãy tạo quỹ cho chuyến đi này"
             : "Trưởng nhóm sẽ tạo quỹ cho chuyến đi"}
@@ -184,20 +224,26 @@ const TripFundList = ({ trip, onSummaryChange }: TripFundListProps) => {
 
   if (loading && !refreshing) {
     return (
-      <View style={styles.centered}>
+      <View
+        style={[styles.centered, { backgroundColor: palette.background }]}
+      >
         <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: palette.background }]}> 
+    <View style={[styles.container, { backgroundColor: palette.background }]}>
       <FlatList
         data={funds}
         keyExtractor={(item) => item.id}
         renderItem={renderFundCard}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingTop: contentInsetTop + 14 }]}
         showsVerticalScrollIndicator={false}
+        onScroll={(event) =>
+          onScrollOffsetChange?.(event.nativeEvent.contentOffset.y)
+        }
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -210,28 +256,60 @@ const TripFundList = ({ trip, onSummaryChange }: TripFundListProps) => {
         }
         ListHeaderComponent={
           stats.count > 0 ? (
-            <Surface style={styles.statsCard} elevation={0}>
+            <Surface
+              style={[
+                styles.statsCard,
+                {
+                  backgroundColor: palette.surface,
+                  borderColor: palette.border,
+                  shadowOpacity: palette.isDark ? 0 : 0.04,
+                },
+              ]}
+              elevation={0}
+            >
               <View style={styles.statsRow}>
                 <View style={styles.statItem}>
-                  <Text style={styles.statLabel}>Tổng quỹ</Text>
+                  <Text
+                    style={[styles.statLabel, { color: palette.textSecondary }]}
+                  >
+                    Tổng quỹ
+                  </Text>
                   <Text style={styles.statValue}>
                     {formatMoney(stats.total)}
                   </Text>
                 </View>
 
-                <View style={styles.statDivider} />
+                <View
+                  style={[
+                    styles.statDivider,
+                    { backgroundColor: palette.border },
+                  ]}
+                />
 
                 <View style={styles.statItem}>
-                  <Text style={styles.statLabel}>Trung bình</Text>
+                  <Text
+                    style={[styles.statLabel, { color: palette.textSecondary }]}
+                  >
+                    Trung bình
+                  </Text>
                   <Text style={styles.statValue}>
                     {formatMoney(stats.average)}
                   </Text>
                 </View>
 
-                <View style={styles.statDivider} />
+                <View
+                  style={[
+                    styles.statDivider,
+                    { backgroundColor: palette.border },
+                  ]}
+                />
 
                 <View style={styles.statItem}>
-                  <Text style={styles.statLabel}>Người</Text>
+                  <Text
+                    style={[styles.statLabel, { color: palette.textSecondary }]}
+                  >
+                    Người
+                  </Text>
                   <Text style={styles.statValue}>{stats.count}</Text>
                 </View>
               </View>

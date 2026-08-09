@@ -1,3 +1,4 @@
+import { useAppPalette } from "@/src/hook/useAppPalette";
 import { api } from "@/src/services/api";
 import { COLORS } from "@/src/utils/constants";
 import { showError, showSuccess } from "@/src/utils/errorHandler";
@@ -16,6 +17,7 @@ import { Text } from "react-native-paper";
 
 export default function VerifyEmailScreen() {
   const router = useRouter();
+  const palette = useAppPalette();
   const { email = "", expiresAt } = useLocalSearchParams<{
     email?: string;
     expiresAt?: string;
@@ -77,15 +79,22 @@ export default function VerifyEmailScreen() {
   ).padStart(2, "0")}`;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: palette.background }]}
+    >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.content}
       >
-        <Text variant="headlineMedium" style={styles.title}>
+        <Text
+          variant="headlineMedium"
+          style={[styles.title, { color: palette.textPrimary }]}
+        >
           Xác thực email
         </Text>
-        <Text style={styles.subtitle}>Nhập mã 6 chữ số đã gửi tới {email}</Text>
+        <Text style={[styles.subtitle, { color: palette.textSecondary }]}>
+          Nhập mã 6 chữ số đã gửi tới {email}
+        </Text>
         <TextInput
           autoFocus
           value={code}
@@ -94,10 +103,25 @@ export default function VerifyEmailScreen() {
           }
           keyboardType="number-pad"
           maxLength={6}
-          style={styles.code}
+          style={[
+            styles.code,
+            {
+              backgroundColor: palette.surface,
+              borderColor: palette.border,
+              color: palette.textPrimary,
+            },
+          ]}
+          selectionColor={COLORS.primary}
+          keyboardAppearance={palette.isDark ? "dark" : "light"}
           accessibilityLabel="Mã xác thực gồm 6 chữ số"
         />
-        <Text style={[styles.timer, remaining === 0 && styles.expired]}>
+        <Text
+          style={[
+            styles.timer,
+            { color: palette.textPrimary },
+            remaining === 0 && styles.expired,
+          ]}
+        >
           {time}
         </Text>
         <TouchableOpacity

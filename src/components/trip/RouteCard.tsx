@@ -1,5 +1,6 @@
 import { api } from "@/src/services/api";
 import ConfirmDialog from "@/src/components/ConfirmDialog";
+import { useAppPalette } from "@/src/hook/useAppPalette";
 import type { TripRoute } from "@/src/type/map";
 import type { Trip } from "@/src/type/trip";
 import { COLORS } from "@/src/utils/constants";
@@ -21,6 +22,7 @@ interface Props {
 
 export default function RouteCard({ trip }: Props) {
   const router = useRouter();
+  const palette = useAppPalette();
   const [routes, setRoutes] = useState<TripRoute[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<TripRoute | null>(null);
@@ -87,9 +89,15 @@ export default function RouteCard({ trip }: Props) {
       <View>
         {createButton}
         <View style={styles.empty}>
-        <Ionicons name="map-outline" size={34} color={COLORS.textLight} />
-        <Text style={styles.emptyText}>Chưa có tuyến đường nào.</Text>
-        {trip.isLeader && <Text style={styles.hint}>Tạo tuyến đầu tiên cho chuyến đi.</Text>}
+        <Ionicons name="map-outline" size={34} color={palette.textLight} />
+        <Text style={[styles.emptyText, { color: palette.textSecondary }]}>
+          Chưa có tuyến đường nào.
+        </Text>
+        {trip.isLeader && (
+          <Text style={[styles.hint, { color: palette.textLight }]}>
+            Tạo tuyến đầu tiên cho chuyến đi.
+          </Text>
+        )}
         </View>
       </View>
     );
@@ -99,7 +107,7 @@ export default function RouteCard({ trip }: Props) {
     <View>
       {createButton}
       {routes.map((route) => (
-        <View key={route.id} style={styles.route}>
+        <View key={route.id} style={[styles.route, { borderColor: palette.border }]}>
           <Pressable
             disabled={!route.active}
             onPress={() => void openRoute(route)}
@@ -108,11 +116,13 @@ export default function RouteCard({ trip }: Props) {
             <Ionicons
               name={route.active ? "navigate-circle" : "navigate-circle-outline"}
               size={30}
-              color={route.active ? "#16a34a" : COLORS.textLight}
+              color={route.active ? "#16a34a" : palette.textLight}
             />
             <View style={styles.routeText}>
-              <Text style={styles.routeName}>{route.name}</Text>
-              <Text style={styles.status}>
+              <Text style={[styles.routeName, { color: palette.textPrimary }]}>
+                {route.name}
+              </Text>
+              <Text style={[styles.status, { color: palette.textSecondary }]}>
                 {route.active ? "Đang hoạt động · Mở bản đồ" : "Chưa chọn"}
               </Text>
             </View>

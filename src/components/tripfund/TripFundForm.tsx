@@ -11,6 +11,7 @@ import {
 import { Avatar, Text } from "react-native-paper";
 
 import TripDetailFormSheet from "@/src/components/trip/TripDetailFormSheet";
+import { useAppPalette } from "@/src/hook/useAppPalette";
 import { api } from "@/src/services/api";
 import { useTripStore } from "@/src/store/trip.store";
 import { UserGroupRole } from "@/src/type/trip";
@@ -25,6 +26,7 @@ interface ContributionData {
 
 const TripFundForm = () => {
   const router = useRouter();
+  const palette = useAppPalette();
   const { trip } = useTripStore();
   const { id: tripId } = useLocalSearchParams<{ id: string }>();
 
@@ -92,6 +94,7 @@ const TripFundForm = () => {
       });
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      useTripStore.getState().markContentChanged();
       router.back();
     } catch (err: any) {
       console.error(err);
@@ -115,7 +118,10 @@ const TripFundForm = () => {
     const amount = amounts[item.id] || "";
 
     return (
-      <View key={item.id} style={styles.memberItem}>
+      <View
+        key={item.id}
+        style={[styles.memberItem, { borderBottomColor: palette.border }]}
+      >
         {item.avatar ? (
           <Avatar.Image
             source={{ uri: item.avatar }}
@@ -123,7 +129,12 @@ const TripFundForm = () => {
             style={styles.memberAvatar}
           />
         ) : (
-          <View style={styles.memberAvatarFallback}>
+          <View
+            style={[
+              styles.memberAvatarFallback,
+              { backgroundColor: palette.primaryLight },
+            ]}
+          >
             <Text style={styles.memberAvatarText}>
               {getNameFirstLetterUpper(item.name)}
             </Text>
@@ -131,14 +142,25 @@ const TripFundForm = () => {
         )}
 
         <View style={styles.memberInfo}>
-          <Text style={styles.memberName}>{item.name}</Text>
+          <Text style={[styles.memberName, { color: palette.textPrimary }]}>
+            {item.name}
+          </Text>
         </View>
 
         <View style={styles.amountInput}>
           <TextInput
-            style={styles.amountInputField}
+            style={[
+              styles.amountInputField,
+              {
+                backgroundColor: palette.surface,
+                borderColor: palette.border,
+                color: palette.textPrimary,
+              },
+            ]}
             placeholder="0"
-            placeholderTextColor={COLORS.textSecondary}
+            placeholderTextColor={palette.textSecondary}
+            selectionColor={COLORS.primary}
+            keyboardAppearance={palette.isDark ? "dark" : "light"}
             value={
               amount
                 ? formatMoney(Number(amount)).replace(/\s?đ$/, "")
@@ -148,7 +170,11 @@ const TripFundForm = () => {
             keyboardType="numeric"
             selectTextOnFocus
           />
-          <Text style={styles.currencySymbol}>đ</Text>
+          <Text
+            style={[styles.currencySymbol, { color: palette.textSecondary }]}
+          >
+            đ
+          </Text>
         </View>
       </View>
     );
@@ -164,30 +190,56 @@ const TripFundForm = () => {
       submitLabel="Lưu"
       height="88%"
       footerTop={
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Tổng</Text>
+        <View
+          style={[
+            styles.totalRow,
+            {
+              backgroundColor: palette.surface,
+              borderBottomColor: palette.border,
+            },
+          ]}
+        >
+          <Text style={[styles.totalLabel, { color: palette.textPrimary }]}>
+            Tổng
+          </Text>
           <Text style={styles.totalValue}>{formatMoney(getTotalAmount())}</Text>
         </View>
       }
     >
       <ScrollView
-        style={styles.scrollView}
+        style={[styles.scrollView, { backgroundColor: palette.surface }]}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
         {errors ? (
-          <View style={styles.errorContainer}>
+          <View
+            style={[
+              styles.errorContainer,
+              {
+                backgroundColor: palette.errorLight,
+                borderColor: `${COLORS.error}55`,
+              },
+            ]}
+          >
             <Text style={styles.errorText}>{errors}</Text>
           </View>
         ) : null}
 
-        <View style={styles.membersList}>
+        <View
+          style={[styles.membersList, { backgroundColor: palette.surface }]}
+        >
           {members.map((member) => renderMemberItem({ item: member }))}
         </View>
 
         <TouchableOpacity
-          style={styles.addMemberButton}
+          style={[
+            styles.addMemberButton,
+            {
+              backgroundColor: palette.primaryLight,
+              borderColor: palette.isDark ? "#315C86" : "#8DC3FF",
+            },
+          ]}
           onPress={() =>
             router.push({
               pathname: "/groups/[id]/add-member",
@@ -201,11 +253,23 @@ const TripFundForm = () => {
         </TouchableOpacity>
 
         <View style={styles.noteField}>
-          <Text style={styles.label}>Ghi chú (tùy chọn)</Text>
+          <Text style={[styles.label, { color: palette.textPrimary }]}>
+            Ghi chú (tùy chọn)
+          </Text>
           <TextInput
-            style={[styles.input, styles.textArea]}
+            style={[
+              styles.input,
+              {
+                backgroundColor: palette.surface,
+                borderColor: palette.border,
+                color: palette.textPrimary,
+              },
+              styles.textArea,
+            ]}
             placeholder="Ví dụ: Quỹ ăn uống chung"
-            placeholderTextColor={COLORS.textLight}
+            placeholderTextColor={palette.textLight}
+            selectionColor={COLORS.primary}
+            keyboardAppearance={palette.isDark ? "dark" : "light"}
             value={note}
             onChangeText={setNote}
             multiline

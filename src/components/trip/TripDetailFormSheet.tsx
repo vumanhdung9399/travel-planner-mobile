@@ -50,10 +50,20 @@ export default function TripDetailFormSheet({
         accessibilityLabel="Đóng biểu mẫu"
       />
 
-      <View style={[styles.sheet, { height, backgroundColor: theme.colors.surface }]}> 
+      <View
+        style={[styles.sheet, { height, backgroundColor: theme.colors.surface }]}
+      >
         <View style={styles.header}>
-          <View style={styles.handle} />
-          <Text style={[styles.title, { color: theme.colors.onSurface }]} numberOfLines={1}>
+          <View
+            style={[
+              styles.handle,
+              { backgroundColor: theme.colors.outlineVariant },
+            ]}
+          />
+          <Text
+            style={[styles.title, { color: theme.colors.onSurface }]}
+            numberOfLines={1}
+          >
             {title}
           </Text>
         </View>
@@ -67,18 +77,32 @@ export default function TripDetailFormSheet({
           <View
             style={[
               styles.footer,
-              { paddingBottom: Math.max(insets.bottom, 12), backgroundColor: theme.colors.surface, borderTopColor: theme.colors.outlineVariant },
+              {
+                paddingBottom: Math.max(insets.bottom, 12),
+                backgroundColor: theme.colors.surface,
+                borderTopColor: theme.colors.outlineVariant,
+              },
             ]}
           >
             {footerTop ? <View style={styles.footerTop}>{footerTop}</View> : null}
             <View style={styles.footerActions}>
               <TouchableOpacity
-                style={[styles.cancelButton, { backgroundColor: theme.colors.surfaceVariant, borderColor: theme.colors.outlineVariant }]}
+                style={[
+                  styles.cancelButton,
+                  {
+                    backgroundColor: theme.colors.surfaceVariant,
+                    borderColor: theme.colors.outlineVariant,
+                  },
+                ]}
                 onPress={onCancel}
                 disabled={loading}
                 activeOpacity={0.78}
               >
-                <Text style={[styles.cancelText, { color: theme.colors.onSurface }]}>Hủy</Text>
+                <Text
+                  style={[styles.cancelText, { color: theme.colors.onSurface }]}
+                >
+                  Hủy
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity

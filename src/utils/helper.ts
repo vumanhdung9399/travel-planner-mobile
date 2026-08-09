@@ -57,9 +57,24 @@ export const getNameFirstLetterUpper = (name: string | undefined) => {
 };
 
 export const getNotificationRedirect = (data: any): string => {
-  if (!data.groupId || !data.tripId) return "/";
+  if (!data) return "/";
 
-  const { type, groupId, tripId } = data;
+  const metadata = data.metadata || {};
+  const type = data.type;
+  const groupId =
+    data.groupId || metadata.groupId || data.group?.id || data.groupKey;
+  const tripId = data.tripId || metadata.tripId;
+  const link = typeof data.link === "string" ? data.link.trim() : "";
+
+  if (link.startsWith("/trip/")) {
+    return link.replace(/^\/trip\//, "/trips/");
+  }
+  if (link.startsWith("/group/")) {
+    return link.replace(/^\/group\//, "/groups/");
+  }
+  if (link.startsWith("/trips/") || link.startsWith("/groups/")) {
+    return link;
+  }
 
   switch (type) {
     case NOTIFICATION_TYPE.INVITE:
@@ -69,10 +84,10 @@ export const getNotificationRedirect = (data: any): string => {
       return "/groups";
 
     case NOTIFICATION_TYPE.TRIP:
-      if (groupId) {
+      if (tripId) {
         return `/trips/${tripId}`;
       }
-      return "/";
+      return groupId ? `/groups/${groupId}` : "/";
 
     case NOTIFICATION_TYPE.EXPENSE:
       if (tripId) {
@@ -96,7 +111,7 @@ export const getNotificationRedirect = (data: any): string => {
       if (tripId) {
         return `/trips/${tripId}`;
       }
-      return "/";
+      return groupId ? `/groups/${groupId}` : "/";
 
     default:
       return "/";

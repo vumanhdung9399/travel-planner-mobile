@@ -1,4 +1,5 @@
 import TripDetailFormSheet from "@/src/components/trip/TripDetailFormSheet";
+import { useAppPalette } from "@/src/hook/useAppPalette";
 import { api } from "@/src/services/api";
 import { COLORS } from "@/src/utils/constants";
 import * as Haptics from "expo-haptics";
@@ -14,6 +15,7 @@ interface GroupFormProps {
 
 const GroupForm: React.FC<GroupFormProps> = ({ mode, groupId }) => {
   const router = useRouter();
+  const palette = useAppPalette();
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -112,35 +114,54 @@ const GroupForm: React.FC<GroupFormProps> = ({ mode, groupId }) => {
       height="80%"
     >
       <ScrollView
-        style={styles.scrollView}
+        style={[styles.scrollView, { backgroundColor: palette.surface }]}
         contentContainerStyle={styles.contentContainer}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.field}>
-          <Text style={styles.label}>Tên nhóm</Text>
+          <Text style={[styles.label, { color: palette.textPrimary }]}>
+            Tên nhóm
+          </Text>
           <TextInput
-            style={[styles.input, error.name ? styles.inputError : null]}
+            style={[
+              styles.input,
+              {
+                backgroundColor: palette.surface,
+                borderColor: palette.border,
+                color: palette.textPrimary,
+              },
+              error.name ? styles.inputError : null,
+            ]}
             value={name}
             onChangeText={(text) => {
               setName(text);
               if (error.name) setError((prev) => ({ ...prev, name: "" }));
             }}
             placeholder="Ví dụ: Chuyến đi Đà Lạt"
-            placeholderTextColor={COLORS.textLight}
+            placeholderTextColor={palette.textLight}
+            selectionColor={COLORS.primary}
+            keyboardAppearance={palette.isDark ? "dark" : "light"}
             autoFocus={mode === "create"}
             maxLength={100}
             editable={!loading}
           />
           {error.name ? <Text style={styles.errorText}>{error.name}</Text> : null}
-          <Text style={styles.charCount}>{name.length}/100 · tối thiểu 5</Text>
+          <Text style={[styles.charCount, { color: palette.textLight }]}>
+            {name.length}/100 · tối thiểu 5
+          </Text>
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>Mô tả</Text>
+          <Text style={[styles.label, { color: palette.textPrimary }]}>Mô tả</Text>
           <TextInput
             style={[
               styles.input,
+              {
+                backgroundColor: palette.surface,
+                borderColor: palette.border,
+                color: palette.textPrimary,
+              },
               styles.textArea,
               error.description ? styles.inputError : null,
             ]}
@@ -151,7 +172,9 @@ const GroupForm: React.FC<GroupFormProps> = ({ mode, groupId }) => {
                 setError((prev) => ({ ...prev, description: "" }));
             }}
             placeholder="Nhập mô tả (không bắt buộc)"
-            placeholderTextColor={COLORS.textLight}
+            placeholderTextColor={palette.textLight}
+            selectionColor={COLORS.primary}
+            keyboardAppearance={palette.isDark ? "dark" : "light"}
             multiline
             numberOfLines={4}
             maxLength={200}
@@ -161,7 +184,9 @@ const GroupForm: React.FC<GroupFormProps> = ({ mode, groupId }) => {
           {error.description ? (
             <Text style={styles.errorText}>{error.description}</Text>
           ) : null}
-          <Text style={styles.charCount}>{description.length}/200</Text>
+          <Text style={[styles.charCount, { color: palette.textLight }]}>
+            {description.length}/200
+          </Text>
         </View>
       </ScrollView>
     </TripDetailFormSheet>

@@ -14,6 +14,7 @@ export interface ExpenseItem {
   title: string;
   amount: number;
   note?: string;
+  attachmentImage?: string | null;
   time: string;
   status: string;
   category: string;

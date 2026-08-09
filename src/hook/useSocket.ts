@@ -8,6 +8,7 @@ import * as Notifications from "expo-notifications";
 import { useEffect } from "react";
 import { AppState } from "react-native";
 import { useAuthStore } from "../store/auth.store";
+import { useSettingsStore } from "../store/settings.store";
 
 export const useSocket = () => {
   const addOneNotification = useNotificationStore((s) => s.addOneNotification);
@@ -20,6 +21,8 @@ export const useSocket = () => {
     const socket = initSocket(String(userId), token);
 
     const handleNotification = (data: Notification) => {
+      if (!useSettingsStore.getState().notificationsEnabled) return;
+
       addOneNotification(data);
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

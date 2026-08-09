@@ -1,4 +1,5 @@
 import { api } from "@/src/services/api";
+import { type AppPalette, useAppPalette } from "@/src/hook/useAppPalette";
 import { ListTrip } from "@/src/type/trip";
 import { COLORS } from "@/src/utils/constants";
 import { formatMoney, getNameFirstLetterUpper } from "@/src/utils/helper";
@@ -6,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -21,6 +22,8 @@ import { Avatar, Surface, Text } from "react-native-paper";
 
 const MyTripsScreen = () => {
   const router = useRouter();
+  const palette = useAppPalette();
+  const styles = useMemo(() => createStyles(palette), [palette]);
 
   const [trips, setTrips] = useState<ListTrip[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,14 +71,14 @@ const MyTripsScreen = () => {
     if (trip.isCloseTrip) {
       return {
         label: "Đã kết thúc",
-        color: COLORS.textLight,
-        bgColor: COLORS.surfaceMuted,
+        color: palette.textLight,
+        bgColor: palette.surfaceMuted,
       };
     }
     return {
       label: "Đang diễn ra",
       color: COLORS.success,
-      bgColor: COLORS.successLight,
+      bgColor: palette.successLight,
     };
   };
 
@@ -91,14 +94,20 @@ const MyTripsScreen = () => {
         onPress={() => handleTripPress(item)}
         activeOpacity={0.7}
       >
-        <Surface style={styles.card} elevation={0}>
+        <Surface
+          style={[
+            styles.card,
+            { backgroundColor: palette.surface, borderColor: palette.border },
+          ]}
+          elevation={0}
+        >
           <ImageBackground
             source={
               item.coverImage
                 ? { uri: item.coverImage }
                 : require("@/assets/images/trip-hero-cao-bang.png")
             }
-            style={styles.cover}
+            style={[styles.cover, { backgroundColor: palette.primaryLight }]}
             imageStyle={styles.coverImage}
           >
             <LinearGradient
@@ -121,7 +130,10 @@ const MyTripsScreen = () => {
           </ImageBackground>
 
           <View style={styles.cardBody}>
-            <Text style={styles.tripName} numberOfLines={1}>
+            <Text
+              style={[styles.tripName, { color: palette.textPrimary }]}
+              numberOfLines={1}
+            >
               {item.name}
             </Text>
             <View style={styles.cardFooter}>
@@ -131,6 +143,7 @@ const MyTripsScreen = () => {
                   key={member.id}
                   style={[
                     styles.memberAvatar,
+                    { borderColor: palette.surface },
                     { marginLeft: index > 0 ? -12 : 0 },
                   ]}
                 >
@@ -149,9 +162,19 @@ const MyTripsScreen = () => {
                 </View>
               ))}
               {memberCount > 4 && (
-                <View style={[styles.memberAvatar, { marginLeft: -12 }]}>
-                  <View style={styles.moreMembers}>
-                    <Text style={styles.moreMembersText}>
+                  <View
+                    style={[
+                      styles.memberAvatar,
+                      { borderColor: palette.surface, marginLeft: -12 },
+                    ]}
+                  >
+                  <View
+                    style={[
+                      styles.moreMembers,
+                      { backgroundColor: palette.surface, borderColor: palette.border },
+                    ]}
+                  >
+                    <Text style={[styles.moreMembersText, { color: palette.textSecondary }]}>
                       +{memberCount - 4}
                     </Text>
                   </View>
@@ -159,13 +182,18 @@ const MyTripsScreen = () => {
               )}
               </View>
 
-              <View style={styles.expensesContainer}>
+              <View
+                style={[
+                  styles.expensesContainer,
+                  { backgroundColor: palette.surfaceMuted },
+                ]}
+              >
                 <Ionicons
                   name="wallet-outline"
                   size={14}
-                  color={COLORS.textSecondary}
+                  color={palette.textSecondary}
                 />
-                <Text style={styles.expensesText}>
+                <Text style={[styles.expensesText, { color: palette.textPrimary }]}>
                   {formatMoney(totalExpenses)}
                 </Text>
               </View>
@@ -178,38 +206,52 @@ const MyTripsScreen = () => {
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
-      <Surface style={styles.emptyCard} elevation={0}>
+      <Surface
+        style={[
+          styles.emptyCard,
+          { backgroundColor: palette.surface, borderColor: palette.border },
+        ]}
+        elevation={0}
+      >
         <Text style={styles.emptyEmoji}>✈️</Text>
-        <Text style={styles.emptyTitle}>Chưa có chuyến đi nào</Text>
+        <Text style={[styles.emptyTitle, { color: palette.textPrimary }]}>Chưa có chuyến đi nào</Text>
       </Surface>
     </View>
   );
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.centered}>
+      <SafeAreaView
+        style={[styles.centered, { backgroundColor: palette.background }]}
+      >
         <ActivityIndicator size="large" color={COLORS.primary} />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: palette.background }]}
+    >
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Chuyến đi của tôi</Text>
-        <Ionicons name="filter-outline" size={22} color={COLORS.textPrimary} />
+        <Text style={[styles.headerTitle, { color: palette.textPrimary }]}>Chuyến đi của tôi</Text>
       </View>
 
       {/* Filter Tabs */}
       <View style={styles.filterTabs}>
         <TouchableOpacity
-          style={[styles.filterTab, filter === "all" && styles.filterTabActive]}
+          style={[
+            styles.filterTab,
+            { backgroundColor: palette.surface, borderColor: palette.border },
+            filter === "all" && styles.filterTabActive,
+          ]}
           onPress={() => setFilter("all")}
         >
           <Text
             style={[
               styles.filterTabText,
+              { color: palette.textSecondary },
               filter === "all" && styles.filterTabTextActive,
             ]}
           >
@@ -219,6 +261,7 @@ const MyTripsScreen = () => {
         <TouchableOpacity
           style={[
             styles.filterTab,
+            { backgroundColor: palette.surface, borderColor: palette.border },
             filter === "active" && styles.filterTabActive,
           ]}
           onPress={() => setFilter("active")}
@@ -226,13 +269,14 @@ const MyTripsScreen = () => {
           <Text
             style={[
               styles.filterTabText,
+              { color: palette.textSecondary },
               filter === "active" && styles.filterTabTextActive,
             ]}
           >
             Đang diễn ra
           </Text>
           {activeCount > 0 && (
-            <View style={styles.filterBadge}>
+            <View style={[styles.filterBadge, { backgroundColor: palette.surface }]}>
               <Text style={styles.filterBadgeText}>{activeCount}</Text>
             </View>
           )}
@@ -240,6 +284,7 @@ const MyTripsScreen = () => {
         <TouchableOpacity
           style={[
             styles.filterTab,
+            { backgroundColor: palette.surface, borderColor: palette.border },
             filter === "completed" && styles.filterTabActive,
           ]}
           onPress={() => setFilter("completed")}
@@ -247,6 +292,7 @@ const MyTripsScreen = () => {
           <Text
             style={[
               styles.filterTabText,
+              { color: palette.textSecondary },
               filter === "completed" && styles.filterTabTextActive,
             ]}
           >
@@ -275,16 +321,16 @@ const MyTripsScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (palette: AppPalette) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.surface,
+    backgroundColor: palette.surface,
   },
   centered: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: COLORS.background,
+    backgroundColor: palette.background,
   },
   header: {
     flexDirection: "row",
@@ -297,11 +343,11 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontWeight: "700",
-    color: COLORS.textPrimary,
+    color: palette.textPrimary,
   },
   headerSubtitle: {
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: palette.textSecondary,
     marginTop: 2,
   },
   filterTabs: {
@@ -320,9 +366,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 9,
     borderRadius: 10,
-    backgroundColor: COLORS.surface,
+    backgroundColor: palette.surface,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: palette.border,
   },
   filterTabActive: {
     backgroundColor: COLORS.primary,
@@ -331,13 +377,13 @@ const styles = StyleSheet.create({
   filterTabText: {
     fontSize: 12,
     fontWeight: "500",
-    color: COLORS.textSecondary,
+    color: palette.textSecondary,
   },
   filterTabTextActive: {
     color: "#fff",
   },
   filterBadge: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: palette.surface,
     borderRadius: 14,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -357,13 +403,13 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   card: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: palette.surface,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: palette.border,
     overflow: "hidden",
   },
-  cover: { height: 148, backgroundColor: COLORS.primaryLight },
+  cover: { height: 148, backgroundColor: palette.primaryLight },
   coverImage: { resizeMode: "cover" },
   coverOverlay: {
     flex: 1,
@@ -428,19 +474,19 @@ const styles = StyleSheet.create({
   tripName: {
     fontSize: 18,
     fontWeight: "800",
-    color: COLORS.textPrimary,
+    color: palette.textPrimary,
     flexShrink: 1,
   },
   tripGroup: {
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: palette.textSecondary,
     marginTop: 2,
     marginBottom: 12,
   },
   leaderBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.warningLight,
+    backgroundColor: palette.warningLight,
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: 6,
@@ -473,7 +519,7 @@ const styles = StyleSheet.create({
   },
   dateText: {
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: palette.textSecondary,
     marginLeft: 8,
   },
   locationRow: {
@@ -483,7 +529,7 @@ const styles = StyleSheet.create({
   },
   locationText: {
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: palette.textSecondary,
     marginLeft: 8,
     flex: 1,
   },
@@ -509,21 +555,21 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: COLORS.surface,
+    backgroundColor: palette.surface,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: palette.border,
     justifyContent: "center",
     alignItems: "center",
   },
   moreMembersText: {
     fontSize: 10,
     fontWeight: "600",
-    color: COLORS.textSecondary,
+    color: palette.textSecondary,
   },
   expensesContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.surface,
+    backgroundColor: palette.surface,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 20,
@@ -531,7 +577,7 @@ const styles = StyleSheet.create({
   expensesText: {
     fontSize: 13,
     fontWeight: "600",
-    color: COLORS.textPrimary,
+    color: palette.textPrimary,
     marginLeft: 6,
   },
   emptyContainer: {
@@ -541,13 +587,13 @@ const styles = StyleSheet.create({
     paddingTop: 60,
   },
   emptyCard: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: palette.surface,
     borderRadius: 14,
     padding: 32,
     alignItems: "center",
     width: "100%",
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: palette.border,
   },
   emptyEmoji: {
     fontSize: 56,
@@ -556,12 +602,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: COLORS.textPrimary,
+    color: palette.textPrimary,
     marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 14,
-    color: COLORS.textSecondary,
+    color: palette.textSecondary,
     textAlign: "center",
     lineHeight: 20,
     marginBottom: 24,

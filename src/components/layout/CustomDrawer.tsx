@@ -5,16 +5,15 @@ import { DrawerContentScrollView } from "@react-navigation/drawer";
 import { Href, router, usePathname } from "expo-router";
 import { Image, Text, TouchableOpacity, View } from "react-native";
 import { COLORS, UI_RADIUS } from "@/src/utils/constants";
-import { useSettingsStore } from "@/src/store/settings.store";
+import { removeCurrentDeviceToken } from "@/src/hook/usePushNotification";
+import { api } from "@/src/services/api";
+import { useAppPalette } from "@/src/hook/useAppPalette";
 
 export default function CustomDrawer(props: any) {
   const pathname = usePathname();
   const { user } = useUserStore();
   const { logout } = useAuthStore();
-  const darkMode = useSettingsStore((state) => state.darkMode);
-  const textPrimary = darkMode ? "#F2F6FC" : COLORS.textPrimary;
-  const textSecondary = darkMode ? "#A9B7CA" : COLORS.textSecondary;
-  const border = darkMode ? "#2A384C" : COLORS.border;
+  const palette = useAppPalette();
 
   const menu: {
     label: string;
@@ -36,14 +35,25 @@ export default function CustomDrawer(props: any) {
     router.push(path);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     props.navigation.closeDrawer();
-    logout();
-    router.replace("/login");
+    try {
+      await removeCurrentDeviceToken();
+    } catch {}
+
+    try {
+      await api.post("/auth/logout");
+    } finally {
+      logout();
+      router.replace("/login");
+    }
   };
 
   return (
-    <DrawerContentScrollView {...props}>
+    <DrawerContentScrollView
+      {...props}
+      style={[props.style, { backgroundColor: palette.surface }]}
+    >
       {/* User */}
       <View style={{ padding: 16, flexDirection: "row", gap: 10 }}>
         <Image
@@ -51,8 +61,8 @@ export default function CustomDrawer(props: any) {
           style={{ width: 40, height: 40, borderRadius: 20 }}
         />
         <View>
-          <Text style={{ fontWeight: "600", color: textPrimary }}>{user?.name}</Text>
-          <Text style={{ color: textSecondary, fontSize: 12 }}>{user?.email}</Text>
+          <Text style={{ fontWeight: "600", color: palette.textPrimary }}>{user?.name}</Text>
+          <Text style={{ color: palette.textSecondary, fontSize: 12 }}>{user?.email}</Text>
         </View>
       </View>
 
@@ -72,17 +82,17 @@ export default function CustomDrawer(props: any) {
                 flexDirection: "row",
                 alignItems: "center",
                 gap: 10,
-                backgroundColor: isActive ? COLORS.primaryLight : "transparent",
+                backgroundColor: isActive ? palette.primaryLight : "transparent",
               }}
             >
               <Ionicons
                 name={item.icon}
                 size={20}
-                color={isActive ? COLORS.primary : textSecondary}
+                color={isActive ? COLORS.primary : palette.textSecondary}
               />
               <Text
                 style={{
-                  color: isActive ? COLORS.primary : textPrimary,
+                  color: isActive ? COLORS.primary : palette.textPrimary,
                   fontWeight: isActive ? "600" : "400",
                 }}
               >
@@ -98,11 +108,11 @@ export default function CustomDrawer(props: any) {
           marginHorizontal: 16,
           paddingTop: 16,
           borderTopWidth: 1,
-          borderTopColor: border,
+          borderTopColor: palette.border,
         }}
       >
         <TouchableOpacity
-          onPress={handleLogout}
+          onPress={() => void handleLogout()}
           style={{
             padding: 12,
             flexDirection: "row",

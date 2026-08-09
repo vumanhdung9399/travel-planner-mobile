@@ -2,52 +2,130 @@ import ActionSheet from "@/src/components/ActionSheet";
 import { AppToast } from "@/src/components/AppToast";
 import ConfirmDialog from "@/src/components/ConfirmDialog";
 import GroupChatFab from "@/src/components/group/GroupChatFab";
+import { type AppPalette, useAppPalette } from "@/src/hook/useAppPalette";
 import { api } from "@/src/services/api";
 import { useAuthStore } from "@/src/store/auth.store";
 import { useGroupStore } from "@/src/store/group.store";
+import type { Member } from "@/src/type/group";
 import type { Trip } from "@/src/type/trip";
 import { COLORS, GROUP_ROLE } from "@/src/utils/constants";
 import { getNameFirstLetterUpper } from "@/src/utils/helper";
 import { Ionicons } from "@expo/vector-icons";
+import { CommonActions, useNavigation } from "@react-navigation/native";
 import dayjs from "dayjs";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
+import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { StatusBar } from "expo-status-bar";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  FlatList,
   Image,
   ImageBackground,
+  Modal,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 type MenuMode = "group" | "cover" | "member" | "trip" | null;
 
+const TRIP_CARD_WIDTH = 230;
+const TRIP_CARD_GAP = 12;
+
+const withImageRevision = (uri: string, revision?: string | number | null) => {
+  if (!revision) return uri;
+  return `${uri}${uri.includes("?") ? "&" : "?"}tpv=${encodeURIComponent(String(revision))}`;
+};
+
+const getTripStatus = (trip: Trip, darkMode: boolean) => {
+  const today = dayjs().startOf("day");
+  const startDate = dayjs(trip.startDate).startOf("day");
+  const endDate = dayjs(trip.endDate).endOf("day");
+
+  if (trip.isCloseTrip || today.isAfter(endDate)) {
+    return {
+      label: "ĐÃ KẾT THÚC",
+      background: darkMode ? "#3C1D22" : "#FDEAEA",
+      color: darkMode ? "#FF9B9F" : "#D64D55",
+    };
+  }
+  if (today.isBefore(startDate)) {
+    return {
+      label: "SẮP DIỄN RA",
+      background: darkMode ? "#3B2C11" : "#FFF3C9",
+      color: darkMode ? "#FFD36A" : "#C89113",
+    };
+  }
+  return {
+    label: "ĐANG DIỄN RA",
+    background: darkMode ? "#123429" : "#DFF7E9",
+    color: darkMode ? "#63D7A8" : "#159A6F",
+  };
+};
+
 export default function GroupDetailScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
+  const palette = useAppPalette();
+  const styles = useMemo(() => createStyles(palette), [palette]);
+  const insets = useSafeAreaInsets();
+  const { width: viewportWidth } = useWindowDimensions();
   const { id } = useLocalSearchParams<{ id: string }>();
   const currentUser = useAuthStore((state) => state.user);
   const { loading, group, fetchGroup } = useGroupStore();
   const [menuMode, setMenuMode] = useState<MenuMode>(null);
-  const [selectedMember, setSelectedMember] = useState<any>(null);
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const [coverLoading, setCoverLoading] = useState(false);
   const [coverDeleteOpen, setCoverDeleteOpen] = useState(false);
   const [tripDeleteOpen, setTripDeleteOpen] = useState(false);
   const [tripDeleting, setTripDeleting] = useState(false);
   const [headerScrolled, setHeaderScrolled] = useState(false);
+  const [memberPreviewOpen, setMemberPreviewOpen] = useState(false);
+  const [memberDeleteOpen, setMemberDeleteOpen] = useState(false);
+  const [memberDeleting, setMemberDeleting] = useState(false);
+  const [activeTripIndex, setActiveTripIndex] = useState(0);
+  const [coverRevision, setCoverRevision] = useState<number | null>(null);
+  const tripListRef = useRef<FlatList<Trip>>(null);
+
+  useEffect(() => {
+    setHeaderScrolled(false);
+    setActiveTripIndex(0);
+  }, [id]);
 
   useFocusEffect(
     useCallback(() => {
-      fetchGroup(id);
+      void fetchGroup(id);
     }, [fetchGroup, id]),
   );
+
+  const tripCount = group?.trips?.length ?? 0;
+
+  const handleBack = useCallback(() => {
+    const tabsNavigation = navigation.getParent();
+
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [{ name: "index" }],
+      }),
+    );
+    tabsNavigation?.navigate("index");
+  }, [navigation]);
+
+  useEffect(() => {
+    setActiveTripIndex((current) =>
+      tripCount > 0 ? Math.min(current, tripCount - 1) : 0,
+    );
+  }, [tripCount]);
 
   const leader = useMemo(
     () =>
@@ -93,27 +171,40 @@ export default function GroupDetailScreen() {
       return;
     }
 
+    const extension =
+      asset.fileName?.split(".").pop()?.toLowerCase() ||
+      asset.uri.split(".").pop()?.toLowerCase() ||
+      "jpg";
+    const mimeType =
+      asset.mimeType ||
+      (extension === "png"
+        ? "image/png"
+        : extension === "webp"
+          ? "image/webp"
+          : extension === "jpg" || extension === "jpeg"
+            ? "image/jpeg"
+            : "");
+    if (!["image/jpeg", "image/png", "image/webp"].includes(mimeType)) {
+      AppToast.show({
+        title: "Ảnh không hợp lệ",
+        message: "Vui lòng chọn ảnh JPG, PNG hoặc WEBP.",
+        type: "error",
+      });
+      return;
+    }
+
     try {
       setCoverLoading(true);
-      const extension =
-        asset.fileName?.split(".").pop()?.toLowerCase() ||
-        asset.uri.split(".").pop()?.toLowerCase() ||
-        "jpg";
       const formData = new FormData();
       formData.append("file", {
         uri: asset.uri,
         name: `group-cover.${extension}`,
-        type:
-          asset.mimeType ||
-          (extension === "png"
-            ? "image/png"
-            : extension === "webp"
-              ? "image/webp"
-              : "image/jpeg"),
+        type: mimeType,
       } as any);
       await api.patch(`/groups/${group.id}/cover`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
+      setCoverRevision(Date.now());
       await fetchGroup(group.id);
       AppToast.show({
         title: "Đã cập nhật ảnh nhóm",
@@ -135,6 +226,7 @@ export default function GroupDetailScreen() {
     try {
       setCoverLoading(true);
       await api.delete(`/groups/${group.id}/cover`);
+      setCoverRevision(Date.now());
       await fetchGroup(group.id);
       AppToast.show({
         title: "Đã xóa ảnh nhóm",
@@ -153,13 +245,26 @@ export default function GroupDetailScreen() {
   };
 
   const removeMember = async () => {
-    if (!group || !selectedMember) return;
+    if (!group || !selectedMember || memberDeleting) return;
     try {
+      setMemberDeleting(true);
       await api.delete(
         `/groups/${group.id}/members/${selectedMember.user.id}`,
       );
       await fetchGroup(group.id);
+      AppToast.show({
+        title: "Đã xóa thành viên",
+        message: `${selectedMember.user.name} đã được xóa khỏi nhóm.`,
+      });
+    } catch {
+      AppToast.show({
+        title: "Không thể xóa thành viên",
+        message: "Vui lòng thử lại sau.",
+        type: "error",
+      });
     } finally {
+      setMemberDeleting(false);
+      setMemberDeleteOpen(false);
       setMenuMode(null);
       setSelectedMember(null);
     }
@@ -191,7 +296,9 @@ export default function GroupDetailScreen() {
 
   if (loading && !group) {
     return (
-      <SafeAreaView style={styles.centered}>
+      <SafeAreaView
+        style={[styles.centered, { backgroundColor: palette.surface }]}
+      >
         <ActivityIndicator color={COLORS.primary} />
       </SafeAreaView>
     );
@@ -199,15 +306,22 @@ export default function GroupDetailScreen() {
 
   if (!group) {
     return (
-      <SafeAreaView style={styles.centered}>
-        <Text>Không tìm thấy nhóm</Text>
+      <SafeAreaView
+        style={[styles.centered, { backgroundColor: palette.surface }]}
+      >
+        <Text style={{ color: palette.textPrimary }}>
+          Không tìm thấy nhóm
+        </Text>
       </SafeAreaView>
     );
   }
 
-  const groupCoverUri =
+  const rawGroupCoverUri =
     group.coverImage ||
     group.trips?.find((trip) => Boolean(trip.coverImage))?.coverImage;
+  const groupCoverUri = rawGroupCoverUri
+    ? withImageRevision(rawGroupCoverUri, coverRevision || group.updatedAt)
+    : undefined;
 
   const actions =
     menuMode === "group"
@@ -235,7 +349,7 @@ export default function GroupDetailScreen() {
             {
               label: group.coverImage ? "Đổi ảnh nhóm" : "Thêm ảnh nhóm",
               icon: "image-outline",
-              onPress: () => setTimeout(() => void pickGroupCover(), 300),
+              onPress: () => void pickGroupCover(),
             },
             ...(group.coverImage
               ? [
@@ -243,8 +357,7 @@ export default function GroupDetailScreen() {
                     label: "Xóa ảnh nhóm",
                     icon: "trash-outline",
                     color: COLORS.error,
-                    onPress: () =>
-                      setTimeout(() => setCoverDeleteOpen(true), 300),
+                    onPress: () => setCoverDeleteOpen(true),
                   },
                 ]
               : []),
@@ -252,11 +365,23 @@ export default function GroupDetailScreen() {
         : menuMode === "member"
         ? [
             {
-              label: "Xóa khỏi nhóm",
-              icon: "person-remove-outline",
-              color: COLORS.error,
-              onPress: removeMember,
+              label: "Xem thông tin",
+              icon: "information-circle-outline",
+              onPress: () => setMemberPreviewOpen(true),
             },
+            ...(!selectedMember ||
+            selectedMember.role === GROUP_ROLE.LEADER ||
+            selectedMember.role === GROUP_ROLE.OWNER ||
+            !canEdit
+              ? []
+              : [
+                  {
+                    label: "Xóa khỏi nhóm",
+                    icon: "person-remove-outline",
+                    color: COLORS.error,
+                    onPress: () => setMemberDeleteOpen(true),
+                  },
+                ]),
           ]
         : selectedTrip?.isCloseTrip
           ? [
@@ -264,8 +389,7 @@ export default function GroupDetailScreen() {
                 label: "Xóa chuyến đi",
                 icon: "trash-outline",
                 color: COLORS.error,
-                onPress: () =>
-                  setTimeout(() => setTripDeleteOpen(true), 300),
+                onPress: () => setTripDeleteOpen(true),
               },
             ]
           : [
@@ -283,10 +407,34 @@ export default function GroupDetailScreen() {
             ];
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
-      <View style={[styles.header, headerScrolled && styles.headerScrolled]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: palette.surface }]}
+      edges={["bottom"]}
+    >
+      <StatusBar
+        style={
+          memberPreviewOpen
+            ? "light"
+            : headerScrolled && !palette.isDark
+              ? "dark"
+              : "light"
+        }
+        backgroundColor="transparent"
+        translucent
+      />
+      <View
+        style={[
+          styles.header,
+          { height: insets.top + 56, paddingTop: insets.top },
+          headerScrolled && styles.headerScrolled,
+          headerScrolled && {
+            backgroundColor: palette.surface,
+            borderBottomColor: palette.border,
+          },
+        ]}
+      >
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={handleBack}
           style={[
             styles.headerHit,
             !headerScrolled && styles.headerHitOnBanner,
@@ -295,13 +443,14 @@ export default function GroupDetailScreen() {
           <Ionicons
             name="chevron-back"
             size={24}
-            color={headerScrolled ? COLORS.textPrimary : "#FFFFFF"}
+            color={headerScrolled ? palette.textPrimary : "#FFFFFF"}
           />
         </TouchableOpacity>
         <Text
           style={[
             styles.headerTitle,
             headerScrolled && styles.headerTitleScrolled,
+            headerScrolled && { color: palette.textPrimary },
           ]}
           numberOfLines={1}
         >
@@ -317,7 +466,7 @@ export default function GroupDetailScreen() {
           <Ionicons
             name="ellipsis-vertical"
             size={22}
-            color={headerScrolled ? COLORS.textPrimary : "#FFFFFF"}
+            color={headerScrolled ? palette.textPrimary : "#FFFFFF"}
           />
         </TouchableOpacity>
       </View>
@@ -341,17 +490,27 @@ export default function GroupDetailScreen() {
         }
       >
         <ImageBackground
+          key={groupCoverUri || "group-cover-fallback"}
           source={
             groupCoverUri
               ? { uri: groupCoverUri }
               : require("@/assets/images/trip-hero-cao-bang.png")
           }
-          style={styles.hero}
+          style={[styles.hero, { height: 190 + insets.top }]}
+          imageStyle={styles.heroImage}
         >
-          <View style={styles.heroOverlay}>
+          <LinearGradient
+            colors={[
+              "rgba(3,22,38,.42)",
+              "rgba(3,22,38,.06)",
+              "rgba(3,22,38,.58)",
+            ]}
+            locations={[0, 0.48, 1]}
+            style={styles.heroOverlay}
+          >
             {canManageCover ? (
               <TouchableOpacity
-                style={styles.coverButton}
+                style={[styles.coverButton, { top: insets.top + 64 }]}
                 onPress={() => setMenuMode("cover")}
                 disabled={coverLoading}
               >
@@ -365,7 +524,7 @@ export default function GroupDetailScreen() {
 
             <View style={styles.heroBottom}>
               <View style={styles.heroAvatars}>
-                {group.members.slice(0, 5).map((member, index) =>
+                {group.members.slice(0, 4).map((member, index) =>
                   member.user.avatar ? (
                     <Image
                       key={member.id}
@@ -381,6 +540,7 @@ export default function GroupDetailScreen() {
                       style={[
                         styles.heroAvatar,
                         styles.avatarFallback,
+                        { backgroundColor: palette.primaryLight },
                         index > 0 && styles.avatarOverlap,
                       ]}
                     >
@@ -390,6 +550,19 @@ export default function GroupDetailScreen() {
                     </View>
                   ),
                 )}
+                {group.members.length > 4 ? (
+                  <View
+                    style={[
+                      styles.heroAvatar,
+                      styles.heroOverflowAvatar,
+                      styles.avatarOverlap,
+                    ]}
+                  >
+                    <Text style={styles.heroOverflowText}>
+                      +{group.members.length - 4}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
               <View style={styles.countBadge}>
                 <Text style={styles.countText}>
@@ -397,26 +570,40 @@ export default function GroupDetailScreen() {
                 </Text>
               </View>
             </View>
-          </View>
+          </LinearGradient>
         </ImageBackground>
 
         <View style={styles.leaderSection}>
-          <Text style={styles.sectionTitle}>Trưởng nhóm</Text>
-          <View style={styles.leaderCard}>
+          <Text style={[styles.sectionTitle, { color: palette.textPrimary }]}>Trưởng nhóm</Text>
+          <View
+            style={[
+              styles.leaderCard,
+              { backgroundColor: palette.surface, borderColor: palette.border },
+            ]}
+          >
             {leader?.user.avatar ? (
               <Image
                 source={{ uri: leader.user.avatar }}
                 style={styles.leaderAvatar}
               />
             ) : (
-              <View style={[styles.leaderAvatar, styles.avatarFallback]}>
+              <View
+                style={[
+                  styles.leaderAvatar,
+                  styles.avatarFallback,
+                  { backgroundColor: palette.primaryLight },
+                ]}
+              >
                 <Text style={styles.leaderLetter}>
                   {getNameFirstLetterUpper(leader?.user.name)}
                 </Text>
               </View>
             )}
             <View style={styles.leaderInfo}>
-              <Text style={styles.leaderName} numberOfLines={1}>
+              <Text
+                style={[styles.leaderName, { color: palette.textPrimary }]}
+                numberOfLines={1}
+              >
                 {leader?.user.name || "Chưa có thông tin"}
               </Text>
               {leader?.user.email ? (
@@ -424,9 +611,12 @@ export default function GroupDetailScreen() {
                   <Ionicons
                     name="mail-outline"
                     size={15}
-                    color={COLORS.textSecondary}
+                    color={palette.textSecondary}
                   />
-                  <Text style={styles.contactText} numberOfLines={1}>
+                  <Text
+                    style={[styles.contactText, { color: palette.textSecondary }]}
+                    numberOfLines={1}
+                  >
                     {leader.user.email}
                   </Text>
                 </View>
@@ -436,20 +626,29 @@ export default function GroupDetailScreen() {
                   <Ionicons
                     name="call-outline"
                     size={15}
-                    color={COLORS.textSecondary}
+                    color={palette.textSecondary}
                   />
-                  <Text style={styles.contactText}>{leader.user.phone}</Text>
+                  <Text
+                    style={[styles.contactText, { color: palette.textSecondary }]}
+                  >
+                    {leader.user.phone}
+                  </Text>
                 </View>
               ) : null}
             </View>
-            <View style={styles.leaderPill}>
+            <View
+              style={[
+                styles.leaderPill,
+                { backgroundColor: palette.successLight },
+              ]}
+            >
               <Text style={styles.leaderPillText}>Leader</Text>
             </View>
           </View>
         </View>
 
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Thành viên</Text>
+          <Text style={[styles.sectionTitle, { color: palette.textPrimary }]}>Thành viên nhóm</Text>
           {canEdit ? (
             <TouchableOpacity
               onPress={() => router.push(`/groups/${group.id}/add-member`)}
@@ -472,42 +671,59 @@ export default function GroupDetailScreen() {
               <TouchableOpacity
                 key={member.id}
                 style={styles.member}
+                onPress={() => {
+                  setSelectedMember(member);
+                  setMemberPreviewOpen(true);
+                }}
                 onLongPress={() => {
-                  if (!canEdit || isLeader) return;
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setSelectedMember(member);
                   setMenuMode("member");
                 }}
               >
-                {member.user.avatar ? (
-                  <Image
-                    source={{ uri: member.user.avatar }}
-                    style={styles.memberAvatar}
-                  />
-                ) : (
-                  <View style={[styles.memberAvatar, styles.avatarFallback]}>
-                    <Text style={styles.memberLetter}>
-                      {getNameFirstLetterUpper(member.user.name)}
-                    </Text>
-                  </View>
-                )}
+                <View style={styles.memberAvatarWrap}>
+                  {member.user.avatar ? (
+                    <Image
+                      source={{ uri: member.user.avatar }}
+                      style={styles.memberAvatar}
+                    />
+                  ) : (
+                    <View
+                      style={[
+                        styles.memberAvatar,
+                        styles.avatarFallback,
+                        { backgroundColor: palette.primaryLight },
+                      ]}
+                    >
+                      <Text style={styles.memberLetter}>
+                        {getNameFirstLetterUpper(member.user.name)}
+                      </Text>
+                    </View>
+                  )}
+                  {isLeader ? (
+                    <View style={styles.leaderCrown}>
+                      <Ionicons name="ribbon-outline" size={14} color="#24476D" />
+                    </View>
+                  ) : null}
+                </View>
+                <Text
+                  style={[styles.memberName, { color: palette.textPrimary }]}
+                  numberOfLines={1}
+                >
+                  {member.user.name}
+                </Text>
                 {isLeader ? (
                   <View style={styles.leaderBadge}>
                     <Text style={styles.leaderText}>Trưởng nhóm</Text>
                   </View>
                 ) : null}
-                <Text style={styles.memberName} numberOfLines={1}>
-                  {member.user.name}
-                </Text>
               </TouchableOpacity>
             );
           })}
         </ScrollView>
 
-        <View style={styles.divider} />
-
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Chuyến đi</Text>
+          <Text style={[styles.sectionTitle, { color: palette.textPrimary }]}>Chuyến đi sắp tới và đã qua</Text>
           {canEdit ? (
             <TouchableOpacity
               onPress={() => router.push(`/groups/${group.id}/trip-form`)}
@@ -518,100 +734,250 @@ export default function GroupDetailScreen() {
         </View>
 
         {group.trips.length ? (
-          group.trips.map((trip) => (
-            <TouchableOpacity
-              key={trip.id}
-              style={styles.tripRow}
-              onPress={() => router.push(`/trips/${trip.id}`)}
-              onLongPress={() => {
-                if (!canEdit) return;
-                setSelectedTrip(trip);
-                setMenuMode("trip");
-              }}
-            >
-              <Image
-                source={
-                  trip.coverImage
-                    ? { uri: trip.coverImage }
-                    : require("@/assets/images/trip-hero-cao-bang.png")
-                }
-                style={styles.tripCover}
-              />
-              <View style={styles.tripBody}>
-                <Text style={styles.tripName}>{trip.name}</Text>
-                <View
-                  style={[
-                    styles.tripStatus,
-                    trip.isCloseTrip && styles.tripStatusClosed,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.tripStatusText,
-                      trip.isCloseTrip && styles.tripStatusClosedText,
-                    ]}
-                  >
-                    {trip.isCloseTrip ? "Đã kết thúc" : "Đang diễn ra"}
-                  </Text>
-                </View>
-                <Text style={styles.tripDate}>
-                  {dayjs(trip.startDate).format("DD/MM")} –{" "}
-                  {dayjs(trip.endDate).format("DD/MM/YYYY")}
-                </Text>
-              </View>
-              {canEdit ? (
+          <FlatList
+            ref={tripListRef}
+            horizontal
+            data={group.trips}
+            keyExtractor={(trip) => trip.id}
+            showsHorizontalScrollIndicator={false}
+            decelerationRate="fast"
+            snapToInterval={TRIP_CARD_WIDTH + TRIP_CARD_GAP}
+            snapToAlignment="start"
+            contentContainerStyle={[
+              styles.tripCarouselContent,
+              {
+                paddingLeft: 16,
+                paddingRight: Math.max(
+                  16,
+                  viewportWidth - TRIP_CARD_WIDTH - 16,
+                ),
+              },
+            ]}
+            getItemLayout={(_, index) => ({
+              length: TRIP_CARD_WIDTH + TRIP_CARD_GAP,
+              offset: (TRIP_CARD_WIDTH + TRIP_CARD_GAP) * index,
+              index,
+            })}
+            onMomentumScrollEnd={(event) => {
+              const nextIndex = Math.max(
+                0,
+                Math.min(
+                  group.trips.length - 1,
+                  Math.round(
+                    event.nativeEvent.contentOffset.x /
+                      (TRIP_CARD_WIDTH + TRIP_CARD_GAP),
+                  ),
+                ),
+              );
+              setActiveTripIndex(nextIndex);
+            }}
+            renderItem={({ item: trip, index }) => {
+              const featured = index === activeTripIndex;
+              const status = getTripStatus(trip, palette.isDark);
+              return (
                 <TouchableOpacity
-                  style={styles.tripAction}
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    trip.isCloseTrip
-                      ? `Xóa chuyến đi ${trip.name}`
-                      : `Chỉnh sửa chuyến đi ${trip.name}`
-                  }
-                  onPress={(event) => {
-                    event.stopPropagation();
-                    setSelectedTrip(trip);
-                    if (trip.isCloseTrip) {
-                      setTripDeleteOpen(true);
-                    } else {
-                      router.push(
-                        `/groups/${group.id}/trip-form?tripId=${trip.id}`,
-                      );
+                  activeOpacity={0.86}
+                  style={[
+                    styles.tripCard,
+                    {
+                      backgroundColor: palette.surface,
+                      borderColor: palette.border,
+                      opacity: featured ? 1 : 0.62,
+                      transform: [
+                        { translateY: featured ? 0 : 18 },
+                        { scale: featured ? 1 : 0.82 },
+                      ],
+                    },
+                  ]}
+                  onPress={() => {
+                    if (!featured) {
+                      setActiveTripIndex(index);
+                      tripListRef.current?.scrollToIndex({
+                        index,
+                        animated: true,
+                        viewPosition: 0,
+                      });
+                      return;
                     }
+                    router.push({
+                      pathname: "/trips/[id]",
+                      params: { id: trip.id, originGroupId: group.id },
+                    } as any);
+                  }}
+                  onLongPress={() => {
+                    if (!canEdit) return;
+                    setSelectedTrip(trip);
+                    setMenuMode("trip");
                   }}
                 >
-                  <Ionicons
-                    name={trip.isCloseTrip ? "trash-outline" : "create-outline"}
-                    size={20}
-                    color={trip.isCloseTrip ? COLORS.error : COLORS.textSecondary}
-                  />
+                  <ImageBackground
+                    source={
+                      trip.coverImage
+                        ? { uri: trip.coverImage }
+                        : require("@/assets/images/trip-hero-cao-bang.png")
+                    }
+                    style={styles.tripCardCover}
+                    imageStyle={styles.tripCardCoverImage}
+                  >
+                    <LinearGradient
+                      colors={["transparent", "rgba(5,15,25,.75)"]}
+                      locations={[0.35, 1]}
+                      style={styles.tripCardCoverOverlay}
+                    >
+                      <Text style={styles.tripCardCoverTitle} numberOfLines={2}>
+                        {trip.name}
+                      </Text>
+                    </LinearGradient>
+                  </ImageBackground>
+
+                  <View style={styles.tripCardBody}>
+                    <Text
+                      style={[styles.tripLocation, { color: palette.textPrimary }]}
+                      numberOfLines={1}
+                    >
+                      {trip.location || trip.name}
+                    </Text>
+                    <Text
+                      style={[styles.tripCardDate, { color: palette.textPrimary }]}
+                      numberOfLines={1}
+                    >
+                      {dayjs(trip.startDate).format("DD/MM/YYYY")} –{" "}
+                      {dayjs(trip.endDate).format("DD/MM/YYYY")}
+                    </Text>
+                    <View style={styles.tripCardFooter}>
+                      <View
+                        style={[
+                          styles.tripStatus,
+                          { backgroundColor: status.background },
+                        ]}
+                      >
+                        <Text
+                          style={[styles.tripStatusText, { color: status.color }]}
+                        >
+                          ● {status.label}
+                        </Text>
+                      </View>
+                      {canEdit ? (
+                        <TouchableOpacity
+                          style={[
+                            styles.tripAction,
+                            {
+                              backgroundColor: trip.isCloseTrip
+                                ? palette.errorLight
+                                : palette.primaryLight,
+                            },
+                          ]}
+                          accessibilityRole="button"
+                          accessibilityLabel={
+                            trip.isCloseTrip
+                              ? `Xóa chuyến đi ${trip.name}`
+                              : `Chỉnh sửa chuyến đi ${trip.name}`
+                          }
+                          onPress={(event) => {
+                            event.stopPropagation();
+                            setSelectedTrip(trip);
+                            if (trip.isCloseTrip) {
+                              setTripDeleteOpen(true);
+                            } else {
+                              router.push(
+                                `/groups/${group.id}/trip-form?tripId=${trip.id}`,
+                              );
+                            }
+                          }}
+                        >
+                          <Ionicons
+                            name={
+                              trip.isCloseTrip
+                                ? "trash-outline"
+                                : "create-outline"
+                            }
+                            size={16}
+                            color={
+                              trip.isCloseTrip ? COLORS.error : COLORS.primary
+                            }
+                          />
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                  </View>
                 </TouchableOpacity>
-              ) : (
-                <Ionicons
-                  name="chevron-forward"
-                  size={19}
-                  color={COLORS.textLight}
-                />
-              )}
-            </TouchableOpacity>
-          ))
+              );
+            }}
+          />
         ) : (
           <View style={styles.empty}>
             <Ionicons
               name="airplane-outline"
               size={34}
-              color={COLORS.textLight}
+              color={palette.textLight}
             />
-            <Text style={styles.emptyText}>Chưa có chuyến đi</Text>
+            <Text style={[styles.emptyText, { color: palette.textSecondary }]}>Chưa có chuyến đi</Text>
           </View>
         )}
       </ScrollView>
 
       <GroupChatFab groupId={group.id} />
+      <Modal
+        visible={memberPreviewOpen}
+        animationType="fade"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setMemberPreviewOpen(false)}
+      >
+        <View style={styles.memberPreview}>
+          {selectedMember?.user?.avatar ? (
+            <Image
+              source={{ uri: selectedMember.user.avatar }}
+              style={styles.memberPreviewImage}
+              resizeMode="contain"
+              accessibilityLabel={`Ảnh đại diện của ${selectedMember.user.name}`}
+            />
+          ) : (
+            <View style={styles.memberPreviewFallback}>
+              <Text style={styles.memberPreviewLetter}>
+                {getNameFirstLetterUpper(selectedMember?.user?.name)}
+              </Text>
+            </View>
+          )}
+          <LinearGradient
+            colors={["transparent", "rgba(0,0,0,.82)"]}
+            style={styles.memberPreviewInfo}
+          >
+            <Text style={styles.memberPreviewName}>
+              {selectedMember?.user?.name}
+            </Text>
+            <Text style={styles.memberPreviewRole}>
+              {selectedMember?.role === GROUP_ROLE.OWNER ||
+              selectedMember?.role === GROUP_ROLE.LEADER
+                ? "Trưởng nhóm"
+                : "Thành viên"}
+            </Text>
+          </LinearGradient>
+          <TouchableOpacity
+            style={styles.memberPreviewClose}
+            onPress={() => setMemberPreviewOpen(false)}
+            accessibilityLabel="Đóng thông tin thành viên"
+          >
+            <Ionicons name="close" size={26} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+      </Modal>
       <ActionSheet
         open={menuMode !== null}
         onClose={() => setMenuMode(null)}
         actions={actions}
+      />
+      <ConfirmDialog
+        visible={memberDeleteOpen}
+        title="Xóa thành viên"
+        message={`Bạn có chắc chắn muốn xóa thành viên “${selectedMember?.user?.name || ""}” khỏi nhóm không? Hành động này không thể hoàn tác.`}
+        confirmText="Xóa"
+        type="danger"
+        loading={memberDeleting}
+        onConfirm={removeMember}
+        onCancel={() => {
+          setMemberDeleteOpen(false);
+          setSelectedMember(null);
+        }}
       />
       <ConfirmDialog
         visible={coverDeleteOpen}
@@ -638,13 +1004,13 @@ export default function GroupDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.surface },
+const createStyles = (palette: AppPalette) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: palette.surface },
   centered: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: COLORS.surface,
+    backgroundColor: palette.surface,
   },
   header: {
     position: "absolute",
@@ -659,9 +1025,9 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   headerScrolled: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: palette.surface,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: palette.border,
   },
   headerHit: {
     width: 44,
@@ -687,14 +1053,14 @@ const styles = StyleSheet.create({
     textShadowRadius: 5,
   },
   headerTitleScrolled: {
-    color: COLORS.textPrimary,
+    color: palette.textPrimary,
     textShadowColor: "transparent",
   },
-  hero: { height: 242 },
+  hero: { height: 190, backgroundColor: COLORS.primaryDark },
+  heroImage: { resizeMode: "cover" },
   heroOverlay: {
     flex: 1,
     justifyContent: "flex-end",
-    backgroundColor: "rgba(3,22,38,.18)",
   },
   coverButton: {
     position: "absolute",
@@ -712,7 +1078,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-end",
-    backgroundColor: "rgba(3,22,38,.22)",
   },
   heroAvatars: { flexDirection: "row", paddingLeft: 4 },
   heroAvatar: {
@@ -723,10 +1088,16 @@ const styles = StyleSheet.create({
     borderColor: "#FFFFFF",
   },
   avatarOverlap: { marginLeft: -8 },
+  heroOverflowAvatar: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,.86)",
+  },
+  heroOverflowText: { color: "#30445B", fontSize: 10, fontWeight: "800" },
   avatarFallback: {
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: palette.primaryLight,
   },
   avatarLetter: { color: COLORS.primary, fontWeight: "800", fontSize: 11 },
   countBadge: {
@@ -747,92 +1118,181 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: palette.border,
     borderRadius: 14,
-    backgroundColor: COLORS.surface,
+    backgroundColor: palette.surface,
   },
   leaderAvatar: { width: 54, height: 54, borderRadius: 27 },
   leaderLetter: { color: COLORS.primary, fontWeight: "800", fontSize: 18 },
   leaderInfo: { flex: 1, minWidth: 0, marginLeft: 12 },
-  leaderName: { fontSize: 15, fontWeight: "800", color: COLORS.textPrimary },
+  leaderName: { fontSize: 15, fontWeight: "800", color: palette.textPrimary },
   contactRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
     marginTop: 4,
   },
-  contactText: { flexShrink: 1, fontSize: 11, color: COLORS.textSecondary },
+  contactText: { flexShrink: 1, fontSize: 11, color: palette.textSecondary },
   leaderPill: {
     marginLeft: 8,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
-    backgroundColor: COLORS.successLight,
+    backgroundColor: palette.successLight,
   },
   leaderPillText: { color: COLORS.success, fontSize: 10, fontWeight: "700" },
   sectionHeader: {
-    height: 58,
+    minHeight: 58,
     paddingHorizontal: 16,
+    paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    gap: 10,
   },
-  sectionTitle: { fontSize: 17, fontWeight: "800", color: COLORS.textPrimary },
+  sectionTitle: {
+    flexShrink: 1,
+    fontSize: 17,
+    fontWeight: "800",
+    color: palette.textPrimary,
+  },
   actionText: { color: COLORS.primary, fontSize: 14, fontWeight: "700" },
   members: { paddingHorizontal: 14, paddingBottom: 16, gap: 10 },
   member: { width: 66, alignItems: "center" },
+  memberAvatarWrap: { position: "relative" },
   memberAvatar: { width: 52, height: 52, borderRadius: 26 },
   memberLetter: { color: COLORS.primary, fontWeight: "800" },
   memberName: {
     marginTop: 5,
     width: 66,
     textAlign: "center",
-    color: COLORS.textPrimary,
+    color: palette.textPrimary,
     fontSize: 10,
   },
   leaderBadge: {
-    marginTop: -5,
+    marginTop: 2,
     borderRadius: 8,
-    backgroundColor: COLORS.success,
+    backgroundColor: "#293847",
     paddingHorizontal: 5,
     paddingVertical: 2,
   },
-  leaderText: { color: "#FFFFFF", fontSize: 7, fontWeight: "700" },
-  divider: { height: 8, backgroundColor: COLORS.background },
-  tripRow: {
-    marginHorizontal: 16,
-    marginBottom: 12,
-    minHeight: 114,
-    flexDirection: "row",
+  leaderText: {
+    color: "#FFFFFF",
+    fontSize: 7,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  leaderCrown: {
+    position: "absolute",
+    right: -4,
+    bottom: -4,
+    width: 21,
+    height: 21,
+    borderRadius: 11,
     alignItems: "center",
-    padding: 9,
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#000000",
+    shadowOpacity: 0.22,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 3,
+  },
+  tripCarouselContent: {
+    paddingTop: 4,
+    paddingBottom: 28,
+    gap: TRIP_CARD_GAP,
+  },
+  tripCard: {
+    width: TRIP_CARD_WIDTH,
+    overflow: "hidden",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.surface,
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
   },
-  tripCover: { width: 94, height: 94, borderRadius: 9 },
-  tripBody: { flex: 1, alignSelf: "stretch", paddingHorizontal: 11, paddingTop: 5 },
-  tripName: { fontSize: 16, fontWeight: "800", color: COLORS.textPrimary },
+  tripCardCover: { height: 170, justifyContent: "flex-end" },
+  tripCardCoverImage: { resizeMode: "cover" },
+  tripCardCoverOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    paddingHorizontal: 10,
+    paddingBottom: 9,
+  },
+  tripCardCoverTitle: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: "800",
+  },
+  tripCardBody: { padding: 10 },
+  tripLocation: { fontSize: 12, fontWeight: "600" },
+  tripCardDate: { marginTop: 4, fontSize: 13, fontWeight: "800" },
+  tripCardFooter: {
+    marginTop: 7,
+    minHeight: 27,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
   tripStatus: {
     alignSelf: "flex-start",
-    marginTop: 8,
-    borderRadius: 10,
-    backgroundColor: COLORS.successLight,
+    borderRadius: 999,
+    backgroundColor: palette.successLight,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  tripStatusText: { fontSize: 10, color: COLORS.success, fontWeight: "700" },
-  tripStatusClosed: { backgroundColor: COLORS.surfaceMuted },
-  tripStatusClosedText: { color: COLORS.textSecondary },
-  tripDate: { marginTop: 8, color: COLORS.textSecondary, fontSize: 11 },
+  tripStatusText: { fontSize: 9, color: COLORS.success, fontWeight: "800" },
   tripAction: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 28,
+    height: 28,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
   },
   empty: { alignItems: "center", paddingVertical: 34 },
-  emptyText: { marginTop: 7, color: COLORS.textSecondary },
+  emptyText: { marginTop: 7, color: palette.textSecondary },
+  memberPreview: {
+    flex: 1,
+    backgroundColor: "#000000",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  memberPreviewImage: { width: "100%", height: "100%" },
+  memberPreviewFallback: {
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#122D49",
+  },
+  memberPreviewLetter: {
+    color: "#FFFFFF",
+    fontSize: 54,
+    fontWeight: "800",
+  },
+  memberPreviewInfo: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 36,
+  },
+  memberPreviewName: { color: "#FFFFFF", fontSize: 20, fontWeight: "800" },
+  memberPreviewRole: { marginTop: 4, color: "rgba(255,255,255,.74)", fontSize: 13 },
+  memberPreviewClose: {
+    position: "absolute",
+    top: 48,
+    right: 18,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "rgba(0,0,0,.42)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
 });

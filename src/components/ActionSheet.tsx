@@ -6,6 +6,7 @@ import {
   Dimensions,
   Modal,
   PanResponder,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -18,19 +19,37 @@ const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 export default function ActionSheet({ open, onClose, actions }: any) {
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const pendingAction = useRef<(() => void) | null>(null);
+  const closing = useRef(false);
   const theme = useTheme();
 
-  // Hàm thực hiện hiệu ứng đóng mượt mà trước khi gọi onClose
-  const handleClose = () => {
+  const runPendingAction = () => {
+    const action = pendingAction.current;
+    pendingAction.current = null;
+    action?.();
+  };
+
+  // Chỉ chạy action sau khi sheet đã đóng để tránh chồng native Modal.
+  const handleClose = (afterClose?: () => void) => {
+    if (closing.current) return;
+    closing.current = true;
+    pendingAction.current = afterClose ?? null;
     Animated.timing(translateY, {
       toValue: SCREEN_HEIGHT,
       duration: 250,
       useNativeDriver: true,
-    }).start(() => onClose()); // Chỉ gọi onClose sau khi animation chạy xong
+    }).start(() => {
+      onClose();
+      closing.current = false;
+      if (Platform.OS !== "ios") {
+        requestAnimationFrame(runPendingAction);
+      }
+    });
   };
 
   useEffect(() => {
     if (open) {
+      closing.current = false;
       Animated.spring(translateY, {
         toValue: 0,
         tension: 50,
@@ -38,7 +57,7 @@ export default function ActionSheet({ open, onClose, actions }: any) {
         useNativeDriver: true,
       }).start();
     }
-  }, [open]);
+  }, [open, translateY]);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -66,12 +85,13 @@ export default function ActionSheet({ open, onClose, actions }: any) {
     <Modal
       transparent
       visible={open}
-      onRequestClose={handleClose}
+      onRequestClose={() => handleClose()}
+      onDismiss={runPendingAction}
       animationType="fade"
     >
       <View style={styles.container}>
         {/* Overlay mờ dần cùng Modal */}
-        <TouchableWithoutFeedback onPress={handleClose}>
+        <TouchableWithoutFeedback onPress={() => handleClose()}>
           <View style={styles.overlay} />
         </TouchableWithoutFeedback>
 
@@ -100,10 +120,7 @@ export default function ActionSheet({ open, onClose, actions }: any) {
                 { borderBottomColor: theme.colors.outlineVariant },
                 index === actions.length - 1 && { borderBottomWidth: 0 },
               ]}
-              onPress={() => {
-                item.onPress();
-                handleClose();
-              }}
+              onPress={() => handleClose(item.onPress)}
             >
               <Ionicons
                 name={item.icon || "ellipse-outline"}
