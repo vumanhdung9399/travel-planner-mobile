@@ -19,8 +19,18 @@
       }
     },
     "production": {
+      // "autoIncrement": true,
+      // "channel": "production",
+      // "env": {
+      //   "API_URL": "https://api-travel.vmdung.vn/api",
+      //   "SOCKET_URL": "https://api-travel.vmdung.vn"
+      // }
       "autoIncrement": true,
       "channel": "production",
+      "developmentClient": false,
+      "android": {
+        "buildType": "apk"
+      },
       "env": {
         "API_URL": "https://api-travel.vmdung.vn/api",
         "SOCKET_URL": "https://api-travel.vmdung.vn"
