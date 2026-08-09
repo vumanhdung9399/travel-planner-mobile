@@ -90,6 +90,19 @@ export default {
         },
       ],
       "expo-secure-store",
+      [
+        "expo-build-properties",
+        {
+          ios: {
+            useFrameworks: "static",
+          },
+          android: {
+            enableProguardInReleaseBuilds: true,
+            enableShrinkResourcesInReleaseBuilds: true,
+            buildArchs: ["arm64-v8a"],
+          },
+        },
+      ],
     ],
 
     experiments: {
