@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { persistedStorage } from "@/src/utils/persistedStorage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
@@ -29,7 +29,7 @@ export const useSettingsStore = create<SettingsState>()(
     },
     {
       name: "travel-planner-settings",
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => persistedStorage),
       partialize: ({ notificationsEnabled, darkMode }) => ({
         notificationsEnabled,
         darkMode,

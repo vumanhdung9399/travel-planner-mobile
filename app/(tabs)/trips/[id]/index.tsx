@@ -4,11 +4,16 @@ import { COLORS } from "@/src/utils/constants";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as Linking from "expo-linking";
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import {
+  useFocusEffect,
+  useLocalSearchParams,
+  useRouter,
+} from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
+  BackHandler,
   ImageBackground,
   ScrollView,
   Share,
@@ -77,6 +82,7 @@ const TripDetailScreen = () => {
   const expenseExportRef = useRef<(() => Promise<void>) | null>(null);
   const balanceExportRef = useRef<(() => Promise<void>) | null>(null);
   const scrollOffsets = useRef<Record<string, number>>({});
+  const isHandlingBackRef = useRef(false);
   const sceneScrollY = useRef(new Animated.Value(0)).current;
   const [headerScrolled, setHeaderScrolled] = useState(false);
 
@@ -438,13 +444,40 @@ const TripDetailScreen = () => {
   }, [trip.id, trip.name]);
 
   const handleBack = useCallback(() => {
+    if (isHandlingBackRef.current) return;
+    isHandlingBackRef.current = true;
+
     if (originGroupId) {
-      router.navigate(`/groups/${originGroupId}` as any);
+      router.dismissTo("/trips");
+      router.navigate({
+        pathname: "/groups/[id]",
+        params: {
+          id: originGroupId,
+          tripReturnToken: Date.now().toString(),
+        },
+      } as any);
       return;
     }
 
-    router.dismissTo("/trips");
+    router.dismissTo({
+      pathname: "/trips",
+      params: { tripReturnToken: Date.now().toString() },
+    });
   }, [originGroupId, router]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener(
+        "hardwareBackPress",
+        () => {
+          handleBack();
+          return true;
+        },
+      );
+
+      return () => subscription.remove();
+    }, [handleBack]),
+  );
 
   const renderHeaderRight = () => {
     const iconColor =

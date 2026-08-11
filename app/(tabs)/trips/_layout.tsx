@@ -9,7 +9,13 @@ export default function TripsLayout() {
     >
       <Stack.Screen name="index" />
 
-      <Stack.Screen name="[id]/index" />
+      <Stack.Screen
+        name="[id]/index"
+        options={({ route }) => ({
+          gestureEnabled: !(route.params as { originGroupId?: string } | undefined)
+            ?.originGroupId,
+        })}
+      />
       <Stack.Screen name="[id]/map-form" />
       <Stack.Screen
         name="[id]/timeline-form"

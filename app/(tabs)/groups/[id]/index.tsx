@@ -21,6 +21,7 @@ import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  BackHandler,
   FlatList,
   Image,
   ImageBackground,
@@ -78,7 +79,10 @@ export default function GroupDetailScreen() {
   const styles = useMemo(() => createStyles(palette), [palette]);
   const insets = useSafeAreaInsets();
   const { width: viewportWidth } = useWindowDimensions();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, tripReturnToken } = useLocalSearchParams<{
+    id: string;
+    tripReturnToken?: string;
+  }>();
   const currentUser = useAuthStore((state) => state.user);
   const { loading, group, fetchGroup } = useGroupStore();
   const [menuMode, setMenuMode] = useState<MenuMode>(null);
@@ -95,6 +99,8 @@ export default function GroupDetailScreen() {
   const [activeTripIndex, setActiveTripIndex] = useState(0);
   const [coverRevision, setCoverRevision] = useState<number | null>(null);
   const tripListRef = useRef<FlatList<Trip>>(null);
+  const isHandlingBackRef = useRef(false);
+  const handledTripReturnRef = useRef<string | null>(null);
 
   useEffect(() => {
     setHeaderScrolled(false);
@@ -103,13 +109,26 @@ export default function GroupDetailScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      const currentGroup = useGroupStore.getState().group;
+      if (
+        tripReturnToken &&
+        handledTripReturnRef.current !== tripReturnToken &&
+        currentGroup?.id === id
+      ) {
+        handledTripReturnRef.current = tripReturnToken;
+        return;
+      }
+
       void fetchGroup(id);
-    }, [fetchGroup, id]),
+    }, [fetchGroup, id, tripReturnToken]),
   );
 
   const tripCount = group?.trips?.length ?? 0;
 
   const handleBack = useCallback(() => {
+    if (isHandlingBackRef.current) return;
+    isHandlingBackRef.current = true;
+
     const tabsNavigation = navigation.getParent();
 
     navigation.dispatch(
@@ -120,6 +139,20 @@ export default function GroupDetailScreen() {
     );
     tabsNavigation?.navigate("index");
   }, [navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener(
+        "hardwareBackPress",
+        () => {
+          handleBack();
+          return true;
+        },
+      );
+
+      return () => subscription.remove();
+    }, [handleBack]),
+  );
 
   useEffect(() => {
     setActiveTripIndex((current) =>

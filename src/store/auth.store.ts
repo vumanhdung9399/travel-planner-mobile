@@ -1,9 +1,9 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { disconnectSocket } from "../utils/socket";
+import { persistedStorage } from "../utils/persistedStorage";
 import { useUserStore } from "./user.store";
 
 type AuthState = {
@@ -27,7 +27,7 @@ type AuthState = {
 const secureStorage = {
   getItem: async (name: string) => {
     try {
-      if (Platform.OS === "web") return await AsyncStorage.getItem(name);
+      if (Platform.OS === "web") return await persistedStorage.getItem(name);
       return await SecureStore.getItemAsync(name);
     } catch (e) {
       console.warn("[SecureStore] getItem error:", e);
@@ -37,7 +37,7 @@ const secureStorage = {
   setItem: async (name: string, value: string) => {
     try {
       if (Platform.OS === "web") {
-        await AsyncStorage.setItem(name, value);
+        await persistedStorage.setItem(name, value);
         return;
       }
       await SecureStore.setItemAsync(name, value);
@@ -70,7 +70,7 @@ const secureStorage = {
   removeItem: async (name: string) => {
     try {
       if (Platform.OS === "web") {
-        await AsyncStorage.removeItem(name);
+        await persistedStorage.removeItem(name);
         return;
       }
       await SecureStore.deleteItemAsync(name);

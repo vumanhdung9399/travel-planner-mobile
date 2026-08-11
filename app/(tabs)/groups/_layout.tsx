@@ -13,7 +13,7 @@ export default function GroupsLayout() {
     >
       <Stack.Screen name="index" />
 
-      <Stack.Screen name="[id]/index" />
+      <Stack.Screen name="[id]/index" options={{ gestureEnabled: false }} />
 
       <Stack.Screen
         name="create"

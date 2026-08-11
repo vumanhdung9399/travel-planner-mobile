@@ -82,7 +82,7 @@ export default function TabLayout() {
       edges={immersiveDetail ? [] : ["top"]}
     >
       <Tabs
-        backBehavior="history"
+        backBehavior="initialRoute"
         screenOptions={{
           headerShown: false,
           tabBarActiveTintColor: COLORS.primary,

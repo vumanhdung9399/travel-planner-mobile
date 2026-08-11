@@ -6,8 +6,12 @@ import { formatMoney, getNameFirstLetterUpper } from "@/src/utils/helper";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
-import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useMemo, useState } from "react";
+import {
+  useFocusEffect,
+  useLocalSearchParams,
+  useRouter,
+} from "expo-router";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -22,6 +26,9 @@ import { Avatar, Surface, Text } from "react-native-paper";
 
 const MyTripsScreen = () => {
   const router = useRouter();
+  const { tripReturnToken } = useLocalSearchParams<{
+    tripReturnToken?: string;
+  }>();
   const palette = useAppPalette();
   const styles = useMemo(() => createStyles(palette), [palette]);
 
@@ -29,14 +36,10 @@ const MyTripsScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<"all" | "active" | "completed">("all");
+  const hasLoadedTripsRef = useRef(false);
+  const handledTripReturnRef = useRef<string | null>(null);
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchTrips();
-    }, []),
-  );
-
-  const fetchTrips = async () => {
+  const fetchTrips = useCallback(async () => {
     try {
       setLoading(true);
       const res = await api.get<ListTrip[]>("/trips/all-by-user");
@@ -44,14 +47,30 @@ const MyTripsScreen = () => {
     } catch (error) {
       console.error("Failed to fetch trips:", error);
     } finally {
+      hasLoadedTripsRef.current = true;
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (
+        tripReturnToken &&
+        handledTripReturnRef.current !== tripReturnToken &&
+        hasLoadedTripsRef.current
+      ) {
+        handledTripReturnRef.current = tripReturnToken;
+        return;
+      }
+
+      void fetchTrips();
+    }, [fetchTrips, tripReturnToken]),
+  );
 
   const handleRefresh = () => {
     setRefreshing(true);
-    fetchTrips();
+    void fetchTrips();
   };
 
   const filteredTrips = trips.filter((trip) => {
