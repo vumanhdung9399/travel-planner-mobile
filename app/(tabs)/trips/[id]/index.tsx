@@ -15,7 +15,6 @@ import {
   Animated,
   BackHandler,
   ImageBackground,
-  ScrollView,
   Share,
   StyleSheet,
   TouchableOpacity,
@@ -576,46 +575,40 @@ const TripDetailScreen = () => {
           },
         ]}
       >
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tabBarScroll}
-        >
-          <View style={[styles.tabBar, { backgroundColor: palette.surface }]}>
-            {routes.map((route, index) => {
-              const isActive = tabIndex === index;
-              return (
-                <TouchableOpacity
-                  key={route.key}
-                  style={styles.tabItem}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setTabIndex(index);
-                  }}
-                  activeOpacity={0.7}
+        <View style={[styles.tabBar, { backgroundColor: palette.surface }]}>
+          {routes.map((route, index) => {
+            const isActive = tabIndex === index;
+            return (
+              <TouchableOpacity
+                key={route.key}
+                style={styles.tabItem}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setTabIndex(index);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.tabIconContainer}>
+                  <Ionicons
+                    name={route.icon as any}
+                    size={20}
+                    color={isActive ? COLORS.primary : palette.textLight}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.tabLabel,
+                    { color: palette.textSecondary },
+                    isActive && styles.tabLabelActive,
+                  ]}
+                  numberOfLines={1}
                 >
-                  <View style={[styles.tabIconContainer]}>
-                    <Ionicons
-                      name={route.icon as any}
-                      size={22}
-                      color={isActive ? COLORS.primary : palette.textLight}
-                    />
-                  </View>
-                  <Text
-                    style={[
-                      styles.tabLabel,
-                      { color: palette.textSecondary },
-                      isActive && styles.tabLabelActive,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {route.title}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </ScrollView>
+                  {route.title}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </View>
     );
   };
@@ -885,16 +878,16 @@ const createStyles = (palette: AppPalette) =>
     },
     tabBarContainer: {
       backgroundColor: palette.surface,
-      paddingBottom: 12,
-      paddingTop: 7,
+      paddingBottom: 7,
+      paddingTop: 4,
       borderTopWidth: 1,
       borderTopColor: palette.border,
     },
     tabBar: {
       flexDirection: "row",
+      width: "100%",
       backgroundColor: palette.surface,
-      paddingHorizontal: 4,
-      paddingVertical: 2,
+      paddingHorizontal: 2,
       shadowColor: "#000",
       shadowOffset: {
         width: 0,
@@ -903,26 +896,24 @@ const createStyles = (palette: AppPalette) =>
       shadowOpacity: 0,
       elevation: 0,
     },
-    tabBarScroll: {
-      flexGrow: 1,
-    },
     tabItem: {
-      width: 68,
+      flex: 1,
+      minWidth: 0,
       alignItems: "center",
       justifyContent: "center",
-      paddingVertical: 4,
+      paddingVertical: 2,
       position: "relative",
     },
     tabIconContainer: {
-      width: 34,
-      height: 30,
+      width: 30,
+      height: 26,
       borderRadius: 11,
       justifyContent: "center",
       alignItems: "center",
       marginBottom: 1,
     },
     tabLabel: {
-      fontSize: 11,
+      fontSize: 10,
       fontWeight: "500",
       color: palette.textLight,
       textAlign: "center",

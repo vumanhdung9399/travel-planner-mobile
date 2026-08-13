@@ -680,6 +680,18 @@ export default function GroupDetailScreen() {
           </View>
         </View>
 
+        <TouchableOpacity
+          onPress={() => router.push(`/groups/${group.id}/polls`)}
+          style={[styles.decisionCard, { backgroundColor: palette.primaryLight, borderColor: palette.border }]}
+        >
+          <View style={styles.decisionIcon}><Ionicons name="stats-chart" size={22} color="#FFFFFF" /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.decisionTitle, { color: palette.textPrimary }]}>Biểu quyết nhóm</Text>
+            <Text style={[styles.decisionText, { color: palette.textSecondary }]}>Cùng chọn ngày đi, địa điểm và phương án tốt nhất</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={21} color={palette.textSecondary} />
+        </TouchableOpacity>
+
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: palette.textPrimary }]}>Thành viên nhóm</Text>
           {canEdit ? (
@@ -1286,6 +1298,28 @@ const createStyles = (palette: AppPalette) => StyleSheet.create({
   },
   empty: { alignItems: "center", paddingVertical: 34 },
   emptyText: { marginTop: 7, color: palette.textSecondary },
+  decisionCard: {
+    marginHorizontal: 16,
+    marginTop: 14,
+    marginBottom: 20,
+    minHeight: 76,
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  decisionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLORS.primary,
+  },
+  decisionTitle: { fontSize: 14, fontWeight: "800" },
+  decisionText: { marginTop: 3, fontSize: 11, lineHeight: 15 },
   memberPreview: {
     flex: 1,
     backgroundColor: "#000000",

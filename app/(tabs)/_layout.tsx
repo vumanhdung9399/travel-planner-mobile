@@ -15,6 +15,7 @@ import { ActivityIndicator, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { COLORS } from "@/src/utils/constants";
 import { useSettingsStore } from "@/src/store/settings.store";
+import OfflineBanner from '@/src/components/OfflineBanner';
 
 export default function TabLayout() {
   const navigation = useNavigation();
@@ -37,7 +38,9 @@ export default function TabLayout() {
     segments.includes("change-profile");
   const immersiveDetail =
     /^\/groups\/[^/]+\/?$/.test(pathname) ||
-    /^\/trips\/[^/]+\/?$/.test(pathname);
+    /^\/groups\/[^/]+\/polls\/?$/.test(pathname) ||
+    /^\/trips\/[^/]+\/?$/.test(pathname) ||
+    /^\/trips\/[^/]+\/documents\/?$/.test(pathname);
 
   const getProfile = useCallback(async () => {
     try {
@@ -81,6 +84,7 @@ export default function TabLayout() {
       style={{ flex: 1, backgroundColor: surface }}
       edges={immersiveDetail ? [] : ["top"]}
     >
+      <OfflineBanner />
       <Tabs
         backBehavior="initialRoute"
         screenOptions={{

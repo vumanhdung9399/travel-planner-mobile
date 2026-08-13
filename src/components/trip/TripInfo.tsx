@@ -12,6 +12,8 @@ import { Surface, Text } from "react-native-paper";
 import CollapsibleCard from "./CollapsibleCard";
 import RouteCard from "./RouteCard";
 import WeatherForecast from "./WeatherForecast";
+import { downloadTripPack, getTripPack, removeTripPack } from '@/src/services/offline-pack';
+import { AppToast } from '@/src/components/AppToast';
 
 interface TripInfoProps {
   trip: Trip;
@@ -52,6 +54,9 @@ export default function TripInfo({
   const [timelineCount, setTimelineCount] = useState(
     trip.timelines?.length || 0,
   );
+  const [offlineAt, setOfflineAt] = useState<string | null>(null);
+  const [offlineSaving, setOfflineSaving] = useState(false);
+  const [offlineProgress, setOfflineProgress] = useState(0);
 
   const duration = Math.max(
     dayjs(trip.endDate).diff(dayjs(trip.startDate), "day") + 1,
@@ -70,6 +75,8 @@ export default function TripInfo({
       active = false;
     };
   }, [trip.id]);
+
+  useEffect(() => { let active = true; void getTripPack(trip.id).then((pack) => { if (active) setOfflineAt(pack?.generatedAt || null); }); return () => { active = false; }; }, [trip.id]);
 
   const values: Record<string, string> = {
     time: `${dayjs(trip.startDate).format("DD/MM")} – ${dayjs(
@@ -163,6 +170,25 @@ export default function TripInfo({
           ))}
         </View>
       </Surface>
+
+      <TouchableOpacity
+        onPress={() => router.push(`/trips/${trip.id}/documents`)}
+        style={[styles.documentCard, { backgroundColor: palette.surface, borderColor: palette.border }]}
+      >
+        <View style={[styles.documentIcon, { backgroundColor: palette.primaryLight }]}><Ionicons name="folder-open-outline" size={23} color={COLORS.primary} /></View>
+        <View style={{ flex: 1 }}><Text style={[styles.documentTitle, { color: palette.textPrimary }]}>Ví tài liệu chuyến đi</Text><Text style={[styles.documentText, { color: palette.textSecondary }]}>Vé, booking, bảo hiểm và giấy tờ của nhóm</Text></View>
+        <Ionicons name="chevron-forward" size={21} color={palette.textLight} />
+      </TouchableOpacity>
+
+      <View style={[styles.offlineCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+        <View style={[styles.documentIcon, { backgroundColor: palette.successLight }]}><Ionicons name="cloud-download-outline" size={23} color={COLORS.success} /></View>
+        <TouchableOpacity style={{ flex: 1 }} onPress={() => AppToast.show({ title: 'Cách dùng offline', message: 'Nhấn Tải offline. Khi mất mạng, bạn chỉ cần mở lại chuyến đi này như bình thường; thay đổi sẽ tự đồng bộ khi có mạng.' })}>
+          <Text style={[styles.documentTitle, { color: palette.textPrimary }]}>Chế độ offline</Text>
+          <Text style={[styles.documentText, { color: offlineAt ? COLORS.success : palette.textSecondary }]}>{offlineAt ? `Sẵn sàng offline · cập nhật ${dayjs(offlineAt).format('HH:mm DD/MM')}` : 'Tải trước rồi mở chuyến đi bình thường khi mất mạng'}</Text>
+        </TouchableOpacity>
+        {offlineAt ? <TouchableOpacity hitSlop={8} onPress={() => void removeTripPack(trip.id).then(() => setOfflineAt(null))}><Ionicons name="trash-outline" size={20} color={COLORS.error} /></TouchableOpacity> : null}
+        <TouchableOpacity disabled={offlineSaving} style={styles.offlineButton} onPress={() => { setOfflineSaving(true); void downloadTripPack(trip.id, setOfflineProgress).then((pack) => { setOfflineAt(pack.generatedAt); AppToast.show({ title: 'Đã bật chế độ offline', message: 'Khi mất mạng, hãy mở chuyến đi này như bình thường.' }); }).finally(() => setOfflineSaving(false)); }}><Text style={styles.offlineButtonText}>{offlineSaving ? `${Math.round(offlineProgress * 100)}%` : offlineAt ? 'Cập nhật' : 'Tải offline'}</Text></TouchableOpacity>
+      </View>
 
       <Surface
         style={[
@@ -348,4 +374,11 @@ const styles = StyleSheet.create({
   memberAvatarOverlap: { marginLeft: -8 },
   memberFallback: { alignItems: "center", justifyContent: "center" },
   memberLetter: { color: COLORS.primary, fontSize: 9, fontWeight: "800" },
+  documentCard: { minHeight: 76, padding: 14, borderRadius: 18, borderWidth: 1, flexDirection: "row", alignItems: "center", gap: 12 },
+  documentIcon: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  documentTitle: { fontSize: 14, fontWeight: "800" },
+  documentText: { marginTop: 3, fontSize: 11 },
+  offlineCard: { minHeight: 76, padding: 14, borderRadius: 18, borderWidth: 1, flexDirection: "row", alignItems: "center", gap: 10 },
+  offlineButton: { minWidth: 72, height: 34, paddingHorizontal: 10, borderRadius: 11, backgroundColor: COLORS.primary, alignItems: "center", justifyContent: "center" },
+  offlineButtonText: { color: "#fff", fontSize: 11, fontWeight: "800" },
 });

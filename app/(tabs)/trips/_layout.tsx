@@ -17,6 +17,7 @@ export default function TripsLayout() {
         })}
       />
       <Stack.Screen name="[id]/map-form" />
+      <Stack.Screen name="[id]/documents" />
       <Stack.Screen
         name="[id]/timeline-form"
         options={{

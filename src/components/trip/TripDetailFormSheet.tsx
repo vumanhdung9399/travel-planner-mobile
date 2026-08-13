@@ -1,6 +1,6 @@
 import { COLORS } from "@/src/utils/constants";
 import { LinearGradient } from "expo-linear-gradient";
-import type { ReactNode } from "react";
+import { useCallback, useMemo, type ReactNode } from "react";
 import {
   ActivityIndicator,
   type DimensionValue,
@@ -9,19 +9,35 @@ import {
   Pressable,
   StyleSheet,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
+import {
+  Gesture,
+  GestureDetector,
+  GestureHandlerRootView,
+} from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text, useTheme } from "react-native-paper";
+import Animated, {
+  Extrapolation,
+  interpolate,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 
 interface TripDetailFormSheetProps {
   title: string;
   children: ReactNode;
   onCancel: () => void;
-  onSubmit: () => void;
+  onSubmit: () => boolean | void | Promise<boolean | void>;
   loading?: boolean;
   submitDisabled?: boolean;
   submitLabel?: string;
+  closeOnSubmitSuccess?: boolean;
   height?: DimensionValue;
   footerTop?: ReactNode;
 }
@@ -35,31 +51,156 @@ export default function TripDetailFormSheet({
   loading = false,
   submitDisabled = false,
   submitLabel = "Lưu",
+  closeOnSubmitSuccess = false,
   height = "88%",
   footerTop,
 }: TripDetailFormSheetProps) {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
+  const { height: screenHeight } = useWindowDimensions();
   const isSubmitDisabled = loading || submitDisabled;
+  const translateY = useSharedValue(0);
+  const dragStartY = useSharedValue(0);
+  const isClosing = useSharedValue(false);
+
+  const finishClose = useCallback(() => {
+    onCancel();
+  }, [onCancel]);
+
+  const animateClose = useCallback(() => {
+    if (isClosing.value) return;
+
+    isClosing.value = true;
+    translateY.value = withTiming(
+      screenHeight,
+      { duration: 240 },
+      (finished) => {
+        if (finished) {
+          runOnJS(finishClose)();
+        }
+      },
+    );
+  }, [finishClose, isClosing, screenHeight, translateY]);
+
+  const handleSubmitPress = useCallback(() => {
+    if (!closeOnSubmitSuccess) {
+      void onSubmit();
+      return;
+    }
+
+    try {
+      void Promise.resolve(onSubmit())
+        .then((succeeded) => {
+          if (succeeded !== false) {
+            animateClose();
+          }
+        })
+        .catch(() => undefined);
+    } catch {
+      // The submit handler owns validation and error feedback.
+    }
+  }, [animateClose, closeOnSubmitSuccess, onSubmit]);
+
+  const dragGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .activeOffsetY([-5, 5])
+        .onBegin(() => {
+          dragStartY.value = translateY.value;
+        })
+        .onUpdate((event) => {
+          translateY.value = Math.max(
+            0,
+            dragStartY.value + event.translationY,
+          );
+        })
+        .onEnd((event) => {
+          const draggedFarEnough = translateY.value > screenHeight * 0.16;
+          const flickedDown =
+            event.translationY > 12 && event.velocityY > 850;
+
+          if (draggedFarEnough || flickedDown) {
+            isClosing.value = true;
+            translateY.value = withTiming(
+              screenHeight,
+              { duration: 220 },
+              (finished) => {
+                if (finished) {
+                  runOnJS(finishClose)();
+                }
+              },
+            );
+            return;
+          }
+
+          translateY.value = withSpring(0, {
+            damping: 22,
+            stiffness: 260,
+          });
+        })
+        .onFinalize((_event, success) => {
+          if (!success && !isClosing.value) {
+            translateY.value = withSpring(0, {
+              damping: 22,
+              stiffness: 260,
+            });
+          }
+        }),
+    [
+      dragStartY,
+      finishClose,
+      isClosing,
+      screenHeight,
+      translateY,
+    ],
+  );
+
+  const sheetAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  const backdropAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      translateY.value,
+      [0, screenHeight * 0.72],
+      [1, 0],
+      Extrapolation.CLAMP,
+    ),
+  }));
 
   return (
-    <View style={styles.overlay}>
+    <GestureHandlerRootView style={styles.overlay}>
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.backdrop, backdropAnimatedStyle]}
+      />
       <Pressable
         style={StyleSheet.absoluteFill}
-        onPress={onCancel}
+        onPress={animateClose}
         accessibilityLabel="Đóng biểu mẫu"
       />
 
-      <View
-        style={[styles.sheet, { height, backgroundColor: theme.colors.surface }]}
+      <Animated.View
+        style={[
+          styles.sheet,
+          { height, backgroundColor: theme.colors.surface },
+          sheetAnimatedStyle,
+        ]}
       >
         <View style={styles.header}>
-          <View
-            style={[
-              styles.handle,
-              { backgroundColor: theme.colors.outlineVariant },
-            ]}
-          />
+          <GestureDetector gesture={dragGesture}>
+            <Animated.View
+              style={styles.handleTouchArea}
+              accessibilityLabel="Kéo xuống để đóng"
+            >
+              <View
+                style={[
+                  styles.handle,
+                  { backgroundColor: theme.colors.outlineVariant },
+                ]}
+              />
+            </Animated.View>
+          </GestureDetector>
           <Text
             style={[styles.title, { color: theme.colors.onSurface }]}
             numberOfLines={1}
@@ -94,7 +235,7 @@ export default function TripDetailFormSheet({
                     borderColor: theme.colors.outlineVariant,
                   },
                 ]}
-                onPress={onCancel}
+                onPress={animateClose}
                 disabled={loading}
                 activeOpacity={0.78}
               >
@@ -110,7 +251,7 @@ export default function TripDetailFormSheet({
                   styles.submitButton,
                   isSubmitDisabled && styles.submitButtonDisabled,
                 ]}
-                onPress={onSubmit}
+                onPress={handleSubmitPress}
                 disabled={isSubmitDisabled}
                 activeOpacity={0.84}
               >
@@ -130,8 +271,8 @@ export default function TripDetailFormSheet({
             </View>
           </View>
         </KeyboardAvoidingView>
-      </View>
-    </View>
+      </Animated.View>
+    </GestureHandlerRootView>
   );
 }
 
@@ -139,6 +280,9 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: "flex-end",
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(15, 23, 42, 0.46)",
   },
   sheet: {
@@ -156,15 +300,19 @@ const styles = StyleSheet.create({
   header: {
     alignItems: "center",
     paddingHorizontal: 24,
-    paddingTop: 9,
     paddingBottom: 15,
+  },
+  handleTouchArea: {
+    width: 84,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
   },
   handle: {
     width: 42,
     height: 5,
     borderRadius: 999,
     backgroundColor: COLORS.border,
-    marginBottom: 14,
   },
   title: {
     maxWidth: "88%",

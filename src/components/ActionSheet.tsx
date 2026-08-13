@@ -1,85 +1,136 @@
-import React, { useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { COLORS, UI_RADIUS } from "@/src/utils/constants";
 import { Ionicons } from "@expo/vector-icons";
 import {
-  Animated,
-  Dimensions,
   Modal,
-  PanResponder,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
-  TouchableWithoutFeedback,
+  useWindowDimensions,
   View,
 } from "react-native";
+import {
+  Gesture,
+  GestureDetector,
+  GestureHandlerRootView,
+} from "react-native-gesture-handler";
 import { useTheme } from "react-native-paper";
-
-const { height: SCREEN_HEIGHT } = Dimensions.get("window");
+import Animated, {
+  Extrapolation,
+  interpolate,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 
 export default function ActionSheet({ open, onClose, actions }: any) {
-  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const { height: screenHeight } = useWindowDimensions();
+  const translateY = useSharedValue(screenHeight);
+  const dragStartY = useSharedValue(0);
   const pendingAction = useRef<(() => void) | null>(null);
   const closing = useRef(false);
   const theme = useTheme();
 
-  const runPendingAction = () => {
+  const runPendingAction = useCallback(() => {
     const action = pendingAction.current;
     pendingAction.current = null;
     action?.();
-  };
+  }, []);
+
+  const finishClose = useCallback(() => {
+    onClose();
+    closing.current = false;
+    if (Platform.OS !== "ios") {
+      requestAnimationFrame(runPendingAction);
+    }
+  }, [onClose, runPendingAction]);
 
   // Chỉ chạy action sau khi sheet đã đóng để tránh chồng native Modal.
-  const handleClose = (afterClose?: () => void) => {
-    if (closing.current) return;
-    closing.current = true;
-    pendingAction.current = afterClose ?? null;
-    Animated.timing(translateY, {
-      toValue: SCREEN_HEIGHT,
-      duration: 250,
-      useNativeDriver: true,
-    }).start(() => {
-      onClose();
-      closing.current = false;
-      if (Platform.OS !== "ios") {
-        requestAnimationFrame(runPendingAction);
-      }
-    });
-  };
+  const handleClose = useCallback(
+    (afterClose?: () => void) => {
+      if (closing.current) return;
+
+      closing.current = true;
+      pendingAction.current = afterClose ?? null;
+      translateY.value = withTiming(
+        screenHeight,
+        { duration: 230 },
+        (finished) => {
+          if (finished) {
+            runOnJS(finishClose)();
+          }
+        },
+      );
+    },
+    [finishClose, screenHeight, translateY],
+  );
 
   useEffect(() => {
     if (open) {
       closing.current = false;
-      Animated.spring(translateY, {
-        toValue: 0,
-        tension: 50,
-        friction: 8,
-        useNativeDriver: true,
-      }).start();
+      translateY.value = screenHeight;
+      translateY.value = withSpring(0, {
+        damping: 22,
+        stiffness: 240,
+      });
     }
-  }, [open, translateY]);
+  }, [open, screenHeight, translateY]);
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 5,
-      onPanResponderMove: (_, gesture) => {
-        if (gesture.dy > 0) {
-          translateY.setValue(gesture.dy);
-        }
-      },
-      onPanResponderRelease: (_, gesture) => {
-        if (gesture.dy > 120 || gesture.vy > 0.5) {
-          handleClose();
-        } else {
-          Animated.spring(translateY, {
-            toValue: 0,
-            useNativeDriver: true,
-          }).start();
-        }
-      },
-    }),
-  ).current;
+  const dragGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .activeOffsetY([-5, 5])
+        .onBegin(() => {
+          dragStartY.value = translateY.value;
+        })
+        .onUpdate((event) => {
+          translateY.value = Math.max(
+            0,
+            dragStartY.value + event.translationY,
+          );
+        })
+        .onEnd((event) => {
+          const draggedFarEnough = translateY.value > 96;
+          const flickedDown =
+            event.translationY > 12 && event.velocityY > 850;
+
+          if (draggedFarEnough || flickedDown) {
+            runOnJS(handleClose)();
+            return;
+          }
+
+          translateY.value = withSpring(0, {
+            damping: 22,
+            stiffness: 260,
+          });
+        })
+        .onFinalize((_event, success) => {
+          if (!success) {
+            translateY.value = withSpring(0, {
+              damping: 22,
+              stiffness: 260,
+            });
+          }
+        }),
+    [dragStartY, handleClose, translateY],
+  );
+
+  const sheetAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  const backdropAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      translateY.value,
+      [0, screenHeight * 0.72],
+      [1, 0],
+      Extrapolation.CLAMP,
+    ),
+  }));
 
   return (
     <Modal
@@ -87,30 +138,41 @@ export default function ActionSheet({ open, onClose, actions }: any) {
       visible={open}
       onRequestClose={() => handleClose()}
       onDismiss={runPendingAction}
-      animationType="fade"
+      animationType="none"
     >
-      <View style={styles.container}>
-        {/* Overlay mờ dần cùng Modal */}
-        <TouchableWithoutFeedback onPress={() => handleClose()}>
-          <View style={styles.overlay} />
-        </TouchableWithoutFeedback>
+      <GestureHandlerRootView style={styles.container}>
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.overlay, backdropAnimatedStyle]}
+        />
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={() => handleClose()}
+          accessibilityLabel="Đóng bảng hành động"
+        />
 
         <Animated.View
           style={[
             styles.sheet,
             {
               backgroundColor: theme.colors.surface,
-              transform: [{ translateY }],
             },
+            sheetAnimatedStyle,
           ]}
-          {...panResponder.panHandlers}
         >
-          <View
-            style={[
-              styles.dragIndicator,
-              { backgroundColor: theme.colors.outlineVariant },
-            ]}
-          />
+          <GestureDetector gesture={dragGesture}>
+            <Animated.View
+              style={styles.dragHandle}
+              accessibilityLabel="Kéo xuống để đóng"
+            >
+              <View
+                style={[
+                  styles.dragIndicator,
+                  { backgroundColor: theme.colors.outlineVariant },
+                ]}
+              />
+            </Animated.View>
+          </GestureDetector>
 
           {actions.map((item: any, index: number) => (
             <TouchableOpacity
@@ -140,7 +202,7 @@ export default function ActionSheet({ open, onClose, actions }: any) {
             </TouchableOpacity>
           ))}
         </Animated.View>
-      </View>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
@@ -159,15 +221,21 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: UI_RADIUS.sheet,
     borderTopRightRadius: UI_RADIUS.sheet,
     paddingBottom: 40,
-    maxHeight: SCREEN_HEIGHT * 0.8,
+    maxHeight: "80%",
   },
   dragIndicator: {
     width: 36,
     height: 5,
     backgroundColor: COLORS.border,
     alignSelf: "center",
-    marginVertical: 12,
     borderRadius: 3,
+  },
+  dragHandle: {
+    width: 84,
+    minHeight: 44,
+    alignSelf: "center",
+    alignItems: "center",
+    justifyContent: "center",
   },
   item: {
     flexDirection: "row",

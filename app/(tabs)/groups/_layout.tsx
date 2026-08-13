@@ -14,6 +14,7 @@ export default function GroupsLayout() {
       <Stack.Screen name="index" />
 
       <Stack.Screen name="[id]/index" options={{ gestureEnabled: false }} />
+      <Stack.Screen name="[id]/polls" />
 
       <Stack.Screen
         name="create"

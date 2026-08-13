@@ -3,6 +3,9 @@ import { ENV } from "@src/constants/env";
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { router } from "expo-router";
 import { handleApiError } from "../utils/errorHandler";
+import { cacheKey, isOfflineCacheable, readOfflineCache, writeOfflineCache } from './offline-cache';
+import NetInfo from '@react-native-community/netinfo';
+import { enqueueMutation, flushMutationQueue, isQueueableMutation } from './offline-queue';
 
 interface QueuedRequest {
   resolve: (value: string | null) => void;
@@ -62,6 +65,9 @@ api.interceptors.request.use(
     if (accessToken && config.headers) {
       config.headers.Authorization = `Bearer ${accessToken}`;
     }
+    if (config.method?.toLowerCase() === 'post' && /\/expenses\/[^/]+$/.test(config.url || '') && config.data && !(config.data instanceof FormData)) {
+      config.data = { ...config.data, clientMutationId: config.data.clientMutationId || `${Date.now()}-${Math.random().toString(36).slice(2)}` };
+    }
 
     return config;
   },
@@ -69,11 +75,38 @@ api.interceptors.request.use(
 );
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (isOfflineCacheable(response.config.method, response.config.url)) {
+      const key = cacheKey(useAuthStore.getState().user?.id, response.config.url || '', response.config.params);
+      void writeOfflineCache(key, { data: response.data, cachedAt: new Date().toISOString(), url: response.config.url || '' });
+    }
+    return response;
+  },
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & {
       _retry?: boolean;
+      _offlineReplay?: boolean;
     };
+
+    if (!error.response && isQueueableMutation(originalRequest) && !originalRequest?._offlineReplay) {
+      const queued = await enqueueMutation(originalRequest);
+      return { data: { ...(typeof queued.data === 'object' ? queued.data : {}), id: `offline-${queued.id}`, pendingSync: true }, status: 202, statusText: 'Queued offline', headers: { 'x-offline-queued': 'true' }, config: originalRequest, request: null };
+    }
+
+    if (!error.response && isOfflineCacheable(originalRequest?.method, originalRequest?.url)) {
+      const key = cacheKey(useAuthStore.getState().user?.id, originalRequest.url || '', originalRequest.params);
+      const cached = await readOfflineCache(key);
+      if (cached) {
+        return {
+          data: cached.data,
+          status: 200,
+          statusText: 'OK (offline cache)',
+          headers: { 'x-offline-cache': 'true', 'x-offline-cached-at': cached.cachedAt },
+          config: originalRequest,
+          request: null,
+        };
+      }
+    }
 
     if (error.response?.status !== 401) {
       handleApiError(error);
@@ -169,3 +202,11 @@ api.interceptors.response.use(
     }
   },
 );
+
+let mutationFlush: Promise<{ completed: number; pending: number }> | null = null;
+NetInfo.addEventListener((state) => {
+  if (!state.isConnected || state.isInternetReachable === false) return;
+  if (mutationFlush) return;
+  mutationFlush = flushMutationQueue((item) => api({ method: item.method, url: item.url, data: item.data, _offlineReplay: true } as InternalAxiosRequestConfig & { _offlineReplay: boolean }));
+  void mutationFlush.catch(() => ({ completed: 0, pending: 0 })).finally(() => { mutationFlush = null; });
+});

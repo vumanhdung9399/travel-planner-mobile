@@ -3,6 +3,7 @@ import { AppToast } from "@/src/components/AppToast";
 import { CommonHeader } from "@/src/components/layout/CommonHeader";
 import { useAppPalette } from "@/src/hook/useAppPalette";
 import { api } from "@/src/services/api";
+import { getOfflineMapPath } from "@/src/services/offline-pack";
 import {
   getGooglePlaceLocation,
   type PlacePrediction,
@@ -311,9 +312,16 @@ export default function NativeMapScreen() {
     async (record: TripRoute) => {
       setBusy(true);
       try {
-        const response = await fetch(record.routerFileName);
-        if (!response.ok) throw new Error("Không tải được file tuyến đường");
-        const route = (await response.json()) as RouteData;
+        let route: RouteData;
+        try {
+          const response = await fetch(record.routerFileName);
+          if (!response.ok) throw new Error("Không tải được file tuyến đường");
+          route = (await response.json()) as RouteData;
+        } catch {
+          const localPath = await getOfflineMapPath(id, record.id);
+          if (!localPath) throw new Error("Tuyến đường này chưa được lưu offline");
+          route = JSON.parse(await FileSystem.readAsStringAsync(localPath)) as RouteData;
+        }
         const nativePoints = (route.waypoints || [])
           .map(toNativePoint)
           .filter(isValidLatLng);
@@ -345,7 +353,7 @@ export default function NativeMapScreen() {
         setBusy(false);
       }
     },
-    [calculateRoute, fitPoints],
+    [calculateRoute, fitPoints, id],
   );
 
   const loadRecords = useCallback(async () => {
