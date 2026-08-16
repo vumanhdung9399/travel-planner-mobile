@@ -82,7 +82,10 @@ export default function NotificationScreen() {
     <View
       style={[
         styles.header,
-        { backgroundColor: palette.surface, borderBottomColor: palette.border },
+        {
+          backgroundColor: palette.background,
+          borderBottomColor: palette.border,
+        },
       ]}
     >
       <Text style={[styles.headerTitle, { color: palette.textPrimary }]}>Thông báo</Text>

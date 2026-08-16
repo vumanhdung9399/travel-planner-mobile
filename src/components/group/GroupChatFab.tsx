@@ -2,23 +2,39 @@ import { api } from "@/src/services/api";
 import { getSocket } from "@/src/utils/socket";
 import { COLORS } from "@/src/utils/constants";
 import { useAppPalette } from "@/src/hook/useAppPalette";
+import { useGroupChatWidgetStore } from "@/src/store/group-chat-widget.store";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
-import { Modal, Pressable, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Modal, NativeModules, Platform, Pressable, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Badge, Text } from "react-native-paper";
 import GroupChatPanel from "./GroupChatPanel";
+import GroupCall from "./GroupCall";
 
 export default function GroupChatFab({
   groupId,
   side = "right",
+  minimizedBottom = 12,
 }: {
   groupId: string;
   side?: "left" | "right";
+  minimizedBottom?: number;
 }) {
   const [unreadCount, setUnreadCount] = useState(0);
-  const [open, setOpen] = useState(false);
-  const [minimized, setMinimized] = useState(false);
+  const activeGroupId = useGroupChatWidgetStore((state) => state.activeGroupId);
+  const storedOpen = useGroupChatWidgetStore((state) => state.open);
+  const storedMinimized = useGroupChatWidgetStore((state) => state.minimized);
+  const activateGroup = useGroupChatWidgetStore((state) => state.activateGroup);
+  const openChat = useGroupChatWidgetStore((state) => state.openChat);
+  const closeChat = useGroupChatWidgetStore((state) => state.closeChat);
+  const setMinimized = useGroupChatWidgetStore((state) => state.setMinimized);
   const palette = useAppPalette();
+  const isActiveGroup = activeGroupId === groupId;
+  const open = isActiveGroup && storedOpen;
+  const minimized = isActiveGroup && storedMinimized;
+
+  useEffect(() => {
+    activateGroup(groupId);
+  }, [activateGroup, groupId]);
 
   useEffect(() => {
     const socket = getSocket();
@@ -55,8 +71,7 @@ export default function GroupChatFab({
       accessibilityLabel="Mở trò chuyện nhóm"
       onPress={() => {
         setUnreadCount(0);
-        setOpen(true);
-        setMinimized(false);
+        openChat(groupId);
       }}
     >
       <View>
@@ -68,13 +83,12 @@ export default function GroupChatFab({
         )}
       </View>
     </TouchableOpacity>}
-    <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-      <Pressable style={styles.overlay} onPress={() => setOpen(false)} />
+    <Modal visible={open && !minimized} transparent animationType="fade" onRequestClose={closeChat}>
+      <Pressable style={styles.overlay} onPress={closeChat} />
       <View
         style={[
           styles.chatWindow,
           { backgroundColor: palette.surface, borderColor: palette.border },
-          minimized && styles.chatWindowMinimized,
         ]}
       >
         <Pressable
@@ -92,22 +106,72 @@ export default function GroupChatFab({
             <Text numberOfLines={1} style={[styles.chatTitle, { color: palette.textPrimary }]}>Trò chuyện nhóm</Text>
             <Text numberOfLines={1} style={[styles.chatSubtitle, { color: palette.textSecondary }]}>Tin nhắn của nhóm</Text>
           </View>
+          {Platform.OS === "android" && (
+            <TouchableOpacity
+              accessibilityLabel="Bật bong bóng chat ngoài ứng dụng"
+              style={[styles.headerIcon, { backgroundColor: palette.surfaceMuted }]}
+              onPress={() => {
+                void NativeModules.TravelCallAudio?.openBubbleSettings?.().catch(() => undefined);
+              }}
+            >
+              <Ionicons name="chatbubble-ellipses-outline" size={19} color={COLORS.primary} />
+            </TouchableOpacity>
+          )}
+          <GroupCall groupId={groupId} />
           <TouchableOpacity
             style={[styles.headerIcon, { backgroundColor: palette.surfaceMuted }]}
-            onPress={() => setMinimized((value) => !value)}
+            onPress={() => setMinimized(!minimized)}
           >
             <Ionicons name="remove" size={20} color={palette.textSecondary} />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.headerIcon, { backgroundColor: palette.surfaceMuted }]}
-            onPress={() => setOpen(false)}
+            onPress={closeChat}
           >
             <Ionicons name="close" size={20} color={palette.textSecondary} />
           </TouchableOpacity>
         </Pressable>
-        {!minimized && <GroupChatPanel groupId={groupId} />}
+        <GroupChatPanel groupId={groupId} />
       </View>
     </Modal>
+    {open && minimized && (
+      <View
+        style={[
+          styles.minimizedBar,
+          { bottom: minimizedBottom },
+          { backgroundColor: palette.surface, borderColor: palette.border },
+        ]}
+      >
+        <Pressable
+          style={[
+            styles.chatHeader,
+            { backgroundColor: palette.surface, borderBottomColor: palette.border },
+          ]}
+          onPress={() => setMinimized(false)}
+        >
+          <View style={[styles.chatAvatar, { backgroundColor: palette.surfaceMuted, borderColor: palette.border }]}>
+            <Ionicons name="chatbubble-ellipses" size={18} color={COLORS.primary} />
+            <View style={[styles.onlineDot, { borderColor: palette.surface }]} />
+          </View>
+          <View style={styles.chatHeading}>
+            <Text numberOfLines={1} style={[styles.chatTitle, { color: palette.textPrimary }]}>Trò chuyện nhóm</Text>
+            <Text numberOfLines={1} style={[styles.chatSubtitle, { color: palette.textSecondary }]}>Nhấn để mở lại</Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.headerIcon, { backgroundColor: palette.surfaceMuted }]}
+            onPress={() => setMinimized(false)}
+          >
+            <Ionicons name="chevron-up" size={20} color={palette.textSecondary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.headerIcon, { backgroundColor: palette.surfaceMuted }]}
+            onPress={closeChat}
+          >
+            <Ionicons name="close" size={20} color={palette.textSecondary} />
+          </TouchableOpacity>
+        </Pressable>
+      </View>
+    )}
   </>);
 }
 
@@ -154,7 +218,21 @@ const styles = StyleSheet.create({
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 8 },
   },
-  chatWindowMinimized: { height: 62 },
+  minimizedBar: {
+    position: "absolute",
+    left: 10,
+    right: 10,
+    height: 62,
+    overflow: "hidden",
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    elevation: 14,
+    shadowColor: "#000",
+    shadowOpacity: 0.22,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    zIndex: 40,
+  },
   chatHeader: {
     height: 62,
     flexDirection: "row",

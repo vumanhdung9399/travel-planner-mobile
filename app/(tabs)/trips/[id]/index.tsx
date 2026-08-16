@@ -1,5 +1,6 @@
 import GroupChatFab from "@/src/components/group/GroupChatFab";
 import { type AppPalette, useAppPalette } from "@/src/hook/useAppPalette";
+import { api } from "@/src/services/api";
 import { COLORS } from "@/src/utils/constants";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -50,15 +51,19 @@ type HeroSummary = {
 
 const TRIP_HERO_HEIGHT = 160;
 const COMPACT_HEADER_SCROLL_OFFSET = 110;
+const FINANCE_PANEL_HEIGHT = 174;
+
+type FinancialSection = "expenses" | "fund" | "balance";
 
 const tabKeyToIndex: Record<string, number> = {
   info: 0,
   timeline: 1,
   expenses: 2,
-  balance: 3,
-  fund: 4,
-  tasks: 5,
-  leader: 6,
+  balance: 2,
+  fund: 2,
+  finance: 2,
+  tasks: 3,
+  leader: 4,
 };
 
 const TripDetailScreen = () => {
@@ -75,6 +80,10 @@ const TripDetailScreen = () => {
   const styles = useMemo(() => createStyles(palette), [palette]);
 
   const [tabIndex, setTabIndex] = useState(0);
+  const [financialSection, setFinancialSection] =
+    useState<FinancialSection>("expenses");
+  const [totalFunds, setTotalFunds] = useState(0);
+  const [approvedExpenseTotal, setApprovedExpenseTotal] = useState(0);
   const [tabSummaries, setTabSummaries] = useState<
     Partial<Record<string, HeroSummary>>
   >({});
@@ -91,10 +100,8 @@ const TripDetailScreen = () => {
   const [routes, setRoutes] = useState([
     { key: "info", title: "Thông tin", icon: "information-circle-outline" },
     { key: "timeline", title: "Lịch trình", icon: "calendar-outline" },
-    { key: "expenses", title: "Chi phí", icon: "wallet-outline" },
-    { key: "balance", title: "Thanh toán", icon: "card-outline" },
-    { key: "fund", title: "Quỹ", icon: "analytics-outline" },
-    { key: "tasks", title: "Việc", icon: "checkbox-outline" },
+    { key: "finance", title: "Tài chính", icon: "wallet-outline" },
+    { key: "tasks", title: "Công việc", icon: "checkbox-outline" },
   ]);
 
   const updateTabSummary = useCallback((key: string, summary: HeroSummary) => {
@@ -120,6 +127,43 @@ const TripDetailScreen = () => {
       }
     }, [fetchTrip, id, tab, trip.id]),
   );
+
+  useEffect(() => {
+    if (!trip.id) return;
+    let active = true;
+    Promise.all([
+      api.get<{ amount: number | string }[]>(`/trips/${trip.id}/funds`),
+      api.get<{ amount: number | string; status: string }[]>(
+        `/expenses/${trip.id}`,
+      ),
+    ])
+      .then(([fundResponse, expenseResponse]) => {
+        if (!active) return;
+        setTotalFunds(
+          (fundResponse.data || []).reduce(
+            (sum, fund) => sum + Number(fund.amount || 0),
+            0,
+          ),
+        );
+        setApprovedExpenseTotal(
+          (expenseResponse.data || [])
+            .filter((expense) => expense.status === "approved")
+            .reduce(
+              (sum, expense) => sum + Number(expense.amount || 0),
+              0,
+            ),
+        );
+      })
+      .catch(() => {
+        if (active) {
+          setTotalFunds(0);
+          setApprovedExpenseTotal(0);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [contentRevision, trip.id]);
 
   const handleSceneScroll = useCallback(
     (key: string, offset: number) => {
@@ -158,6 +202,10 @@ const TripDetailScreen = () => {
       ) {
         const targetIndex = tabKeyToIndex[pendingTab.current];
 
+        if (["expenses", "balance", "fund"].includes(pendingTab.current)) {
+          setFinancialSection(pendingTab.current as FinancialSection);
+        }
+
         if (
           pendingTab.current === "leader" &&
           (!trip.isLeader || trip.isCloseTrip)
@@ -177,10 +225,8 @@ const TripDetailScreen = () => {
       const baseRoutes = [
         { key: "info", title: "Thông tin", icon: "information-circle-outline" },
         { key: "timeline", title: "Lịch trình", icon: "calendar-outline" },
-        { key: "expenses", title: "Chi phí", icon: "wallet-outline" },
-        { key: "balance", title: "Thanh toán", icon: "card-outline" },
-        { key: "fund", title: "Quỹ", icon: "analytics-outline" },
-        { key: "tasks", title: "Việc", icon: "checkbox-outline" },
+        { key: "finance", title: "Tài chính", icon: "wallet-outline" },
+        { key: "tasks", title: "Công việc", icon: "checkbox-outline" },
       ];
 
       if (trip.isLeader && !trip.isCloseTrip) {
@@ -221,15 +267,45 @@ const TripDetailScreen = () => {
               }
             />
           );
-        case "expenses":
+        case "finance": {
+          const contentInsetTop =
+            TRIP_HERO_HEIGHT + insets.top + FINANCE_PANEL_HEIGHT;
+          const commonProps = {
+            trip,
+            refreshKey: contentRevision,
+            contentInsetTop,
+            onScrollOffsetChange: (offset: number) =>
+              handleSceneScroll("finance", offset),
+          };
+
+          if (financialSection === "balance") {
+            return (
+              <BalanceList
+                {...commonProps}
+                onSummaryChange={(summary) =>
+                  updateTabSummary("balance", summary)
+                }
+                onExportReady={(handler) => {
+                  balanceExportRef.current = handler;
+                }}
+              />
+            );
+          }
+
+          if (financialSection === "fund") {
+            return (
+              <TripFundList
+                {...commonProps}
+                onSummaryChange={(summary) =>
+                  updateTabSummary("fund", summary)
+                }
+              />
+            );
+          }
+
           return (
             <ExpenseList
-              trip={trip}
-              refreshKey={contentRevision}
-              contentInsetTop={TRIP_HERO_HEIGHT + insets.top}
-              onScrollOffsetChange={(offset) =>
-                handleSceneScroll("expenses", offset)
-              }
+              {...commonProps}
               onSummaryChange={(summary) =>
                 updateTabSummary("expenses", summary)
               }
@@ -238,35 +314,7 @@ const TripDetailScreen = () => {
               }}
             />
           );
-        case "balance":
-          return (
-            <BalanceList
-              trip={trip}
-              refreshKey={contentRevision}
-              contentInsetTop={TRIP_HERO_HEIGHT + insets.top}
-              onScrollOffsetChange={(offset) =>
-                handleSceneScroll("balance", offset)
-              }
-              onSummaryChange={(summary) =>
-                updateTabSummary("balance", summary)
-              }
-              onExportReady={(handler) => {
-                balanceExportRef.current = handler;
-              }}
-            />
-          );
-        case "fund":
-          return (
-            <TripFundList
-              trip={trip}
-              refreshKey={contentRevision}
-              contentInsetTop={TRIP_HERO_HEIGHT + insets.top}
-              onScrollOffsetChange={(offset) =>
-                handleSceneScroll("fund", offset)
-              }
-              onSummaryChange={(summary) => updateTabSummary("fund", summary)}
-            />
-          );
+        }
         case "leader":
           return (
             <Leader
@@ -301,6 +349,7 @@ const TripDetailScreen = () => {
     },
     [
       contentRevision,
+      financialSection,
       handleSceneScroll,
       insets.top,
       routes,
@@ -337,18 +386,12 @@ const TripDetailScreen = () => {
           eyebrow: "Lịch trình chuyến đi",
           value: `${trip.timelines?.length || 0} hoạt động`,
         };
-      case "expenses":
+      case "finance":
         return {
-          eyebrow: "Tổng chi chuyến đi",
+          eyebrow: "Tổng quan tài chính",
           value: formatMoney(totalExpense),
+          pill: `${trip.group?.members?.length || 0} thành viên`,
         };
-      case "balance":
-        return {
-          eyebrow: "Thanh toán chuyến đi",
-          value: trip.isCloseTrip ? "Đã chốt sổ" : "Đang cập nhật",
-        };
-      case "fund":
-        return { eyebrow: "Quỹ chuyến đi", value: "Đang cập nhật" };
       case "tasks":
         return { eyebrow: "Checklist nhóm", value: "Công việc chuyến đi" };
       case "leader":
@@ -359,7 +402,14 @@ const TripDetailScreen = () => {
   };
 
   const activeRouteKey = routes[tabIndex]?.key || "info";
-  const activeSummary = tabSummaries[activeRouteKey] || getDefaultSummary();
+  const activeSummaryKey =
+    activeRouteKey === "finance" ? financialSection : activeRouteKey;
+  const activeSummary = tabSummaries[activeSummaryKey] || getDefaultSummary();
+  const fundVariance = totalFunds - approvedExpenseTotal;
+  const fundUsage =
+    totalFunds > 0
+      ? Math.min(Math.round((approvedExpenseTotal / totalFunds) * 100), 100)
+      : 0;
 
   const shouldShowHeaderButton = () => {
     if (trip.isCloseTrip) return false;
@@ -372,19 +422,8 @@ const TripDetailScreen = () => {
         return trip.isLeader;
 
       case 2:
-        return true;
-
-      case 3:
-        return false;
-
-      case 4:
-        return trip.isLeader;
-
-      case 5:
-        return false;
-
-      case 6:
-        return false;
+        return financialSection === "expenses" ||
+          (financialSection === "fund" && trip.isLeader);
 
       default:
         return false;
@@ -398,8 +437,6 @@ const TripDetailScreen = () => {
       case 1:
         return "add";
       case 2:
-        return "add";
-      case 4:
         return "add";
       default:
         return "add";
@@ -419,11 +456,11 @@ const TripDetailScreen = () => {
         break;
 
       case 2:
-        router.push(`/trips/${trip.id}/expense-form`);
-        break;
-
-      case 4:
-        router.push(`/trips/${trip.id}/fund-form`);
+        router.push(
+          financialSection === "fund"
+            ? `/trips/${trip.id}/fund-form`
+            : `/trips/${trip.id}/expense-form`,
+        );
         break;
 
       default:
@@ -495,7 +532,7 @@ const TripDetailScreen = () => {
       </TouchableOpacity>
     );
 
-    if (tabIndex === 2) {
+    if (tabIndex === 2 && financialSection === "expenses") {
       return (
         <View style={styles.headerActions}>
           <TouchableOpacity
@@ -510,7 +547,7 @@ const TripDetailScreen = () => {
       );
     }
 
-    if (tabIndex === 3) {
+    if (tabIndex === 2 && financialSection === "balance") {
       return (
         <View style={styles.headerActions}>
           <TouchableOpacity
@@ -534,15 +571,17 @@ const TripDetailScreen = () => {
     const labels: Record<number, string> = {
       0: "Chỉnh sửa",
       1: "Thêm hoạt động",
-      2: "Thêm chi phí",
-      4: "Thêm đóng góp",
+      2: financialSection === "fund" ? "Thêm đóng góp" : "Thêm chi phí",
     };
 
     return (
       <TouchableOpacity
         activeOpacity={0.86}
         onPress={handleHeaderButtonPress}
-        style={styles.floatingAction}
+        style={[
+          styles.floatingAction,
+          { bottom: Math.max(insets.bottom, 8) + 78 },
+        ]}
         accessibilityLabel={labels[tabIndex] || "Thêm mới"}
       >
         <LinearGradient
@@ -637,9 +676,15 @@ const TripDetailScreen = () => {
         style={[
           styles.compactHeader,
           { height: insets.top + 56, paddingTop: insets.top },
-          headerScrolled && {
-            backgroundColor: palette.surface,
-            borderBottomColor: palette.border,
+          {
+            backgroundColor: headerScrolled ? palette.surface : "transparent",
+            borderBottomWidth: headerScrolled
+              ? StyleSheet.hairlineWidth
+              : 0,
+            borderBottomColor: headerScrolled
+              ? palette.border
+              : "transparent",
+            elevation: headerScrolled ? 30 : 0,
           },
         ]}
       >
@@ -731,6 +776,138 @@ const TripDetailScreen = () => {
         </ImageBackground>
       </Animated.View>
 
+      {activeRouteKey === "finance" ? (
+        <Animated.View
+          style={[
+            styles.financePanel,
+            {
+              top: TRIP_HERO_HEIGHT + insets.top + 10,
+              transform: [
+                {
+                  translateY: sceneScrollY.interpolate({
+                    inputRange: [0, TRIP_HERO_HEIGHT + FINANCE_PANEL_HEIGHT],
+                    outputRange: [0, -(TRIP_HERO_HEIGHT + FINANCE_PANEL_HEIGHT)],
+                    extrapolate: "clamp",
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.financeSwitcher,
+              { backgroundColor: palette.surface, borderColor: palette.border },
+            ]}
+          >
+            {([
+              ["expenses", "Chi phí"],
+              ["fund", "Quỹ"],
+              ["balance", "Thanh toán"],
+            ] as const).map(([key, label]) => {
+              const isActive = financialSection === key;
+              return (
+                <TouchableOpacity
+                  key={key}
+                  style={[
+                    styles.financeSwitcherItem,
+                    isActive && styles.financeSwitcherItemActive,
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setFinancialSection(key);
+                  }}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: isActive }}
+                >
+                  <Text
+                    style={[
+                      styles.financeSwitcherLabel,
+                      { color: palette.textSecondary },
+                      isActive && styles.financeSwitcherLabelActive,
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <View
+            style={[
+              styles.financeSummaryCard,
+              { backgroundColor: palette.surface, borderColor: palette.border },
+            ]}
+          >
+            <Text style={[styles.financeTitle, { color: palette.textPrimary }]}>
+              Tài chính chuyến đi
+            </Text>
+            <View style={styles.financeMetrics}>
+              {[
+                ["Tổng chi", approvedExpenseTotal, COLORS.primary],
+                ["Đã góp quỹ", totalFunds, COLORS.success],
+                [
+                  fundVariance >= 0 ? "Quỹ còn lại" : "Vượt quỹ",
+                  Math.abs(fundVariance),
+                  fundVariance >= 0 ? COLORS.success : COLORS.error,
+                ],
+              ].map(([label, value, color], index) => (
+                <View
+                  key={String(label)}
+                  style={[
+                    styles.financeMetric,
+                    index < 2 && {
+                      borderRightWidth: StyleSheet.hairlineWidth,
+                      borderRightColor: palette.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.financeMetricLabel,
+                      { color: palette.textSecondary },
+                    ]}
+                  >
+                    {String(label)}
+                  </Text>
+                  <Text
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    style={[styles.financeMetricValue, { color: String(color) }]}
+                  >
+                    {formatMoney(Number(value))}
+                  </Text>
+                </View>
+              ))}
+            </View>
+            <View
+              style={[
+                styles.financeProgressTrack,
+                { backgroundColor: palette.surfaceMuted },
+              ]}
+            >
+              <View
+                style={[
+                  styles.financeProgressValue,
+                  { width: `${fundUsage}%` },
+                ]}
+              />
+            </View>
+            <Text
+              style={[
+                styles.financeProgressText,
+                { color: palette.textSecondary },
+              ]}
+            >
+              {totalFunds > 0
+                ? `Đã dùng ${fundUsage}% quỹ chuyến đi`
+                : "Chưa có khoản đóng quỹ"}
+            </Text>
+          </View>
+        </Animated.View>
+      ) : null}
+
       {Object.keys(trip).length > 0 ? (
         <View
           style={[
@@ -763,6 +940,7 @@ const TripDetailScreen = () => {
         <GroupChatFab
           groupId={trip.group.id}
           side={shouldShowHeaderButton() ? "left" : "right"}
+          minimizedBottom={64}
         />
       ) : null}
     </SafeAreaView>
@@ -777,12 +955,9 @@ const createStyles = (palette: AppPalette) =>
       left: 0,
       right: 0,
       zIndex: 30,
-      elevation: 30,
       flexDirection: "row",
       alignItems: "center",
       paddingHorizontal: 14,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: "transparent",
     },
     headerActions: {
       flexDirection: "row",
@@ -812,7 +987,97 @@ const createStyles = (palette: AppPalette) =>
       left: 0,
       right: 0,
       zIndex: 2,
+    },
+    financePanel: {
+      position: "absolute",
+      left: 12,
+      right: 12,
+      zIndex: 12,
+      gap: 10,
+    },
+    financeSwitcher: {
+      height: 46,
+      flexDirection: "row",
+      alignItems: "center",
+      padding: 3,
+      borderWidth: 1,
+      borderRadius: 999,
+    },
+    financeSwitcherItem: {
+      flex: 1,
+      height: 38,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 999,
+    },
+    financeSwitcherItemActive: {
+      backgroundColor: COLORS.primary,
+      shadowColor: COLORS.primary,
+      shadowOpacity: 0.2,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 3,
+    },
+    financeSwitcherLabel: {
+      fontSize: 12,
+      fontWeight: "600",
+    },
+    financeSwitcherLabelActive: {
+      color: "#FFFFFF",
+      fontWeight: "800",
+    },
+    financeSummaryCard: {
+      height: 108,
+      paddingHorizontal: 12,
+      paddingTop: 10,
+      borderWidth: 1,
+      borderRadius: 18,
+      shadowColor: "#0F172A",
+      shadowOpacity: 0.05,
+      shadowRadius: 14,
+      shadowOffset: { width: 0, height: 6 },
       elevation: 2,
+    },
+    financeTitle: {
+      marginBottom: 7,
+      fontSize: 14,
+      fontWeight: "800",
+    },
+    financeMetrics: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    financeMetric: {
+      flex: 1,
+      minWidth: 0,
+      paddingHorizontal: 5,
+      alignItems: "center",
+    },
+    financeMetricLabel: {
+      marginBottom: 2,
+      fontSize: 9,
+    },
+    financeMetricValue: {
+      width: "100%",
+      textAlign: "center",
+      fontSize: 11,
+      fontWeight: "800",
+    },
+    financeProgressTrack: {
+      height: 5,
+      marginTop: 8,
+      borderRadius: 99,
+      overflow: "hidden",
+    },
+    financeProgressValue: {
+      height: "100%",
+      borderRadius: 99,
+      backgroundColor: COLORS.primary,
+    },
+    financeProgressText: {
+      marginTop: 3,
+      textAlign: "center",
+      fontSize: 9,
     },
     heroImage: {
       resizeMode: "cover",
@@ -940,7 +1205,6 @@ const createStyles = (palette: AppPalette) =>
     floatingAction: {
       position: "absolute",
       right: 16,
-      bottom: 102,
       borderRadius: 16,
       overflow: "hidden",
       elevation: 9,
@@ -948,7 +1212,7 @@ const createStyles = (palette: AppPalette) =>
       shadowOpacity: 0.3,
       shadowRadius: 12,
       shadowOffset: { width: 0, height: 6 },
-      zIndex: 18,
+      zIndex: 40,
     },
     floatingActionGradient: {
       minHeight: 46,

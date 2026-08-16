@@ -77,6 +77,14 @@ export const getNotificationRedirect = (data: any): string => {
   }
 
   switch (type) {
+    case "incoming_call":
+      return groupId
+        ? `/groups/${groupId}/chat?call=${data.media === "video" ? "video" : "audio"}`
+        : "/groups";
+
+    case "chat_message":
+      return groupId ? `/groups/${groupId}/chat` : "/groups";
+
     case NOTIFICATION_TYPE.INVITE:
       if (groupId) {
         return `/groups/${groupId}`;

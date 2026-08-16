@@ -22,7 +22,15 @@ export default {
       },
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
-      permissions: ["VIBRATE", "RECEIVE_BOOT_COMPLETED", "POST_NOTIFICATIONS"],
+      permissions: [
+        "VIBRATE",
+        "RECEIVE_BOOT_COMPLETED",
+        "POST_NOTIFICATIONS",
+        "CAMERA",
+        "RECORD_AUDIO",
+        "MODIFY_AUDIO_SETTINGS",
+        "USE_FULL_SCREEN_INTENT",
+      ],
       package: "com.anonymous.travelplanner",
       config: {
         googleMaps: {
@@ -39,7 +47,7 @@ export default {
           importance: 5,
           vibrationPattern: [0, 500, 500, 500],
           enableVibration: true,
-          sound: "notification.mp3",
+          sound: "messenger.mp3",
           bypassDnd: false,
           lockscreen: true,
         },
@@ -53,15 +61,27 @@ export default {
 
     plugins: [
       [
+        "@config-plugins/react-native-webrtc",
+        {
+          cameraPermission: "Cho phép Travel Planner sử dụng camera để gọi video nhóm.",
+          microphonePermission: "Cho phép Travel Planner sử dụng micro để gọi thoại và video nhóm.",
+        },
+      ],
+      [
         "expo-notifications",
         {
           icon: "./assets/logo.png",
           color: "#ffffff",
           defaultChannel: "default",
-          sounds: ["./assets/notification.mp3"],
-          enableBackgroundRemoteNotifications: false,
+          sounds: [
+            "./assets/notification.mp3",
+            "./assets/messenger.mp3",
+            "./assets/call.mp3",
+          ],
+          enableBackgroundRemoteNotifications: true,
         },
       ],
+      "./plugins/withTravelNative",
       [
         "expo-location",
         {

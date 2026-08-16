@@ -28,6 +28,7 @@ export default function TabLayout() {
   const { fetchNotifications, count } = useNotificationStore();
   const darkMode = useSettingsStore((state) => state.darkMode);
   const notificationsEnabled = useSettingsStore((state) => state.notificationsEnabled);
+  const background = darkMode ? "#0B1220" : COLORS.background;
   const surface = darkMode ? "#141E2E" : COLORS.surface;
   const border = darkMode ? "#2A384C" : COLORS.border;
   const muted = darkMode ? "#A9B7CA" : COLORS.textSecondary;
@@ -41,6 +42,11 @@ export default function TabLayout() {
     /^\/groups\/[^/]+\/polls\/?$/.test(pathname) ||
     /^\/trips\/[^/]+\/?$/.test(pathname) ||
     /^\/trips\/[^/]+\/documents\/?$/.test(pathname);
+  const usesAppBackgroundHeader =
+    pathname === "/" ||
+    pathname === "/trips" ||
+    pathname === "/profile" ||
+    pathname === "/notification";
 
   const getProfile = useCallback(async () => {
     try {
@@ -81,7 +87,10 @@ export default function TabLayout() {
 
   return (
     <SafeAreaView
-      style={{ flex: 1, backgroundColor: surface }}
+      style={{
+        flex: 1,
+        backgroundColor: usesAppBackgroundHeader ? background : surface,
+      }}
       edges={immersiveDetail ? [] : ["top"]}
     >
       <OfflineBanner />

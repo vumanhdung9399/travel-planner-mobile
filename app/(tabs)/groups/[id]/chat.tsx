@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
+  NativeModules,
   Platform,
   Pressable,
   StyleSheet,
@@ -20,11 +21,12 @@ import {
 } from "react-native";
 import { Avatar, Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
+import GroupCall, { type CallMedia } from "@/src/components/group/GroupCall";
 
 const EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🎉"];
 
 export default function GroupChatScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, call } = useLocalSearchParams<{ id: string; call?: string }>();
   const userId = useAuthStore((state) => state.user?.id);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [readers, setReaders] = useState<MessagePage["readers"]>([]);
@@ -119,6 +121,27 @@ export default function GroupChatScreen() {
       <CommonHeader
         title={groupName}
         fallbackHref={{ pathname: "/groups/[id]", params: { id } }}
+        rightElement={
+          id ? (
+            <View style={styles.headerActions}>
+              {Platform.OS === "android" && (
+                <Pressable
+                  accessibilityLabel="Bật bong bóng chat ngoài ứng dụng"
+                  onPress={() => {
+                    void NativeModules.TravelCallAudio?.openBubbleSettings?.().catch(() => undefined);
+                  }}
+                  style={styles.headerAction}
+                >
+                  <Ionicons name="chatbubble-ellipses-outline" size={20} color={COLORS.primary} />
+                </Pressable>
+              )}
+              <GroupCall
+                groupId={id}
+                autoJoinMode={call === "audio" || call === "video" ? (call as CallMedia) : null}
+              />
+            </View>
+          ) : null
+        }
       />
       {pinned.length > 0 && (
         <View
@@ -315,6 +338,8 @@ export default function GroupChatScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 2 },
+  headerAction: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 18 },
   loader: { flex: 1 },
   pinned: {
     flexDirection: "row",

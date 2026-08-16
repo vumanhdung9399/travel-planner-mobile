@@ -20,6 +20,12 @@ import { useSettingsStore } from "@/src/store/settings.store";
 import { StatusBar } from "expo-status-bar";
 import { Appearance } from "react-native";
 import * as SystemUI from "expo-system-ui";
+import IncomingCallListener from "@/src/components/group/IncomingCallListener";
+import {
+  MESSAGE_NOTIFICATION_CHANNEL_ID,
+  MESSAGE_NOTIFICATION_SOUND,
+  MESSAGE_VIBRATION_PATTERN,
+} from "@/src/constants/notificationAudio";
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -32,6 +38,18 @@ const initNotification = async () => {
       vibrationPattern: [0, 250, 250, 250],
       enableVibrate: true,
     });
+    await Notifications.setNotificationChannelAsync(
+      MESSAGE_NOTIFICATION_CHANNEL_ID,
+      {
+        name: "Tin nhắn và bong bóng chat",
+        importance: Notifications.AndroidImportance.HIGH,
+        sound: MESSAGE_NOTIFICATION_SOUND,
+        vibrationPattern: [...MESSAGE_VIBRATION_PATTERN],
+        enableVibrate: true,
+        lockscreenVisibility:
+          Notifications.AndroidNotificationVisibility.PUBLIC,
+      },
+    );
   } catch (error) {
     console.warn("[Notifications] Could not create channel:", error);
   }
@@ -149,6 +167,7 @@ export default function RootLayout() {
             <Drawer.Screen name="(tabs)" />
           </Drawer>
 
+          <IncomingCallListener />
           <AppToastContainer />
         </PaperProvider>
       </NavigationThemeProvider>

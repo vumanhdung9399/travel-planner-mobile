@@ -90,14 +90,7 @@ const BalanceList = ({
     );
   }, [members]);
 
-  useEffect(() => {
-    if (!trip.id) return;
-    void getExpenses();
-    void getMember();
-    void getTripFunds();
-  }, [refreshKey, trip.id]);
-
-  const getMember = async () => {
+  const getMember = useCallback(async () => {
     try {
       const res = await api.get<UserGroupRole[]>(
         `groups/${trip.group.id}/members/with-deleted-paid`,
@@ -106,9 +99,9 @@ const BalanceList = ({
     } catch (error) {
       console.log(error);
     }
-  };
+  }, [trip.group.id]);
 
-  const getExpenses = async () => {
+  const getExpenses = useCallback(async () => {
     try {
       setLoading(true);
       const res = await api.get<ExpenseItem[]>(`/expenses/${trip.id}`);
@@ -122,9 +115,9 @@ const BalanceList = ({
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [trip.id]);
 
-  const getTripFunds = async () => {
+  const getTripFunds = useCallback(async () => {
     try {
       const res = await api.get<TripFund[]>(`/trips/${trip.id}/funds`);
       setTripFunds(res.data || []);
@@ -132,7 +125,14 @@ const BalanceList = ({
       console.log("Error fetching funds:", error);
       setTripFunds([]);
     }
-  };
+  }, [trip.id]);
+
+  useEffect(() => {
+    if (!trip.id) return;
+    void getExpenses();
+    void getMember();
+    void getTripFunds();
+  }, [getExpenses, getMember, getTripFunds, refreshKey, trip.id]);
 
   const fundMap = useMemo(() => {
     const map: Record<string, number> = {};
@@ -141,6 +141,11 @@ const BalanceList = ({
     });
     return map;
   }, [tripFunds]);
+
+  const totalFunds = useMemo(
+    () => tripFunds.reduce((sum, fund) => sum + Number(fund.amount || 0), 0),
+    [tripFunds],
+  );
 
   // Tính số dư từ chi tiêu (dương = được nhận, âm = phải trả)
   const expenseBalances = useMemo(() => {
@@ -225,9 +230,16 @@ const BalanceList = ({
 
   // Tính final balance (bao gồm quỹ)
   const finalBalances = useMemo(() => {
-    return expenseBalances.map((balance) => {
-      const fundAmount = fundMap[balance.userId] || 0;
-      const finalBalance = balance.balanceFromExpense + fundAmount;
+    return members.map((member) => {
+      const expenseBalance = expenseBalances.find(
+        (balance) => balance.userId === member.id,
+      );
+      const fundAmount = fundMap[member.id] || 0;
+      const leaderFundOffset = member.id === leader?.id ? totalFunds : 0;
+      const finalBalance =
+        (expenseBalance?.balanceFromExpense || 0) +
+        fundAmount -
+        leaderFundOffset;
 
       let paymentStatus: "receive" | "pay" | "settled" = "settled";
       let paymentAmount = 0;
@@ -241,14 +253,19 @@ const BalanceList = ({
       }
 
       return {
-        ...balance,
+        userId: member.id,
+        name: member.name,
+        avatar: member.avatar,
+        balanceFromExpense: expenseBalance?.balanceFromExpense || 0,
+        paidItems: expenseBalance?.paidItems || [],
+        debtItems: expenseBalance?.debtItems || [],
         fundAmount,
         finalBalance: Number(finalBalance.toFixed(2)),
         paymentStatus,
         paymentAmount,
       };
     });
-  }, [expenseBalances, fundMap]);
+  }, [expenseBalances, fundMap, leader?.id, members, totalFunds]);
 
   const totalToPay = Math.round(
     finalBalances
@@ -256,7 +273,6 @@ const BalanceList = ({
       .reduce((sum, b) => sum + b.paymentAmount, 0),
   );
 
-  const totalFunds = tripFunds.reduce((sum, f) => sum + Number(f.amount), 0);
   const totalExpenses = listExpenses.reduce(
     (sum, e) => sum + (Number(e.amount) || 0),
     0,
@@ -344,7 +360,11 @@ const BalanceList = ({
       <View
         style={[
           styles.notFinishedContainer,
-          { backgroundColor: palette.background },
+          {
+            backgroundColor: palette.background,
+            paddingTop: contentInsetTop + 20,
+            paddingBottom: 96,
+          },
         ]}
       >
         <Surface

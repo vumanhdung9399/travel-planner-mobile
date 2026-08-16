@@ -25,6 +25,7 @@ import {
   FlatList,
   Image,
   ImageBackground,
+  Linking,
   Modal,
   RefreshControl,
   ScrollView,
@@ -49,9 +50,8 @@ const withImageRevision = (uri: string, revision?: string | number | null) => {
 const getTripStatus = (trip: Trip, darkMode: boolean) => {
   const today = dayjs().startOf("day");
   const startDate = dayjs(trip.startDate).startOf("day");
-  const endDate = dayjs(trip.endDate).endOf("day");
 
-  if (trip.isCloseTrip || today.isAfter(endDate)) {
+  if (trip.isCloseTrip) {
     return {
       label: "ĐÃ KẾT THÚC",
       background: darkMode ? "#3C1D22" : "#FDEAEA",
@@ -173,6 +173,21 @@ export default function GroupDetailScreen() {
     !!group?.isCreate || (!!leader && leader.user.id === currentUser?.id);
   const canManageCover =
     group?.canManageCover ?? (!!leader && leader.user.id === currentUser?.id);
+
+  const callLeader = useCallback(async () => {
+    const phone = leader?.user.phone?.trim();
+    if (!phone) return;
+
+    try {
+      await Linking.openURL(`tel:${phone}`);
+    } catch {
+      AppToast.show({
+        title: "Không thể thực hiện cuộc gọi",
+        message: "Thiết bị không hỗ trợ gọi điện hoặc số điện thoại không hợp lệ.",
+        type: "error",
+      });
+    }
+  }, [leader?.user.phone]);
 
   const pickGroupCover = async () => {
     if (!group || coverLoading) return;
@@ -669,14 +684,30 @@ export default function GroupDetailScreen() {
                 </View>
               ) : null}
             </View>
-            <View
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={
+                leader?.user.phone
+                  ? `Gọi cho ${leader.user.name}`
+                  : "Trưởng nhóm chưa có số điện thoại"
+              }
+              disabled={!leader?.user.phone}
+              onPress={() => void callLeader()}
               style={[
-                styles.leaderPill,
-                { backgroundColor: palette.successLight },
+                styles.leaderCall,
+                {
+                  backgroundColor: leader?.user.phone
+                    ? palette.primaryLight
+                    : palette.surfaceMuted,
+                },
               ]}
             >
-              <Text style={styles.leaderPillText}>Leader</Text>
-            </View>
+              <Ionicons
+                name="call"
+                size={16}
+                color={leader?.user.phone ? COLORS.primary : palette.textLight}
+              />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -1178,14 +1209,14 @@ const createStyles = (palette: AppPalette) => StyleSheet.create({
     marginTop: 4,
   },
   contactText: { flexShrink: 1, fontSize: 11, color: palette.textSecondary },
-  leaderPill: {
+  leaderCall: {
     marginLeft: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: palette.successLight,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  leaderPillText: { color: COLORS.success, fontSize: 10, fontWeight: "700" },
   sectionHeader: {
     minHeight: 58,
     paddingHorizontal: 16,

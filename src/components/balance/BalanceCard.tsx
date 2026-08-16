@@ -196,14 +196,22 @@ const BalanceCard = ({
               </View>
 
               <View style={styles.amountRow}>
-                <Text style={[styles.amountLabel, { color: getStatusColor() }]}>
+                <Text
+                  numberOfLines={1}
+                  style={[styles.amountLabel, { color: getStatusColor() }]}
+                >
                   {isNeedToPay
                     ? `Cần trả ${leader.name}`
                     : isNeedToReceive
                       ? `${leader.name} trả bạn`
                       : "Đã cân bằng"}
                 </Text>
-                <Text style={[styles.amount, { color: getStatusColor() }]}>
+                <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.72}
+                  style={[styles.amount, { color: getStatusColor() }]}
+                >
                   {isNeedToPay && `-${formatMoney(paymentAmount)}`}
                   {isNeedToReceive && `+${formatMoney(paymentAmount)}`}
                   {isSettled && "0đ"}
@@ -689,16 +697,21 @@ const styles = StyleSheet.create({
   },
   amountRow: {
     flexDirection: "row",
-    alignItems: "baseline",
+    alignItems: "center",
     justifyContent: "space-between",
+    gap: 8,
   },
   amountLabel: {
     fontSize: 12,
     flex: 1,
+    flexShrink: 1,
   },
   amount: {
-    fontSize: 18,
+    maxWidth: "48%",
+    fontSize: 16,
     fontWeight: "700",
+    textAlign: "right",
+    flexShrink: 0,
   },
   subLine: {
     flexDirection: "row",
@@ -758,10 +771,14 @@ const styles = StyleSheet.create({
   },
   fundLabel: {
     fontSize: 12,
+    flex: 1,
+    marginRight: 8,
   },
   fundValue: {
     fontSize: 12,
     fontWeight: "500",
+    flexShrink: 1,
+    textAlign: "right",
   },
   fundTotalRow: {
     flexDirection: "row",
@@ -773,10 +790,14 @@ const styles = StyleSheet.create({
   fundTotalLabel: {
     fontSize: 12,
     fontWeight: "600",
+    flex: 1,
+    marginRight: 8,
   },
   fundTotalValue: {
     fontSize: 12,
     fontWeight: "700",
+    flexShrink: 1,
+    textAlign: "right",
   },
   itemsSection: {
     gap: 8,
@@ -790,6 +811,8 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 12,
     fontWeight: "500",
+    flex: 1,
+    marginRight: 8,
   },
   sectionBadge: {
     paddingHorizontal: 8,
@@ -856,10 +879,14 @@ const styles = StyleSheet.create({
   paidAmount: {
     fontSize: 14,
     fontWeight: "700",
+    marginLeft: 8,
+    flexShrink: 0,
   },
   debtAmount: {
     fontSize: 14,
     fontWeight: "700",
+    marginLeft: 8,
+    flexShrink: 0,
   },
   emptyDetails: {
     fontSize: 13,
