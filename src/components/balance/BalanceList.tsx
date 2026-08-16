@@ -4,13 +4,16 @@ import type { ExpenseItem, Trip, UserGroupRole } from "@/src/type/trip";
 import { EXPENSE_STATUS, GROUP_ROLE } from "@/src/utils/constants";
 import { formatMoney, getNameFirstLetterUpper } from "@/src/utils/helper";
 import { exportPdf, formatPdfCurrency } from "@/src/utils/pdfExport";
-import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Image,
+  Modal,
   RefreshControl,
   StyleSheet,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { Avatar, Surface, Text, useTheme } from "react-native-paper";
@@ -30,6 +33,18 @@ interface TripFund {
     phone: string;
   };
 }
+
+type SettlementMode = "leader" | "simplified";
+type SettlementSummary = {
+  settlementMode: SettlementMode;
+  transfers: {
+    fromUserId: string;
+    toUserId: string;
+    amount: number;
+    fromUser: UserGroupRole;
+    toUser: UserGroupRole;
+  }[];
+};
 
 interface BalanceItem {
   id: string;
@@ -81,6 +96,9 @@ const BalanceList = ({
   const [refreshing, setRefreshing] = useState(false);
   const [members, setMembers] = useState<UserGroupRole[]>([]);
   const [tripFunds, setTripFunds] = useState<TripFund[]>([]);
+  const [settlement, setSettlement] = useState<SettlementSummary | null>(null);
+  const [paymentPlanOpen, setPaymentPlanOpen] = useState(false);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
 
   const leader = useMemo(() => {
     return (
@@ -127,12 +145,22 @@ const BalanceList = ({
     }
   }, [trip.id]);
 
+  const getSettlement = useCallback(async () => {
+    try {
+      const response = await api.get<SettlementSummary>(`/trips/${trip.id}/settlement`);
+      setSettlement(response.data);
+    } catch (error) {
+      console.log("Error fetching settlement:", error);
+    }
+  }, [trip.id]);
+
   useEffect(() => {
     if (!trip.id) return;
     void getExpenses();
     void getMember();
     void getTripFunds();
-  }, [getExpenses, getMember, getTripFunds, refreshKey, trip.id]);
+    void getSettlement();
+  }, [getExpenses, getMember, getTripFunds, getSettlement, refreshKey, trip.id]);
 
   const fundMap = useMemo(() => {
     const map: Record<string, number> = {};
@@ -157,8 +185,6 @@ const BalanceList = ({
       const payer = exp.paidBy;
 
       if (participants.length === 0 || !payer?.id) return;
-
-      const share = amount / participants.length;
 
       const getUserBalance = (
         userId: string,
@@ -186,6 +212,7 @@ const BalanceList = ({
           participant.name,
           participant.avatar,
         );
+        const share = Number(participant.amount || 0);
         userBalance.balance -= share;
 
         if (participant.id !== payer.id) {
@@ -267,12 +294,6 @@ const BalanceList = ({
     });
   }, [expenseBalances, fundMap, leader?.id, members, totalFunds]);
 
-  const totalToPay = Math.round(
-    finalBalances
-      .filter((b) => b.paymentStatus === "pay")
-      .reduce((sum, b) => sum + b.paymentAmount, 0),
-  );
-
   const totalExpenses = listExpenses.reduce(
     (sum, e) => sum + (Number(e.amount) || 0),
     0,
@@ -281,6 +302,18 @@ const BalanceList = ({
   const currentBalance = finalBalances.find(
     (balance) => balance.userId === currentUserId,
   );
+  const currentPaid = currentBalance?.paidItems.reduce((sum, item) => sum + item.amount, 0) || 0;
+  const currentShare = Math.max(currentPaid - (currentBalance?.balanceFromExpense || 0), 0);
+  const myTransfers = (settlement?.transfers ?? []).filter(
+    (transfer) => transfer.fromUserId === currentUserId || transfer.toUserId === currentUserId,
+  );
+  const paymentTransfers = myTransfers.filter((transfer) => transfer.fromUserId === currentUserId);
+  const hasPaymentDue = paymentTransfers.length > 0;
+  const getTransferQrUrl = (transfer: SettlementSummary["transfers"][number]) => {
+    const receiver = transfer.toUser;
+    if (!receiver.bank || !receiver.bankAccNumber) return null;
+    return `https://img.vietqr.io/image/${receiver.bank}-${receiver.bankAccNumber}-compact2.png?amount=${transfer.amount}&addInfo=${encodeURIComponent(`Thanh toan ${transfer.fromUser.name} cho ${receiver.name}`)}`;
+  };
 
   useEffect(() => {
     if (!trip.isCloseTrip) {
@@ -327,18 +360,26 @@ const BalanceList = ({
     };
     await exportPdf(
       `${trip.name} - Thanh toán`,
-      ["Thành viên", "Cân đối chi phí", "Đã đóng quỹ", "Số dư cuối", "Trạng thái", "Số tiền thanh toán", "Thanh toán cho"],
-      validBalances.map((balance) => [
-        balance.name,
-        formatPdfCurrency(balance.balanceFromExpense),
-        formatPdfCurrency(balance.fundAmount),
-        formatPdfCurrency(balance.finalBalance),
-        statusLabels[balance.paymentStatus],
-        formatPdfCurrency(balance.paymentAmount),
-        balance.paymentStatus === "settled" ? "" : leader?.name,
-      ]),
+      ["Thành viên", "Cân đối chi phí", "Đã đóng quỹ", "Số dư cuối", "Trạng thái", "Số tiền thanh toán", "Thanh toán với"],
+      validBalances.map((balance) => {
+        const paymentWith = settlement?.settlementMode === "simplified"
+          ? settlement.transfers
+              .filter((transfer) => transfer.fromUserId === balance.userId || transfer.toUserId === balance.userId)
+              .map((transfer) => transfer.fromUserId === balance.userId ? transfer.toUser.name : transfer.fromUser.name)
+              .join(", ")
+          : balance.paymentStatus === "settled" ? "" : leader?.name;
+        return [
+          balance.name,
+          formatPdfCurrency(balance.balanceFromExpense),
+          formatPdfCurrency(balance.fundAmount),
+          formatPdfCurrency(balance.finalBalance),
+          statusLabels[balance.paymentStatus],
+          formatPdfCurrency(balance.paymentAmount),
+          paymentWith,
+        ];
+      }),
     );
-  }, [leader?.name, trip.name, validBalances]);
+  }, [leader?.name, settlement, trip.name, validBalances]);
 
   useEffect(() => {
     onExportReady?.(handleExport);
@@ -431,6 +472,7 @@ const BalanceList = ({
               isCurrent={item.userId === currentUserId}
               leader={leader!}
               users={members}
+              centralizedSettlement={settlement?.settlementMode !== "simplified"}
             />
           );
         }}
@@ -465,94 +507,43 @@ const BalanceList = ({
             ]}
             elevation={0}
           >
-            <View style={styles.leaderRow}>
-              {leader?.avatar ? (
-                <Avatar.Image source={{ uri: leader.avatar }} size={56} />
-              ) : (
-                <Avatar.Text
-                  size={56}
-                  label={getNameFirstLetterUpper(leader?.name || "")}
-                  style={{ backgroundColor: theme.colors.primary }}
-                />
-              )}
-              <View style={styles.leaderInfo}>
-                <Text
-                  style={[styles.leaderLabel, { color: palette.textSecondary }]}
-                >
-                  Trưởng nhóm
-                </Text>
-                <Text
-                  style={[styles.leaderName, { color: palette.textPrimary }]}
-                >
-                  {leader?.name}
-                </Text>
-              </View>
-            </View>
-
-            <View
-              style={[styles.divider, { backgroundColor: palette.border }]}
-            />
-
+            <Text style={[styles.summaryTitle, { color: palette.textPrimary }]}>Tóm tắt</Text>
             <View style={styles.statsRow}>
-              <View style={styles.statItem}>
-                <Text
-                  style={[styles.statLabel, { color: palette.textSecondary }]}
-                >
-                  Tổng chi phí
-                </Text>
-                <Text
-                  style={[styles.statValue, { color: palette.textPrimary }]}
-                >
-                  {formatMoney(totalExpenses)}
-                </Text>
+              <View style={[styles.statItem, { backgroundColor: palette.primaryLight }]}>
+                <View style={[styles.statIcon, { backgroundColor: "#BBDDFA" }]}><Ionicons name="cash-outline" size={22} color={theme.colors.primary} /></View>
+                <View><Text style={[styles.statLabel, { color: palette.textSecondary }]}>Tổng chi</Text><Text style={[styles.statValue, { color: palette.textPrimary }]}>{formatMoney(totalExpenses)}</Text></View>
               </View>
-              <View
-                style={[
-                  styles.statDivider,
-                  { backgroundColor: palette.border },
-                ]}
-              />
-              <View style={styles.statItem}>
-                <Text
-                  style={[styles.statLabel, { color: palette.textSecondary }]}
-                >
-                  Tổng quỹ
-                </Text>
-                <Text
-                  style={[styles.statValue, { color: theme.colors.primary }]}
-                >
-                  {formatMoney(totalFunds)}
-                </Text>
+              <View style={[styles.statItem, { backgroundColor: palette.successLight }]}>
+                <View style={[styles.statIcon, { backgroundColor: "#A9E8C5" }]}><Ionicons name="wallet-outline" size={22} color="#159A6F" /></View>
+                <View style={{ flex: 1 }}><Text style={[styles.statLabel, { color: palette.textSecondary }]}>Bạn đã tiêu</Text><Text style={[styles.statValue, { color: "#159A6F" }]} numberOfLines={1} adjustsFontSizeToFit>{formatMoney(currentShare)}</Text></View>
               </View>
             </View>
 
-            <View
-              style={[styles.divider, { backgroundColor: palette.border }]}
-            />
-
-            <View style={styles.totalContainer}>
-              <Text
-                style={[styles.totalLabel, { color: palette.textPrimary }]}
-              >
-                Tổng cần thu
-              </Text>
-              <LinearGradient
-                colors={["#10B981", "#059669"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.totalBadge}
-              >
-                <Text style={styles.totalAmount}>
-                  {formatMoney(totalToPay)}
-                </Text>
-              </LinearGradient>
-            </View>
-
-            <Text
-              style={[styles.noteText, { color: palette.textSecondary }]}
-            >
-              * Đã bao gồm điều chỉnh từ quỹ chuyến đi
-            </Text>
+            {hasPaymentDue && <TouchableOpacity style={styles.groupPaymentButton} onPress={() => setPaymentModalOpen(true)} activeOpacity={0.8}>
+              <Text style={styles.groupPaymentButtonText}>Thanh toán ngay</Text>
+            </TouchableOpacity>}
+            <View style={[styles.paymentPlan, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+                <TouchableOpacity style={[styles.paymentPlanHeader, { backgroundColor: palette.warningLight }]} onPress={() => setPaymentPlanOpen((open) => !open)}>
+                  <View style={styles.paymentPlanTitleRow}>
+                    <Ionicons name="receipt-outline" size={22} color="#F59E0B" />
+                    <View><Text style={[styles.paymentPlanEyebrow, { color: palette.textSecondary }]}>Thanh toán cuối chuyến</Text><Text style={[styles.paymentPlanTitle, { color: palette.textPrimary }]}>Kế hoạch thanh toán cụ thể</Text></View>
+                  </View>
+                  <View style={styles.paymentPlanAction}><Text style={styles.paymentPlanActionText}>{paymentPlanOpen ? "Thu gọn" : `${myTransfers.length} giao dịch`}</Text><Ionicons name={paymentPlanOpen ? "chevron-up" : "chevron-down"} size={19} color={palette.textSecondary} /></View>
+                </TouchableOpacity>
+                {paymentPlanOpen && myTransfers.map((transfer, index) => (
+                    <View key={`${transfer.fromUserId}-${transfer.toUserId}-${index}`} style={[styles.transferRow, { borderTopColor: palette.border }]}>
+                      <Avatar.Text size={38} label={getNameFirstLetterUpper(transfer.fromUser.name || "")} />
+                      <Text style={{ color: palette.textLight, fontSize: 20 }}>›</Text>
+                      <Avatar.Text size={38} label={getNameFirstLetterUpper(transfer.toUser.name || "")} />
+                      <View style={styles.transferAmountWrap}>
+                        <Text style={{ color: transfer.fromUserId === currentUserId ? theme.colors.error : theme.colors.primary, fontWeight: "700", fontSize: 13 }}>
+                          {transfer.fromUserId === currentUserId ? "-" : "+"}{formatMoney(transfer.amount)}
+                        </Text>
+                      </View>
+                    </View>
+                ))}
+                {paymentPlanOpen && !myTransfers.length && <Text style={[styles.emptyPlan, { color: palette.textSecondary }]}>Bạn không có giao dịch cần thanh toán</Text>}
+              </View>
           </Surface>
         }
         ListEmptyComponent={
@@ -575,11 +566,69 @@ const BalanceList = ({
           </Surface>
         }
       />
+      <Modal visible={paymentModalOpen} transparent animationType="slide" onRequestClose={() => setPaymentModalOpen(false)}>
+        <View style={styles.modalOverlay}>
+          <Surface style={[styles.paymentModal, { backgroundColor: palette.surface }]} elevation={4}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: palette.textPrimary }]}>Thanh toán ngay</Text>
+              <TouchableOpacity style={[styles.modalClose, { backgroundColor: palette.surfaceMuted }]} onPress={() => setPaymentModalOpen(false)}>
+                <Ionicons name="close" size={22} color={palette.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <FlatList data={paymentTransfers} keyExtractor={(item, index) => `${item.fromUserId}-${item.toUserId}-qr-${index}`}
+              contentContainerStyle={styles.qrList}
+              renderItem={({ item: transfer }) => {
+                const qrUrl = getTransferQrUrl(transfer);
+                return <View style={[styles.qrCard, { borderColor: palette.border }]}>
+                  <Text style={[styles.qrTitle, { color: palette.textPrimary }]}>{transfer.fromUser.name} → {transfer.toUser.name}</Text>
+                  <Text style={[styles.qrAmount, { color: transfer.fromUserId === currentUserId ? theme.colors.error : "#159A6F" }]}>
+                    {transfer.fromUserId === currentUserId ? "-" : "+"}{formatMoney(transfer.amount)}
+                  </Text>
+                  {qrUrl ? <Image source={{ uri: qrUrl }} style={styles.modalQr} />
+                    : <Text style={[styles.missingBank, { color: palette.textSecondary }]}>Người nhận chưa có thông tin ngân hàng</Text>}
+                </View>;
+              }}
+              ListEmptyComponent={<Text style={[styles.emptyPlan, { color: palette.textSecondary }]}>Bạn không có giao dịch cần thanh toán</Text>}
+            />
+          </Surface>
+        </View>
+      </Modal>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  transferRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderTopWidth: 1,
+  },
+  transferAmountWrap: { flex: 1, alignItems: "flex-end" },
+  missingBank: { marginTop: 5, fontSize: 9, maxWidth: 120, textAlign: "right" },
+  summaryTitle: { fontSize: 18, fontWeight: "800", marginBottom: 12 },
+  groupPaymentButton: { minHeight: 50, marginTop: 16, borderRadius: 25, backgroundColor: "#0875D1", alignItems: "center", justifyContent: "center" },
+  groupPaymentButtonText: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
+  paymentPlan: { marginTop: 16, borderRadius: 16, borderWidth: 1, overflow: "hidden" },
+  paymentPlanHeader: { minHeight: 60, flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 10 },
+  paymentPlanTitleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  paymentPlanEyebrow: { fontSize: 10, marginBottom: 2 },
+  paymentPlanTitle: { fontSize: 15, fontWeight: "800" },
+  paymentPlanAction: { flexDirection: "row", alignItems: "center", gap: 5 },
+  paymentPlanActionText: { color: "#AD7F1D", fontSize: 10, fontWeight: "700" },
+  emptyPlan: { padding: 20, textAlign: "center", fontSize: 12 },
+  modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,.5)" },
+  paymentModal: { maxHeight: "82%", borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 24 },
+  modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 18 },
+  modalTitle: { fontSize: 18, fontWeight: "800" },
+  modalClose: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
+  qrList: { paddingHorizontal: 16, paddingBottom: 20, gap: 12 },
+  qrCard: { padding: 14, borderWidth: 1, borderRadius: 16, alignItems: "center" },
+  qrTitle: { fontSize: 13, fontWeight: "700" },
+  qrAmount: { marginTop: 5, fontSize: 17, fontWeight: "800" },
+  modalQr: { width: 220, height: 220, marginTop: 10, borderRadius: 10 },
   container: {
     flex: 1,
   },
@@ -654,11 +703,17 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 10,
   },
   statItem: {
     flex: 1,
+    flexDirection: "row",
     alignItems: "center",
+    gap: 9,
+    padding: 14,
+    borderRadius: 16,
   },
+  statIcon: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   statLabel: {
     fontSize: 12,
     marginBottom: 4,

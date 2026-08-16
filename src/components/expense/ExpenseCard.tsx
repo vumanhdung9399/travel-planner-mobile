@@ -58,9 +58,12 @@ export const ExpenseCard = ({
       item.paidBy?.id === currentUserId) &&
     !trip.isCloseTrip;
 
-  const participants = users.filter((u: UserGroup) =>
-    item.participants?.find((p) => p.id === u.id),
-  );
+  const participants = users
+    .filter((u: UserGroup) => item.participants?.some((p) => p.id === u.id))
+    .map((user) => ({
+      ...user,
+      amount: Number(item.participants.find((participant) => participant.id === user.id)?.amount || 0),
+    }));
 
   const category = categories.find((c) => c.value === item.category);
   const categoryColors: Record<string, { background: string; color: string }> = {
@@ -212,7 +215,6 @@ export const ExpenseCard = ({
           ) : null}
         </View>
       </View>
-
       {/* REJECTION REASON */}
       {item.rejectionReason && (
         <View

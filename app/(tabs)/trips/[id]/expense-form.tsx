@@ -76,6 +76,8 @@ const ExpenseFormScreen = () => {
   );
   const [paidBy, setPaidBy] = useState(user?.id || "");
   const [participants, setParticipants] = useState<string[]>([]);
+  const [splitMode, setSplitMode] = useState<"equal" | "exact">("equal");
+  const [participantAmounts, setParticipantAmounts] = useState<Record<string, string>>({});
   const [note, setNote] = useState("");
   const [attachment, setAttachment] =
     useState<ImagePicker.ImagePickerAsset | null>(null);
@@ -113,6 +115,13 @@ const ExpenseFormScreen = () => {
         item.participants
           ?.map((p: any) => p.id || p.user?.id)
           .filter(Boolean) || [],
+      );
+      setSplitMode(item.splitMode ?? "equal");
+      setParticipantAmounts(
+        Object.fromEntries((item.participants ?? []).map((participant) => [
+          participant.id,
+          String(Number(participant.amount || 0)),
+        ])),
       );
       setNote(item.note || "");
       setAttachment(null);
@@ -159,8 +168,14 @@ const ExpenseFormScreen = () => {
     if (!amount || Number(amount) <= 0) newErrors.amount = "Số tiền phải > 0";
     if (!category) newErrors.category = "Vui lòng chọn danh mục";
     if (!paidBy) newErrors.paidBy = "Vui lòng chọn người trả";
-    if (participants.length < 2)
-      newErrors.participants = "Chọn ít nhất 2 người tham gia";
+    if (participants.length < 1)
+      newErrors.participants = "Chọn ít nhất 1 người chịu chi phí";
+    if (
+      splitMode === "exact" &&
+      participants.reduce((sum, userId) => sum + Number(participantAmounts[userId] || 0), 0) !== Number(amount)
+    ) {
+      newErrors.split = "Tổng phần chia phải bằng tổng chi phí";
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -172,19 +187,17 @@ const ExpenseFormScreen = () => {
       return;
     }
 
-    // Ensure payer is in participants
-    let finalParticipants = participants;
-    if (!finalParticipants.includes(paidBy)) {
-      finalParticipants = [...finalParticipants, paidBy];
-    }
-
     const data = {
       title: title.trim(),
       amount: Number(amount),
       category,
       time: dayjs(time).toISOString(),
       paidBy,
-      participants: finalParticipants,
+      splitMode,
+      participants: participants.map((userId) => ({
+        userId,
+        ...(splitMode === "exact" && { amount: Number(participantAmounts[userId] || 0) }),
+      })),
       note: note.trim() || undefined,
     };
 
@@ -296,8 +309,6 @@ const ExpenseFormScreen = () => {
   };
 
   const toggleParticipant = (userId: string) => {
-    if (userId === paidBy) return; // Cannot remove payer
-
     setParticipants((prev) =>
       prev.includes(userId)
         ? prev.filter((id) => id !== userId)
@@ -311,7 +322,7 @@ const ExpenseFormScreen = () => {
   };
 
   const deselectAllParticipants = () => {
-    setParticipants([paidBy]); // Keep only payer
+    setParticipants([]);
   };
 
   const selectedPayer = members.find((m) => m.id === paidBy);
@@ -562,6 +573,59 @@ const ExpenseFormScreen = () => {
             ) : null}
           </View>
 
+          <View style={styles.field}>
+            <Text style={[styles.label, { color: palette.textPrimary }]}>Cách chia</Text>
+            <View style={styles.splitModeRow}>
+              {(["equal", "exact"] as const).map((mode) => {
+                const active = splitMode === mode;
+                return (
+                  <TouchableOpacity
+                    key={mode}
+                    style={[
+                      styles.splitModeButton,
+                      { borderColor: active ? COLORS.primary : palette.border, backgroundColor: active ? palette.primaryLight : palette.surface },
+                    ]}
+                    onPress={() => setSplitMode(mode)}
+                  >
+                    <Text style={{ color: active ? COLORS.primary : palette.textSecondary, fontWeight: "700" }}>
+                      {mode === "equal" ? "Chia đều" : "Tùy chỉnh"}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            {splitMode === "exact" && (
+              <View style={styles.customSplitList}>
+                {selectedParticipants.map((member) => (
+                  <View key={member.id} style={styles.customSplitRow}>
+                    <View style={styles.payerInfo}>
+                      {renderMemberAvatar(member, 28)}
+                      <Text style={[styles.payerName, { color: palette.textPrimary }]}>{member.name}</Text>
+                    </View>
+                    <TextInput
+                      style={[styles.customSplitInput, { borderColor: palette.border, backgroundColor: palette.surface, color: palette.textPrimary }]}
+                      keyboardType="number-pad"
+                      value={participantAmounts[member.id] || ""}
+                      onChangeText={(value) => setParticipantAmounts((current) => ({
+                        ...current,
+                        [member.id]: value.replace(/\D/g, ""),
+                      }))}
+                      placeholder="0"
+                      placeholderTextColor={palette.textLight}
+                    />
+                  </View>
+                ))}
+                <View style={styles.splitTotalRow}>
+                  <Text style={{ color: palette.textSecondary }}>Đã phân bổ</Text>
+                  <Text style={{ color: errors.split ? COLORS.error : COLORS.secondary, fontWeight: "700" }}>
+                    {formatMoney(participants.reduce((sum, userId) => sum + Number(participantAmounts[userId] || 0), 0))}
+                  </Text>
+                </View>
+                {errors.split ? <Text style={styles.errorText}>{errors.split}</Text> : null}
+              </View>
+            )}
+          </View>
+
           {/* Ghi chú */}
           <View style={styles.field}>
             <Text style={[styles.label, { color: palette.textPrimary }]}>Ghi chú</Text>
@@ -766,7 +830,6 @@ const ExpenseFormScreen = () => {
                   <TouchableOpacity
                     style={[styles.memberItem, { borderBottomColor: palette.border }]}
                     onPress={() => toggleParticipant(userId)}
-                    disabled={isPayer}
                   >
                     {renderMemberAvatar(item, 40)}
                     <View style={styles.memberInfo}>
@@ -775,8 +838,7 @@ const ExpenseFormScreen = () => {
                       </Text>
                     </View>
                     <Checkbox
-                      status={isSelected || isPayer ? "checked" : "unchecked"}
-                      disabled={isPayer}
+                      status={isSelected ? "checked" : "unchecked"}
                     />
                   </TouchableOpacity>
                 );
@@ -994,6 +1056,41 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontSize: 14,
     fontWeight: "600",
+  },
+  splitModeRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  splitModeButton: {
+    flex: 1,
+    minHeight: 44,
+    borderWidth: 1,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  customSplitList: {
+    marginTop: 12,
+    gap: 10,
+  },
+  customSplitRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  customSplitInput: {
+    width: 132,
+    minHeight: 42,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    textAlign: "right",
+  },
+  splitTotalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   modalOverlay: {
     flex: 1,

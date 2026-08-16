@@ -52,6 +52,7 @@ type HeroSummary = {
 const TRIP_HERO_HEIGHT = 160;
 const COMPACT_HEADER_SCROLL_OFFSET = 110;
 const FINANCE_PANEL_HEIGHT = 174;
+const FINANCE_SWITCHER_HEIGHT = 72;
 
 type FinancialSection = "expenses" | "fund" | "balance";
 
@@ -269,7 +270,11 @@ const TripDetailScreen = () => {
           );
         case "finance": {
           const contentInsetTop =
-            TRIP_HERO_HEIGHT + insets.top + FINANCE_PANEL_HEIGHT;
+            TRIP_HERO_HEIGHT +
+            insets.top +
+            (financialSection === "balance"
+              ? FINANCE_SWITCHER_HEIGHT
+              : FINANCE_PANEL_HEIGHT);
           const commonProps = {
             trip,
             refreshKey: contentRevision,
@@ -785,8 +790,22 @@ const TripDetailScreen = () => {
               transform: [
                 {
                   translateY: sceneScrollY.interpolate({
-                    inputRange: [0, TRIP_HERO_HEIGHT + FINANCE_PANEL_HEIGHT],
-                    outputRange: [0, -(TRIP_HERO_HEIGHT + FINANCE_PANEL_HEIGHT)],
+                    inputRange: [
+                      0,
+                      TRIP_HERO_HEIGHT +
+                        (financialSection === "balance"
+                          ? FINANCE_SWITCHER_HEIGHT
+                          : FINANCE_PANEL_HEIGHT),
+                    ],
+                    outputRange: [
+                      0,
+                      -(
+                        TRIP_HERO_HEIGHT +
+                        (financialSection === "balance"
+                          ? FINANCE_SWITCHER_HEIGHT
+                          : FINANCE_PANEL_HEIGHT)
+                      ),
+                    ],
                     extrapolate: "clamp",
                   }),
                 },
@@ -834,7 +853,7 @@ const TripDetailScreen = () => {
             })}
           </View>
 
-          <View
+          {financialSection !== "balance" && <View
             style={[
               styles.financeSummaryCard,
               { backgroundColor: palette.surface, borderColor: palette.border },
@@ -904,7 +923,7 @@ const TripDetailScreen = () => {
                 ? `Đã dùng ${fundUsage}% quỹ chuyến đi`
                 : "Chưa có khoản đóng quỹ"}
             </Text>
-          </View>
+          </View>}
         </Animated.View>
       ) : null}
 
