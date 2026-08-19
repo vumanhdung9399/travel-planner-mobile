@@ -6,10 +6,12 @@ import { getSocket } from "@/src/utils/socket";
 import { COLORS } from "@/src/utils/constants";
 import { useAppPalette } from "@/src/hook/useAppPalette";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams } from "expo-router";
+import { CommonActions, useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  BackHandler,
   FlatList,
   KeyboardAvoidingView,
   NativeModules,
@@ -26,7 +28,12 @@ import GroupCall, { type CallMedia } from "@/src/components/group/GroupCall";
 const EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🎉"];
 
 export default function GroupChatScreen() {
-  const { id, call } = useLocalSearchParams<{ id: string; call?: string }>();
+  const { id, call, source } = useLocalSearchParams<{
+    id: string;
+    call?: string;
+    source?: string;
+  }>();
+  const navigation = useNavigation();
   const userId = useAuthStore((state) => state.user?.id);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [readers, setReaders] = useState<MessagePage["readers"]>([]);
@@ -35,7 +42,41 @@ export default function GroupChatScreen() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<ChatMessage | null>(null);
   const listRef = useRef<FlatList<ChatMessage>>(null);
+  const isHandlingNotificationBackRef = useRef(false);
   const palette = useAppPalette();
+  const openedFromNotification =
+    call === "audio" || call === "video" || source === "notification";
+
+  const returnHomeFromNotification = useCallback(() => {
+    if (isHandlingNotificationBackRef.current) return;
+    isHandlingNotificationBackRef.current = true;
+
+    // A notification can open this route without a usable navigation history.
+    // Reset the group stack, then select the Home (groups) tab.
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [{ name: "index" }],
+      }),
+    );
+    navigation.getParent()?.navigate("index");
+  }, [navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!openedFromNotification) return;
+
+      const subscription = BackHandler.addEventListener(
+        "hardwareBackPress",
+        () => {
+          returnHomeFromNotification();
+          return true;
+        },
+      );
+
+      return () => subscription.remove();
+    }, [openedFromNotification, returnHomeFromNotification]),
+  );
 
   const load = useCallback(
     async (markAsRead = false) => {
@@ -121,6 +162,9 @@ export default function GroupChatScreen() {
       <CommonHeader
         title={groupName}
         fallbackHref={{ pathname: "/groups/[id]", params: { id } }}
+        onBack={
+          openedFromNotification ? returnHomeFromNotification : undefined
+        }
         rightElement={
           id ? (
             <View style={styles.headerActions}>

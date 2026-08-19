@@ -107,7 +107,9 @@ const GroupForm: React.FC<GroupFormProps> = ({ mode, groupId }) => {
   return (
     <TripDetailFormSheet
       title={mode === "create" ? "Tạo nhóm mới" : "Sửa nhóm"}
-      onCancel={() => router.back()}
+      onCancel={() =>
+        mode === "create" ? router.replace("/") : router.back()
+      }
       onSubmit={handleSubmit}
       loading={loading}
       submitLabel="Lưu"

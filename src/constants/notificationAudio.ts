@@ -2,8 +2,8 @@
  * Notification channel ids are versioned because Android channel sound and
  * vibration settings become immutable after the channel is first created.
  */
-export const MESSAGE_NOTIFICATION_CHANNEL_ID = "travel_messages_v3";
-export const CALL_NOTIFICATION_CHANNEL_ID = "travel_calls_v3";
+export const MESSAGE_NOTIFICATION_CHANNEL_ID = "travel_messages_v5";
+export const CALL_NOTIFICATION_CHANNEL_ID = "travel_calls_v5";
 
 export const MESSAGE_NOTIFICATION_SOUND = "messenger.mp3";
 export const CALL_NOTIFICATION_SOUND = "call.mp3";

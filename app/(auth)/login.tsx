@@ -1,23 +1,24 @@
-import { showSuccess } from "@/src/utils/errorHandler";
+import { handleApiError, showSuccess } from "@/src/utils/errorHandler";
 import { useAppPalette } from "@/src/hook/useAppPalette";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { api } from "@services/api";
 import { useAuthStore } from "@store/auth.store";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import * as Google from "expo-auth-session/providers/google";
 import { Controller, useForm } from "react-hook-form";
 import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   Avatar,
   Button,
   Card,
-  Divider,
   Text,
   TextInput,
 } from "react-native-paper";
@@ -39,6 +40,42 @@ export default function LoginScreen() {
 
   const [secureText, setSecureText] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  const googleClientId = Platform.select({
+    android: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+    ios: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+    web: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    default: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+  });
+  const isGoogleAuthConfigured = Boolean(googleClientId);
+
+  const [googleRequest, googleResponse, promptGoogle] = Google.useIdTokenAuthRequest({
+    // expo-auth-session throws while rendering when the platform client ID is
+    // missing. Keep the password login usable and disable Google auth until the
+    // matching EXPO_PUBLIC_GOOGLE_*_CLIENT_ID is configured.
+    clientId: googleClientId || "google-auth-not-configured",
+    scopes: ["openid", "profile", "email"],
+  });
+
+  useEffect(() => {
+    if (googleResponse?.type !== "success") return;
+    const idToken =
+      googleResponse.params?.id_token || googleResponse.authentication?.idToken;
+    if (!idToken) {
+      handleApiError({ response: { data: { message: "Google không trả về ID token" } } });
+      return;
+    }
+    setGoogleLoading(true);
+    api.post("/auth/google", { idToken })
+      .then(({ data }) => {
+        setAuth({ user: data.user, accessToken: data.access_token, refreshToken: data.refresh_token });
+        showSuccess("Đăng nhập với Google thành công");
+        router.replace("/(tabs)");
+      })
+      .catch(handleApiError)
+      .finally(() => setGoogleLoading(false));
+  }, [googleResponse, setAuth]);
 
   const {
     control,
@@ -71,7 +108,7 @@ export default function LoginScreen() {
     }
   };
 
-  const screenBackground = palette.isDark ? palette.background : "#1687F8";
+  const screenBackground = palette.isDark ? palette.background : "#F3F7FB";
 
   return (
     <SafeAreaView
@@ -97,13 +134,13 @@ export default function LoginScreen() {
               />
 
               <Text variant="headlineMedium" style={styles.title}>
-                Đăng nhập
+                Chào mừng trở lại
               </Text>
 
               <Text
                 style={[styles.subtitle, { color: palette.textSecondary }]}
               >
-                Tiếp tục hành trình của bạn ✈️
+                Tiếp tục hành trình của bạn
               </Text>
 
               <Controller
@@ -155,6 +192,10 @@ export default function LoginScreen() {
                 <Text style={styles.error}>{errors.password.message}</Text>
               )}
 
+              <View style={styles.forgotRow}>
+                <Button compact onPress={() => router.push("/(auth)/forgot-password")}>Quên mật khẩu?</Button>
+              </View>
+
               <Button
                 mode="contained"
                 onPress={handleSubmit(onSubmit)}
@@ -165,22 +206,34 @@ export default function LoginScreen() {
                 {loading ? "Đang đăng nhập..." : "Đăng nhập"}
               </Button>
 
-              <Divider
-                style={{ marginVertical: 20, backgroundColor: palette.border }}
-              />
+              <View style={styles.dividerRow}>
+                <View style={[styles.dividerLine, { backgroundColor: palette.border }]} />
+                <Text style={[styles.orText, { color: palette.textSecondary }]}>hoặc tiếp tục với</Text>
+                <View style={[styles.dividerLine, { backgroundColor: palette.border }]} />
+              </View>
 
               <Button
                 mode="outlined"
-                onPress={() => router.push("/register")}
+                icon="google"
+                onPress={() => {
+                  if (isGoogleAuthConfigured) void promptGoogle();
+                }}
+                loading={googleLoading}
+                disabled={
+                  !isGoogleAuthConfigured ||
+                  !googleRequest ||
+                  googleLoading ||
+                  loading
+                }
+                style={styles.googleButton}
               >
-                Tạo tài khoản
+                Tiếp tục với Google
               </Button>
 
-              <Text
-                style={[styles.footer, { color: palette.textSecondary }]}
-              >
-                Chưa có tài khoản Travel Planner?
-              </Text>
+              <View style={styles.registerRow}>
+                <Text style={{ color: palette.textSecondary }}>Chưa có tài khoản?</Text>
+                <Button compact onPress={() => router.push("/register")} labelStyle={styles.registerLabel}>Đăng ký</Button>
+              </View>
             </Card.Content>
           </Card>
         </ScrollView>
@@ -195,37 +248,46 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     justifyContent: "center",
-    padding: 16,
+    padding: 18,
   },
   card: {
-    borderRadius: 14,
-    paddingVertical: 10,
+    borderRadius: 28,
+    paddingVertical: 18,
+    shadowColor: "#2D4E6E",
+    shadowOpacity: 0.13,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 5,
   },
   logo: { alignSelf: "center", marginBottom: 16 },
   title: {
     textAlign: "center",
-    fontWeight: "bold",
+    fontWeight: "800",
     marginBottom: 8,
   },
   subtitle: {
     textAlign: "center",
-    marginBottom: 20,
+    marginBottom: 26,
   },
   input: {
-    marginBottom: 10,
+    marginBottom: 14,
+    backgroundColor: "transparent",
   },
   button: {
-    marginTop: 10,
+    marginTop: 12,
     borderRadius: 14,
     paddingVertical: 6,
-  },
-  footer: {
-    textAlign: "center",
-    marginTop: 10,
   },
   error: {
     color: "red",
     marginBottom: 5,
     fontSize: 12,
   },
+  forgotRow: { alignItems: "flex-end", marginTop: -12 },
+  dividerRow: { flexDirection: "row", alignItems: "center", gap: 12, marginVertical: 22 },
+  dividerLine: { height: StyleSheet.hairlineWidth, flex: 1 },
+  orText: { textAlign: "center", fontSize: 13 },
+  googleButton: { borderRadius: 14, marginBottom: 16, paddingVertical: 4 },
+  registerRow: { flexDirection: "row", alignItems: "center", justifyContent: "center" },
+  registerLabel: { color: "#1687F8", fontWeight: "800" },
 });

@@ -18,13 +18,13 @@ import android.widget.TextView
 
 class IncomingCallActivity : Activity() {
   private val timeoutHandler = Handler(Looper.getMainLooper())
-  private val timeout = Runnable { finish() }
+  private val timeout = Runnable { closeCallScreen() }
   private var endedReceiverRegistered = false
   private val endedReceiver = object : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
       val endedGroupId = intent.getStringExtra("groupId")
       if (endedGroupId == this@IncomingCallActivity.intent.getStringExtra("groupId")) {
-        finish()
+        closeCallScreen()
       }
     }
   }
@@ -107,7 +107,7 @@ class IncomingCallActivity : Activity() {
       setBackgroundColor(Color.rgb(220, 38, 38))
       setOnClickListener {
         TravelNotifications.cancelIncomingCall(this@IncomingCallActivity, groupId)
-        finish()
+        closeCallScreen()
       }
       layoutParams = LinearLayout.LayoutParams(0, 140, 1f).apply { marginEnd = 18 }
     })
@@ -139,7 +139,7 @@ class IncomingCallActivity : Activity() {
   private fun acceptCall(sourceIntent: Intent) {
     val groupId = sourceIntent.getStringExtra("groupId").orEmpty()
     if (groupId.isBlank()) {
-      finish()
+      closeCallScreen()
       return
     }
     val media = sourceIntent.getStringExtra("media") ?: "audio"
@@ -147,17 +147,25 @@ class IncomingCallActivity : Activity() {
     startActivity(Intent(this, MainActivity::class.java).apply {
       action = Intent.ACTION_VIEW
       data = TravelNotifications.callDeepLink(groupId, media)
-      addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+      addFlags(
+        Intent.FLAG_ACTIVITY_NEW_TASK or
+          Intent.FLAG_ACTIVITY_CLEAR_TOP or
+          Intent.FLAG_ACTIVITY_SINGLE_TOP,
+      )
     })
-    // Do not use finishAndRemoveTask(): IncomingCallActivity can share the app's
-    // task affinity, so removing its task also closes the MainActivity we just opened.
-    finish()
+    closeCallScreen()
+  }
+
+  private fun closeCallScreen() {
+    // This activity has a dedicated task affinity, so removing its task cannot
+    // close or replace the application's MainActivity task.
+    finishAndRemoveTask()
   }
 
   override fun onDestroy() {
     timeoutHandler.removeCallbacks(timeout)
     if (endedReceiverRegistered) {
-      unregisterReceiver(endedReceiver)
+      runCatching { unregisterReceiver(endedReceiver) }
       endedReceiverRegistered = false
     }
     super.onDestroy()

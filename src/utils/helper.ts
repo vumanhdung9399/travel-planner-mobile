@@ -83,7 +83,7 @@ export const getNotificationRedirect = (data: any): string => {
         : "/groups";
 
     case "chat_message":
-      return groupId ? `/groups/${groupId}/chat` : "/groups";
+      return groupId ? `/groups/${groupId}/chat?source=notification` : "/groups";
 
     case NOTIFICATION_TYPE.INVITE:
       if (groupId) {

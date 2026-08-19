@@ -509,13 +509,13 @@ const BalanceList = ({
           >
             <Text style={[styles.summaryTitle, { color: palette.textPrimary }]}>Tóm tắt</Text>
             <View style={styles.statsRow}>
-              <View style={[styles.statItem, { backgroundColor: palette.primaryLight }]}>
+              <View style={[styles.statItem, { backgroundColor: palette.primaryLight }]}> 
                 <View style={[styles.statIcon, { backgroundColor: "#BBDDFA" }]}><Ionicons name="cash-outline" size={22} color={theme.colors.primary} /></View>
-                <View><Text style={[styles.statLabel, { color: palette.textSecondary }]}>Tổng chi</Text><Text style={[styles.statValue, { color: palette.textPrimary }]}>{formatMoney(totalExpenses)}</Text></View>
+                <View style={styles.statContent}><Text style={[styles.statLabel, { color: palette.textSecondary }]}>Tổng chi</Text><Text style={[styles.statValue, { color: palette.textPrimary }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{formatMoney(totalExpenses)}</Text></View>
               </View>
-              <View style={[styles.statItem, { backgroundColor: palette.successLight }]}>
+              <View style={[styles.statItem, { backgroundColor: palette.successLight }]}> 
                 <View style={[styles.statIcon, { backgroundColor: "#A9E8C5" }]}><Ionicons name="wallet-outline" size={22} color="#159A6F" /></View>
-                <View style={{ flex: 1 }}><Text style={[styles.statLabel, { color: palette.textSecondary }]}>Bạn đã tiêu</Text><Text style={[styles.statValue, { color: "#159A6F" }]} numberOfLines={1} adjustsFontSizeToFit>{formatMoney(currentShare)}</Text></View>
+                <View style={styles.statContent}><Text style={[styles.statLabel, { color: palette.textSecondary }]}>Bạn đã tiêu</Text><Text style={[styles.statValue, { color: "#159A6F" }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{formatMoney(currentShare)}</Text></View>
               </View>
             </View>
 
@@ -524,17 +524,25 @@ const BalanceList = ({
             </TouchableOpacity>}
             <View style={[styles.paymentPlan, { backgroundColor: palette.surface, borderColor: palette.border }]}>
                 <TouchableOpacity style={[styles.paymentPlanHeader, { backgroundColor: palette.warningLight }]} onPress={() => setPaymentPlanOpen((open) => !open)}>
-                  <View style={styles.paymentPlanTitleRow}>
-                    <Ionicons name="receipt-outline" size={22} color="#F59E0B" />
-                    <View><Text style={[styles.paymentPlanEyebrow, { color: palette.textSecondary }]}>Thanh toán cuối chuyến</Text><Text style={[styles.paymentPlanTitle, { color: palette.textPrimary }]}>Kế hoạch thanh toán cụ thể</Text></View>
+                    <View style={styles.paymentPlanTitleRow}>
+                      <Ionicons name="receipt-outline" size={22} color="#F59E0B" />
+                    <View style={styles.paymentPlanText}><Text style={[styles.paymentPlanEyebrow, { color: palette.textSecondary }]} numberOfLines={1}>Thanh toán cuối chuyến</Text><Text style={[styles.paymentPlanTitle, { color: palette.textPrimary }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>Kế hoạch thanh toán cụ thể</Text></View>
                   </View>
                   <View style={styles.paymentPlanAction}><Text style={styles.paymentPlanActionText}>{paymentPlanOpen ? "Thu gọn" : `${myTransfers.length} giao dịch`}</Text><Ionicons name={paymentPlanOpen ? "chevron-up" : "chevron-down"} size={19} color={palette.textSecondary} /></View>
                 </TouchableOpacity>
                 {paymentPlanOpen && myTransfers.map((transfer, index) => (
                     <View key={`${transfer.fromUserId}-${transfer.toUserId}-${index}`} style={[styles.transferRow, { borderTopColor: palette.border }]}>
-                      <Avatar.Text size={38} label={getNameFirstLetterUpper(transfer.fromUser.name || "")} />
+                      {transfer.fromUser.avatar ? (
+                        <Avatar.Image size={38} source={{ uri: transfer.fromUser.avatar }} />
+                      ) : (
+                        <Avatar.Text size={38} label={getNameFirstLetterUpper(transfer.fromUser.name || "")} />
+                      )}
                       <Text style={{ color: palette.textLight, fontSize: 20 }}>›</Text>
-                      <Avatar.Text size={38} label={getNameFirstLetterUpper(transfer.toUser.name || "")} />
+                      {transfer.toUser.avatar ? (
+                        <Avatar.Image size={38} source={{ uri: transfer.toUser.avatar }} />
+                      ) : (
+                        <Avatar.Text size={38} label={getNameFirstLetterUpper(transfer.toUser.name || "")} />
+                      )}
                       <View style={styles.transferAmountWrap}>
                         <Text style={{ color: transfer.fromUserId === currentUserId ? theme.colors.error : theme.colors.primary, fontWeight: "700", fontSize: 13 }}>
                           {transfer.fromUserId === currentUserId ? "-" : "+"}{formatMoney(transfer.amount)}
@@ -612,11 +620,12 @@ const styles = StyleSheet.create({
   groupPaymentButton: { minHeight: 50, marginTop: 16, borderRadius: 25, backgroundColor: "#0875D1", alignItems: "center", justifyContent: "center" },
   groupPaymentButtonText: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
   paymentPlan: { marginTop: 16, borderRadius: 16, borderWidth: 1, overflow: "hidden" },
-  paymentPlanHeader: { minHeight: 60, flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 10 },
-  paymentPlanTitleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  paymentPlanHeader: { minHeight: 60, flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
+  paymentPlanTitleRow: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 10 },
+  paymentPlanText: { flex: 1, minWidth: 0 },
   paymentPlanEyebrow: { fontSize: 10, marginBottom: 2 },
   paymentPlanTitle: { fontSize: 15, fontWeight: "800" },
-  paymentPlanAction: { flexDirection: "row", alignItems: "center", gap: 5 },
+  paymentPlanAction: { flexShrink: 0, flexDirection: "row", alignItems: "center", gap: 5 },
   paymentPlanActionText: { color: "#AD7F1D", fontSize: 10, fontWeight: "700" },
   emptyPlan: { padding: 20, textAlign: "center", fontSize: 12 },
   modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,.5)" },
@@ -707,6 +716,7 @@ const styles = StyleSheet.create({
   },
   statItem: {
     flex: 1,
+    minWidth: 0,
     flexDirection: "row",
     alignItems: "center",
     gap: 9,
@@ -714,6 +724,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   statIcon: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  statContent: { flex: 1, minWidth: 0 },
   statLabel: {
     fontSize: 12,
     marginBottom: 4,

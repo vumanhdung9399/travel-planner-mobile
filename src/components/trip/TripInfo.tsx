@@ -180,15 +180,15 @@ export default function TripInfo({
         <Ionicons name="chevron-forward" size={21} color={palette.textLight} />
       </TouchableOpacity>
 
-      <View style={[styles.offlineCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+      {!trip.isCloseTrip ? <View style={[styles.offlineCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
         <View style={[styles.documentIcon, { backgroundColor: palette.successLight }]}><Ionicons name="cloud-download-outline" size={23} color={COLORS.success} /></View>
         <TouchableOpacity style={{ flex: 1 }} onPress={() => AppToast.show({ title: 'Cách dùng offline', message: 'Nhấn Tải offline. Khi mất mạng, bạn chỉ cần mở lại chuyến đi này như bình thường; thay đổi sẽ tự đồng bộ khi có mạng.' })}>
           <Text style={[styles.documentTitle, { color: palette.textPrimary }]}>Chế độ offline</Text>
           <Text style={[styles.documentText, { color: offlineAt ? COLORS.success : palette.textSecondary }]}>{offlineAt ? `Sẵn sàng offline · cập nhật ${dayjs(offlineAt).format('HH:mm DD/MM')}` : 'Tải trước rồi mở chuyến đi bình thường khi mất mạng'}</Text>
         </TouchableOpacity>
-        {offlineAt ? <TouchableOpacity hitSlop={8} onPress={() => void removeTripPack(trip.id).then(() => setOfflineAt(null))}><Ionicons name="trash-outline" size={20} color={COLORS.error} /></TouchableOpacity> : null}
+        {offlineAt && !trip.isCloseTrip ? <TouchableOpacity hitSlop={8} onPress={() => void removeTripPack(trip.id).then(() => setOfflineAt(null))}><Ionicons name="trash-outline" size={20} color={COLORS.error} /></TouchableOpacity> : null}
         <TouchableOpacity disabled={offlineSaving} style={styles.offlineButton} onPress={() => { setOfflineSaving(true); void downloadTripPack(trip.id, setOfflineProgress).then((pack) => { setOfflineAt(pack.generatedAt); AppToast.show({ title: 'Đã bật chế độ offline', message: 'Khi mất mạng, hãy mở chuyến đi này như bình thường.' }); }).finally(() => setOfflineSaving(false)); }}><Text style={styles.offlineButtonText}>{offlineSaving ? `${Math.round(offlineProgress * 100)}%` : offlineAt ? 'Cập nhật' : 'Tải offline'}</Text></TouchableOpacity>
-      </View>
+      </View> : null}
 
       <Surface
         style={[

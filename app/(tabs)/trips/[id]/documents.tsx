@@ -63,6 +63,7 @@ export default function DocumentsScreen() {
   const styles = useMemo(() => createStyles(palette), [palette]);
   const trip = useTripStore((state) => state.trip);
   const userId = useAuthStore((state) => state.user?.id);
+  const isTripClosed = trip.id === id && trip.isCloseTrip;
 
   const [documents, setDocuments] = useState<TripDocument[]>([]);
   const [loading, setLoading] = useState(true);
@@ -106,6 +107,10 @@ export default function DocumentsScreen() {
   };
 
   const upload = async () => {
+    if (isTripClosed) {
+      AppToast.show({ title: 'Không thể thêm tài liệu', message: 'Chuyến đi đã đóng.', type: 'info' });
+      return false;
+    }
     if ((!asset && !importText.trim()) || !title.trim()) {
       AppToast.show({ title: 'Thiếu tài liệu', message: 'Chọn file hoặc dán nội dung booking và nhập tên.', type: 'info' });
       return false;
@@ -222,11 +227,11 @@ export default function DocumentsScreen() {
     <View style={[styles.header, { paddingTop: insets.top + 4 }]}>
       <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}><Ionicons name="chevron-back" size={25} color={palette.textPrimary} /></TouchableOpacity>
       <View style={{ flex: 1 }}><Text style={styles.title}>Ví tài liệu</Text><Text style={styles.subtitle}>{trip.id === id ? trip.name : 'Tài liệu chuyến đi'}</Text></View>
-      <TouchableOpacity onPress={() => setOpen(true)} style={styles.addButton}><Ionicons name="add" size={24} color="#fff" /></TouchableOpacity>
+      {!isTripClosed ? <TouchableOpacity onPress={() => setOpen(true)} style={styles.addButton}><Ionicons name="add" size={24} color="#fff" /></TouchableOpacity> : null}
     </View>
 
     <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={COLORS.primary} />}>
-      <View style={styles.security}><Ionicons name="lock-closed" size={18} color={COLORS.primary} /><Text style={styles.securityText}>Chạm vào tài liệu để xem dữ liệu AI đã trích xuất. Nút mở ngoài dùng để xem file gốc.</Text></View>
+      <View style={styles.security}><Ionicons name="lock-closed" size={18} color={COLORS.primary} /><Text style={styles.securityText}>{isTripClosed ? 'Chuyến đi đã đóng nên không thể thêm tài liệu mới.' : 'Chạm vào tài liệu để xem dữ liệu AI đã trích xuất. Nút mở ngoài dùng để xem file gốc.'}</Text></View>
       {!loading && documents.length === 0 ? <View style={styles.empty}><Ionicons name="folder-open-outline" size={50} color={palette.textLight} /><Text style={styles.emptyTitle}>Ví tài liệu đang trống</Text><Text style={styles.emptyText}>Lưu vé, booking, bảo hiểm và giấy tờ cần thiết tại đây.</Text></View> : null}
       {documents.map((document) => {
         const meta = categoryMeta(document.category);

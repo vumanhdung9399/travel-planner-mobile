@@ -1,6 +1,6 @@
 {
   "name": "travel-planner-mobile",
-  "main": "expo-router/entry",
+  "main": "index.js",
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
@@ -30,6 +30,7 @@
     "dotenv": "^17.4.1",
     "expo": "~54.0.33",
     "expo-application": "~7.0.8",
+    "expo-auth-session": "~7.0.11",
     "expo-build-properties": "~1.0.10",
     "expo-clipboard": "~8.0.8",
     "expo-constants": "~18.0.13",

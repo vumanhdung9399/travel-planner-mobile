@@ -5,6 +5,7 @@ const {
   withAndroidManifest,
   withAppBuildGradle,
   withDangerousMod,
+  withGradleProperties,
   withMainActivity,
   withMainApplication,
 } = require("@expo/config-plugins");
@@ -41,16 +42,20 @@ module.exports = function withTravelNative(config) {
     upsertNamedEntry(application.activity, ".IncomingCallActivity", {
       "android:excludeFromRecents": "true",
       "android:exported": "false",
+      "android:launchMode": "singleTask",
       "android:showWhenLocked": "true",
+      "android:taskAffinity": "com.anonymous.travelplanner.incomingcall",
       "android:turnScreenOn": "true",
       "android:theme": "@style/AppTheme",
     });
     upsertNamedEntry(application.activity, ".ChatBubbleActivity", {
       "android:allowEmbedded": "true",
+      "android:configChanges": "keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode",
       "android:documentLaunchMode": "always",
       "android:exported": "false",
       "android:resizeableActivity": "true",
       "android:theme": "@style/AppTheme",
+      "android:windowSoftInputMode": "adjustResize",
     });
     upsertNamedEntry(application.receiver, ".CallActionReceiver", {
       "android:exported": "false",
@@ -86,11 +91,28 @@ module.exports = function withTravelNative(config) {
     return mod;
   });
 
+  config = withGradleProperties(config, (mod) => {
+    const key = "org.gradle.jvmargs";
+    const value = "-Xmx4096m -XX:MaxMetaspaceSize=2048m";
+    const property = mod.modResults.find(
+      (entry) => entry.type === "property" && entry.key === key,
+    );
+    if (property) property.value = value;
+    else mod.modResults.push({ type: "property", key, value });
+    return mod;
+  });
+
   config = withMainApplication(config, (mod) => {
     if (!mod.modResults.contents.includes("add(TravelNativePackage())")) {
       mod.modResults.contents = mod.modResults.contents.replace(
         "PackageList(this).packages.apply {",
         "PackageList(this).packages.apply {\n              add(TravelNativePackage())",
+      );
+    }
+    if (!mod.modResults.contents.includes("TravelNotifications.createChannels(this)")) {
+      mod.modResults.contents = mod.modResults.contents.replace(
+        "super.onCreate()",
+        "super.onCreate()\n    TravelNotifications.createChannels(this)",
       );
     }
     return mod;

@@ -26,20 +26,29 @@ export default function GroupChatPanel({ groupId }: { groupId: string }) {
   const [readers, setReaders] = useState<MessagePage["readers"]>([]);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selected, setSelected] = useState<ChatMessage | null>(null);
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const palette = useAppPalette();
 
   const load = useCallback(
     async (markAsRead = false) => {
-      const page = await api.get<MessagePage>(
-        `/chat/groups/${groupId}/messages`,
-        { params: { limit: 100 } },
-      );
-      setMessages(page.data.data || []);
-      setReaders(page.data.readers || []);
-      if (markAsRead) await api.patch(`/chat/groups/${groupId}/read`);
-      setLoading(false);
+      try {
+        const page = await api.get<MessagePage>(
+          `/chat/groups/${groupId}/messages`,
+          { params: { limit: 100 } },
+        );
+        setMessages(page.data.data || []);
+        setReaders(page.data.readers || []);
+        setLoadError(null);
+        if (markAsRead) {
+          await api.patch(`/chat/groups/${groupId}/read`).catch(() => undefined);
+        }
+      } catch {
+        setLoadError("Không thể tải tin nhắn. Vui lòng kiểm tra mạng và thử lại.");
+      } finally {
+        setLoading(false);
+      }
     },
     [groupId],
   );
@@ -128,8 +137,23 @@ export default function GroupChatPanel({ groupId }: { groupId: string }) {
               <View style={[styles.emptyIcon, { backgroundColor: palette.surfaceMuted, borderColor: palette.border }]}>
                 <Ionicons name="chatbubbles-outline" size={26} color={COLORS.primary} />
               </View>
-              <Text style={[styles.emptyTitle, { color: palette.textPrimary }]}>Chưa có tin nhắn</Text>
-              <Text style={[styles.emptySubtitle, { color: palette.textSecondary }]}>Bắt đầu trò chuyện với nhóm.</Text>
+              <Text style={[styles.emptyTitle, { color: palette.textPrimary }]}>
+                {loadError ? "Không tải được tin nhắn" : "Chưa có tin nhắn"}
+              </Text>
+              <Text style={[styles.emptySubtitle, { color: palette.textSecondary }]}>
+                {loadError || "Bắt đầu trò chuyện với nhóm."}
+              </Text>
+              {loadError && (
+                <Pressable
+                  onPress={() => {
+                    setLoading(true);
+                    void load(true);
+                  }}
+                  style={styles.retryButton}
+                >
+                  <Text style={styles.retryText}>Thử lại</Text>
+                </Pressable>
+              )}
             </View>
           }
           renderItem={({ item }) => {
@@ -226,6 +250,8 @@ const styles = StyleSheet.create({
   emptyIcon: { width: 56, height: 56, borderRadius: 20, borderWidth: 1, alignItems: "center", justifyContent: "center", marginBottom: 11 },
   emptyTitle: { fontSize: 14, fontWeight: "800" },
   emptySubtitle: { fontSize: 11, marginTop: 4, textAlign: "center" },
+  retryButton: { marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, backgroundColor: COLORS.primary },
+  retryText: { color: "#FFFFFF", fontSize: 12, fontWeight: "700" },
   row: { flexDirection: "row", alignItems: "flex-end", gap: 7 },
   rowMine: { flexDirection: "row-reverse" },
   messageWrap: { maxWidth: "80%" },
