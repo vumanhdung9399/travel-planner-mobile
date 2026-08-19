@@ -950,6 +950,7 @@ const createStyles = (palette: AppPalette) => StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    marginTop: 20,
     paddingHorizontal: 32,
   },
   emptyCard: {

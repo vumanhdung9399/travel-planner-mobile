@@ -1,11 +1,16 @@
-import { handleApiError, showSuccess } from "@/src/utils/errorHandler";
+import { handleApiError, showError, showSuccess } from "@/src/utils/errorHandler";
 import { useAppPalette } from "@/src/hook/useAppPalette";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { api } from "@services/api";
 import { useAuthStore } from "@store/auth.store";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
-import * as Google from "expo-auth-session/providers/google";
+import {
+  GoogleSignin,
+  isErrorWithCode,
+  isSuccessResponse,
+  statusCodes,
+} from "@react-native-google-signin/google-signin";
 import { Controller, useForm } from "react-hook-form";
 import {
   KeyboardAvoidingView,
@@ -42,40 +47,64 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  const googleClientId = Platform.select({
-    android: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-    ios: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    web: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    default: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-  });
-  const isGoogleAuthConfigured = Boolean(googleClientId);
-
-  const [googleRequest, googleResponse, promptGoogle] = Google.useIdTokenAuthRequest({
-    // expo-auth-session throws while rendering when the platform client ID is
-    // missing. Keep the password login usable and disable Google auth until the
-    // matching EXPO_PUBLIC_GOOGLE_*_CLIENT_ID is configured.
-    clientId: googleClientId || "google-auth-not-configured",
-    scopes: ["openid", "profile", "email"],
-  });
+  const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+  const isGoogleAuthConfigured = Boolean(
+    googleWebClientId &&
+      (Platform.OS !== "android" ||
+        process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID),
+  );
 
   useEffect(() => {
-    if (googleResponse?.type !== "success") return;
-    const idToken =
-      googleResponse.params?.id_token || googleResponse.authentication?.idToken;
-    if (!idToken) {
-      handleApiError({ response: { data: { message: "Google không trả về ID token" } } });
+    if (googleWebClientId) {
+      GoogleSignin.configure({
+        webClientId: googleWebClientId,
+        offlineAccess: false,
+      });
+    }
+  }, [googleWebClientId]);
+
+  const handleGoogleLogin = async () => {
+    if (!isGoogleAuthConfigured) {
+      showError("Google Login chưa được cấu hình");
       return;
     }
-    setGoogleLoading(true);
-    api.post("/auth/google", { idToken })
-      .then(({ data }) => {
-        setAuth({ user: data.user, accessToken: data.access_token, refreshToken: data.refresh_token });
-        showSuccess("Đăng nhập với Google thành công");
-        router.replace("/(tabs)");
-      })
-      .catch(handleApiError)
-      .finally(() => setGoogleLoading(false));
-  }, [googleResponse, setAuth]);
+    try {
+      setGoogleLoading(true);
+      if (Platform.OS === "android") {
+        await GoogleSignin.hasPlayServices({
+          showPlayServicesUpdateDialog: true,
+        });
+      }
+      const response = await GoogleSignin.signIn();
+      if (!isSuccessResponse(response)) return;
+      const idToken = response.data.idToken;
+      if (!idToken) throw new Error("Google không trả về ID token");
+
+      const { data } = await api.post("/auth/google", { idToken });
+      setAuth({
+        user: data.user,
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token,
+      });
+      showSuccess("Đăng nhập với Google thành công");
+      router.replace("/(tabs)");
+    } catch (error) {
+      if (isErrorWithCode(error)) {
+        if (error.code === statusCodes.SIGN_IN_CANCELLED) return;
+        if (error.code === statusCodes.IN_PROGRESS) {
+          showError("Đăng nhập Google đang được xử lý");
+          return;
+        }
+        if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+          showError("Thiết bị chưa có Google Play Services phù hợp");
+          return;
+        }
+      }
+      handleApiError(error);
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   const {
     control,
@@ -215,13 +244,10 @@ export default function LoginScreen() {
               <Button
                 mode="outlined"
                 icon="google"
-                onPress={() => {
-                  if (isGoogleAuthConfigured) void promptGoogle();
-                }}
+                onPress={handleGoogleLogin}
                 loading={googleLoading}
                 disabled={
                   !isGoogleAuthConfigured ||
-                  !googleRequest ||
                   googleLoading ||
                   loading
                 }

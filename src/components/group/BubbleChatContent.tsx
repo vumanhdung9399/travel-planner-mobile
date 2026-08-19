@@ -1,4 +1,5 @@
 import { useAppPalette } from "@/src/hook/useAppPalette";
+import { useChatBubblePermissions } from "@/src/hook/useChatBubblePermissions";
 import { useAuthStore } from "@/src/store/auth.store";
 import { initSocket } from "@/src/utils/socket";
 import { COLORS } from "@/src/utils/constants";
@@ -31,6 +32,8 @@ export default function BubbleChatContent({
   const hasHydrated = useAuthStore((state) => state.hasHydrated);
   const palette = useAppPalette();
   const [socketReady, setSocketReady] = useState(false);
+
+  useChatBubblePermissions();
 
   useEffect(() => {
     if (!accessToken || !userId) return;

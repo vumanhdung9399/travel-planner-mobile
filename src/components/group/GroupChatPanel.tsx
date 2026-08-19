@@ -105,6 +105,13 @@ export default function GroupChatPanel({ groupId }: { groupId: string }) {
         ? "Đã gửi"
         : "";
 
+  const belongsToSameGroup = (first?: ChatMessage, second?: ChatMessage) =>
+    !!first &&
+    !!second &&
+    first.sender.id === second.sender.id &&
+    Math.abs(new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime()) <=
+      5 * 60 * 1000;
+
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: palette.background }]}
@@ -156,22 +163,27 @@ export default function GroupChatPanel({ groupId }: { groupId: string }) {
               )}
             </View>
           }
-          renderItem={({ item }) => {
+          renderItem={({ item, index }) => {
             const mine = item.sender.id === userId;
+            const groupedWithPrevious = belongsToSameGroup(messages[index - 1], item);
+            const groupedWithNext = belongsToSameGroup(item, messages[index + 1]);
+            const firstInGroup = !groupedWithPrevious;
+            const lastInGroup = !groupedWithNext;
             return (
               <Pressable
                 onLongPress={() => setSelected(item)}
-                style={[styles.row, mine && styles.rowMine]}
+                style={[styles.row, groupedWithPrevious && styles.rowGrouped, mine && styles.rowMine]}
               >
-                {!mine &&
+                {!mine && lastInGroup &&
                   (item.sender.avatar ? (
                     <Avatar.Image size={28} source={{ uri: item.sender.avatar }} />
                   ) : (
                     <Avatar.Text size={28} label={item.sender.name?.[0] || "?"} />
                   ))}
+                {!mine && !lastInGroup && <View style={styles.avatarSpacer} />}
                 <View style={[styles.messageWrap, mine && styles.messageWrapMine]}>
-                  {!mine && <Text style={[styles.sender, { color: palette.textSecondary }]}>{item.sender.name}</Text>}
-                  <View style={[styles.bubble, { backgroundColor: palette.surfaceMuted, borderColor: palette.border }, mine && styles.bubbleMine]}>
+                  {!mine && firstInGroup && <Text style={[styles.sender, { color: palette.textSecondary }]}>{item.sender.name}</Text>}
+                  <View style={[styles.bubble, { backgroundColor: palette.surfaceMuted, borderColor: palette.border }, mine && styles.bubbleMine, groupedWithPrevious && (mine ? styles.bubbleMineGroupedPrev : styles.bubbleOtherGroupedPrev), groupedWithNext && (mine ? styles.bubbleMineGroupedNext : styles.bubbleOtherGroupedNext)]}>
                     <Text style={[styles.messageText, { color: palette.textPrimary }, mine && styles.mineText]}>
                       {item.isPinned ? "📌 " : ""}
                       {item.content}
@@ -182,13 +194,13 @@ export default function GroupChatPanel({ groupId }: { groupId: string }) {
                       <Text style={styles.reactionText}>{item.reactions.map((reaction) => reaction.emoji).join(" ")}</Text>
                     </View>
                   )}
-                  <Text style={[styles.meta, { color: palette.textSecondary }, mine && styles.metaMine]}>
+                  {lastInGroup && <Text style={[styles.meta, { color: palette.textSecondary }, mine && styles.metaMine]}>
                     {new Date(item.createdAt).toLocaleTimeString("vi-VN", {
                       hour: "2-digit",
                       minute: "2-digit",
                     })}
                     {status(item) ? ` · ${status(item)}` : ""}
-                  </Text>
+                  </Text>}
                 </View>
               </Pressable>
             );
@@ -253,12 +265,18 @@ const styles = StyleSheet.create({
   retryButton: { marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, backgroundColor: COLORS.primary },
   retryText: { color: "#FFFFFF", fontSize: 12, fontWeight: "700" },
   row: { flexDirection: "row", alignItems: "flex-end", gap: 7 },
+  rowGrouped: { marginTop: -5 },
   rowMine: { flexDirection: "row-reverse" },
+  avatarSpacer: { width: 28 },
   messageWrap: { maxWidth: "80%" },
   messageWrapMine: { alignItems: "flex-end" },
   sender: { fontSize: 10, marginLeft: 8, marginBottom: 3, fontWeight: "600" },
   bubble: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 17, borderBottomLeftRadius: 6, paddingHorizontal: 12, paddingVertical: 8 },
   bubbleMine: { backgroundColor: COLORS.primary, borderColor: COLORS.primary, borderBottomLeftRadius: 17, borderBottomRightRadius: 6 },
+  bubbleMineGroupedPrev: { borderTopRightRadius: 6 },
+  bubbleMineGroupedNext: { borderBottomRightRadius: 6 },
+  bubbleOtherGroupedPrev: { borderTopLeftRadius: 6 },
+  bubbleOtherGroupedNext: { borderBottomLeftRadius: 6 },
   messageText: { fontSize: 14, lineHeight: 19 },
   mineText: { color: "#FFFFFF" },
   reactions: { alignSelf: "flex-start", marginTop: -4, marginHorizontal: 7, paddingHorizontal: 6, paddingVertical: 2, borderWidth: StyleSheet.hairlineWidth, borderRadius: 9 },

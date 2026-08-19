@@ -637,7 +637,13 @@ const styles = StyleSheet.create({
   qrCard: { padding: 14, borderWidth: 1, borderRadius: 16, alignItems: "center" },
   qrTitle: { fontSize: 13, fontWeight: "700" },
   qrAmount: { marginTop: 5, fontSize: 17, fontWeight: "800" },
-  modalQr: { width: 220, height: 220, marginTop: 10, borderRadius: 10 },
+  modalQr: {
+    width: 220,
+    height: 235,
+    marginTop: 10,
+    borderRadius: 10,
+    resizeMode: "contain",
+  },
   container: {
     flex: 1,
   },

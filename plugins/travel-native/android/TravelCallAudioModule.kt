@@ -129,6 +129,44 @@ class TravelCallAudioModule(
   }
 
   @ReactMethod
+  fun canDisplayOverOtherApps(promise: Promise) {
+    try {
+      promise.resolve(
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.M ||
+          Settings.canDrawOverlays(reactApplicationContext),
+      )
+    } catch (error: Exception) {
+      promise.reject("OVERLAY_PERMISSION_CHECK_ERROR", error)
+    }
+  }
+
+  @ReactMethod
+  fun openOtherPermissionsSettings(promise: Promise) {
+    try {
+      val packageName = reactApplicationContext.packageName
+      val miuiIntent = Intent("miui.intent.action.APP_PERM_EDITOR").apply {
+        putExtra("extra_pkgname", packageName)
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      }
+      val appDetailsIntent = Intent(
+        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+        Uri.parse("package:$packageName"),
+      ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+      // MIUI exposes its extra controls on this screen. The intent is not part
+      // of the Android SDK, so devices without it safely fall back to App info.
+      if (miuiIntent.resolveActivity(reactApplicationContext.packageManager) != null) {
+        reactApplicationContext.startActivity(miuiIntent)
+      } else {
+        reactApplicationContext.startActivity(appDetailsIntent)
+      }
+      promise.resolve(true)
+    } catch (error: Exception) {
+      promise.reject("OTHER_PERMISSIONS_SETTINGS_ERROR", error)
+    }
+  }
+
+  @ReactMethod
   fun startIncomingRingtone(promise: Promise) {
     try {
       synchronized(TravelCallAudioModule::class.java) {
