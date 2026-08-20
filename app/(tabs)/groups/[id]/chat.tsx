@@ -88,7 +88,18 @@ export default function GroupChatScreen() {
             params: { limit: 100 },
           }),
         ]);
-        setGroupName((conversation.data as any)?.group?.name || "Trò chuyện nhóm");
+        const conversationData = conversation.data as any;
+        setGroupName(conversationData?.group?.name || "Trò chuyện nhóm");
+        if (Platform.OS === "android") {
+          const groupAvatar =
+            conversationData?.groupAvatar || conversationData?.group?.coverImage || "";
+          if (groupAvatar) {
+            void NativeModules.TravelCallAudio?.cacheGroupAvatar?.(
+              id,
+              groupAvatar,
+            ).catch(() => undefined);
+          }
+        }
         setMessages(page.data.data || []);
         setReaders(page.data.readers || []);
         if (markAsRead) await api.patch(`/chat/groups/${id}/read`);

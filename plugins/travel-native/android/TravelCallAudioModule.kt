@@ -305,4 +305,25 @@ class TravelCallAudioModule(
       promise.reject("BUBBLE_SETTINGS_ERROR", error)
     }
   }
+
+  @ReactMethod
+  fun cacheGroupAvatar(groupId: String, avatarUrl: String, promise: Promise) {
+    if (groupId.isBlank() || avatarUrl.isBlank()) {
+      promise.resolve(false)
+      return
+    }
+    Thread {
+      try {
+        promise.resolve(
+          TravelNotifications.cacheGroupAvatar(
+            reactApplicationContext,
+            groupId,
+            avatarUrl,
+          ),
+        )
+      } catch (error: Exception) {
+        promise.reject("GROUP_AVATAR_CACHE_ERROR", error)
+      }
+    }.start()
+  }
 }

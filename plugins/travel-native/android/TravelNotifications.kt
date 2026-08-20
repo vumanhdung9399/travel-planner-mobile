@@ -19,6 +19,8 @@ import androidx.core.app.Person as CompatPerson
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
+import java.io.File
+import java.io.FileOutputStream
 import java.net.URL
 
 object TravelNotifications {
@@ -30,6 +32,7 @@ object TravelNotifications {
   private const val CHAT_CHANNEL = "travel_messages_v5"
   private const val CALL_NOTIFICATION_BASE = 41000
   private const val CHAT_NOTIFICATION_BASE = 51000
+  private const val GROUP_AVATAR_PREFERENCES = "group_chat_avatars"
   private val activeCallIds = java.util.concurrent.ConcurrentHashMap<String, String>()
   private val dismissedCallIds = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
   private val locallyDismissedUntil = java.util.concurrent.ConcurrentHashMap<String, Long>()
@@ -68,18 +71,40 @@ object TravelNotifications {
       .appendQueryParameter("avatar", groupAvatar)
       .build()
 
-  private fun remoteIcon(url: String): IconCompat? {
+  private fun remoteBitmap(url: String) = runCatching {
     if (url.isBlank()) return null
-    return runCatching {
-      val connection = URL(url).openConnection().apply {
-        connectTimeout = 2_500
-        readTimeout = 2_500
-        useCaches = true
+    val connection = URL(url.trim()).openConnection().apply {
+      connectTimeout = 4_000
+      readTimeout = 4_000
+      useCaches = true
+    }
+    connection.getInputStream().use(BitmapFactory::decodeStream)
+  }.getOrNull()
+
+  private fun avatarFile(context: Context, groupId: String) =
+    File(context.cacheDir, "group_avatar_${groupId.hashCode()}.png")
+
+  private fun saveAvatar(context: Context, groupId: String, bitmap: android.graphics.Bitmap) =
+    runCatching {
+      FileOutputStream(avatarFile(context, groupId)).use { output ->
+        bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, output)
       }
-      connection.getInputStream().use { stream ->
-        BitmapFactory.decodeStream(stream)?.let(IconCompat::createWithAdaptiveBitmap)
-      }
-    }.getOrNull()
+      true
+    }.getOrDefault(false)
+
+  private fun cachedAvatar(context: Context, groupId: String) = runCatching {
+    BitmapFactory.decodeFile(avatarFile(context, groupId).absolutePath)
+  }.getOrNull()
+
+  fun cacheGroupAvatar(context: Context, groupId: String, avatarUrl: String): Boolean {
+    val normalizedUrl = avatarUrl.trim()
+    if (groupId.isBlank() || normalizedUrl.isBlank()) return false
+    context.getSharedPreferences(GROUP_AVATAR_PREFERENCES, Context.MODE_PRIVATE)
+      .edit()
+      .putString(groupId, normalizedUrl)
+      .apply()
+    val bitmap = remoteBitmap(normalizedUrl) ?: return false
+    return saveAvatar(context, groupId, bitmap)
   }
 
   fun createChannels(context: Context) {
@@ -272,12 +297,25 @@ object TravelNotifications {
     if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
     createChannels(context)
     val groupName = data["groupName"] ?: "Trò chuyện nhóm"
-    val groupAvatar = data["groupAvatar"] ?: data["senderAvatar"].orEmpty()
+    val payloadGroupAvatar = data["groupAvatar"].orEmpty().trim()
+    val avatarPreferences = context.getSharedPreferences(
+      GROUP_AVATAR_PREFERENCES,
+      Context.MODE_PRIVATE,
+    )
+    val groupAvatar = payloadGroupAvatar.ifBlank {
+      avatarPreferences.getString(groupId, "").orEmpty()
+    }
     val senderName = data["senderName"] ?: data["title"] ?: "Thành viên"
     val body = data["body"].orEmpty()
     val requestCode = notificationId(CHAT_NOTIFICATION_BASE, groupId)
     val shortcutId = "group_chat_$groupId"
-    val icon = remoteIcon(groupAvatar)
+    val downloadedAvatar = remoteBitmap(groupAvatar)
+    if (payloadGroupAvatar.isNotBlank()) {
+      avatarPreferences.edit().putString(groupId, payloadGroupAvatar).apply()
+    }
+    if (downloadedAvatar != null) saveAvatar(context, groupId, downloadedAvatar)
+    val icon = (downloadedAvatar ?: cachedAvatar(context, groupId))
+      ?.let(IconCompat::createWithAdaptiveBitmap)
       ?: IconCompat.createWithResource(context, R.mipmap.ic_launcher)
     val sender = CompatPerson.Builder()
       .setName(senderName)
