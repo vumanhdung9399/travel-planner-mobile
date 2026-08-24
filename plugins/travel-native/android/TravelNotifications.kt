@@ -2,27 +2,37 @@ package com.anonymous.travelplanner
 
 import android.app.Notification
 import android.app.NotificationChannel
+import android.app.KeyguardManager
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.media.AudioAttributes
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person as CompatPerson
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
+import java.io.File
+import java.io.FileOutputStream
+import java.net.URL
 
 object TravelNotifications {
   const val CALL_ENDED_ACTION = "com.anonymous.travelplanner.CALL_ENDED"
-  private const val CALL_CHANNEL = "travel_calls_v3"
-  private const val CHAT_CHANNEL = "travel_messages_v3"
+  // Channel sound settings are immutable once Android creates a channel.
+  // Bump these IDs to restore the bundled call/message sounds for users
+  // whose previous channels were configured as silent.
+  private const val CALL_CHANNEL = "travel_calls_v5"
+  private const val CHAT_CHANNEL = "travel_messages_v5"
   private const val CALL_NOTIFICATION_BASE = 41000
   private const val CHAT_NOTIFICATION_BASE = 51000
+  private const val GROUP_AVATAR_PREFERENCES = "group_chat_avatars"
   private val activeCallIds = java.util.concurrent.ConcurrentHashMap<String, String>()
   private val dismissedCallIds = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
   private val locallyDismissedUntil = java.util.concurrent.ConcurrentHashMap<String, Long>()
@@ -45,15 +55,57 @@ object TravelNotifications {
       .authority("groups")
       .appendPath(groupId)
       .appendPath("chat")
+      .appendQueryParameter("source", "notification")
       .build()
 
-  private fun chatBubbleDeepLink(groupId: String, groupName: String): Uri =
+  fun chatBubbleDeepLink(
+    groupId: String,
+    groupName: String,
+    groupAvatar: String,
+  ): Uri =
     Uri.Builder()
       .scheme("travelplannermobile")
       .authority("bubble")
       .appendPath(groupId)
       .appendQueryParameter("name", groupName)
+      .appendQueryParameter("avatar", groupAvatar)
       .build()
+
+  private fun remoteBitmap(url: String) = runCatching {
+    if (url.isBlank()) return null
+    val connection = URL(url.trim()).openConnection().apply {
+      connectTimeout = 4_000
+      readTimeout = 4_000
+      useCaches = true
+    }
+    connection.getInputStream().use(BitmapFactory::decodeStream)
+  }.getOrNull()
+
+  private fun avatarFile(context: Context, groupId: String) =
+    File(context.cacheDir, "group_avatar_${groupId.hashCode()}.png")
+
+  private fun saveAvatar(context: Context, groupId: String, bitmap: android.graphics.Bitmap) =
+    runCatching {
+      FileOutputStream(avatarFile(context, groupId)).use { output ->
+        bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, output)
+      }
+      true
+    }.getOrDefault(false)
+
+  private fun cachedAvatar(context: Context, groupId: String) = runCatching {
+    BitmapFactory.decodeFile(avatarFile(context, groupId).absolutePath)
+  }.getOrNull()
+
+  fun cacheGroupAvatar(context: Context, groupId: String, avatarUrl: String): Boolean {
+    val normalizedUrl = avatarUrl.trim()
+    if (groupId.isBlank() || normalizedUrl.isBlank()) return false
+    context.getSharedPreferences(GROUP_AVATAR_PREFERENCES, Context.MODE_PRIVATE)
+      .edit()
+      .putString(groupId, normalizedUrl)
+      .apply()
+    val bitmap = remoteBitmap(normalizedUrl) ?: return false
+    return saveAvatar(context, groupId, bitmap)
+  }
 
   fun createChannels(context: Context) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -102,6 +154,7 @@ object TravelNotifications {
   ) {
     val groupId = data["groupId"].orEmpty()
     if (groupId.isBlank()) return
+    if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
     val now = System.currentTimeMillis()
     val expiresAt = data["expiresAt"]?.toLongOrNull()
     if (expiresAt != null && now > expiresAt) return
@@ -196,6 +249,22 @@ object TravelNotifications {
       flags = flags or Notification.FLAG_INSISTENT
     }
     NotificationManagerCompat.from(context).notify(requestCode, notification)
+
+    // Android intentionally keeps a full-screen intent as a heads-up banner
+    // while an unlocked device is in use. A high-priority FCM call grants a
+    // short background-start window, so use it to present the real call UI.
+    // The notification remains the fallback for OEMs that block the start.
+    val powerManager = context.getSystemService(PowerManager::class.java)
+    val keyguardManager = context.getSystemService(KeyguardManager::class.java)
+    val isUnlockedAndInteractive =
+      powerManager?.isInteractive == true && keyguardManager?.isKeyguardLocked == false
+    if (
+      requestFullScreen &&
+      canUseFullScreenIntent &&
+      isUnlockedAndInteractive
+    ) {
+      runCatching { context.startActivity(fullScreenIntent) }
+    }
   }
 
   fun cancelIncomingCall(
@@ -225,15 +294,34 @@ object TravelNotifications {
   fun showChatBubble(context: Context, data: Map<String, String>) {
     val groupId = data["groupId"].orEmpty()
     if (groupId.isBlank()) return
+    if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
     createChannels(context)
     val groupName = data["groupName"] ?: "Trò chuyện nhóm"
+    val payloadGroupAvatar = data["groupAvatar"].orEmpty().trim()
+    val avatarPreferences = context.getSharedPreferences(
+      GROUP_AVATAR_PREFERENCES,
+      Context.MODE_PRIVATE,
+    )
+    val groupAvatar = payloadGroupAvatar.ifBlank {
+      avatarPreferences.getString(groupId, "").orEmpty()
+    }
     val senderName = data["senderName"] ?: data["title"] ?: "Thành viên"
     val body = data["body"].orEmpty()
     val requestCode = notificationId(CHAT_NOTIFICATION_BASE, groupId)
     val shortcutId = "group_chat_$groupId"
-    val sender = CompatPerson.Builder().setName(senderName).build()
+    val downloadedAvatar = remoteBitmap(groupAvatar)
+    if (payloadGroupAvatar.isNotBlank()) {
+      avatarPreferences.edit().putString(groupId, payloadGroupAvatar).apply()
+    }
+    if (downloadedAvatar != null) saveAvatar(context, groupId, downloadedAvatar)
+    val icon = (downloadedAvatar ?: cachedAvatar(context, groupId))
+      ?.let(IconCompat::createWithAdaptiveBitmap)
+      ?: IconCompat.createWithResource(context, R.mipmap.ic_launcher)
+    val sender = CompatPerson.Builder()
+      .setName(senderName)
+      .setIcon(icon)
+      .build()
     val user = CompatPerson.Builder().setName("Bạn").build()
-    val icon = IconCompat.createWithResource(context, R.mipmap.ic_launcher)
     val shortcut = ShortcutInfoCompat.Builder(context, shortcutId)
       .setShortLabel(groupName.take(30))
       .setLongLived(true)
@@ -245,8 +333,10 @@ object TravelNotifications {
 
     val bubbleIntent = Intent(context, ChatBubbleActivity::class.java).apply {
       action = Intent.ACTION_VIEW
-      setData(chatBubbleDeepLink(groupId, groupName))
+      setData(chatBubbleDeepLink(groupId, groupName, groupAvatar))
       putExtra("groupId", groupId)
+      putExtra("groupName", groupName)
+      putExtra("groupAvatar", groupAvatar)
       addFlags(Intent.FLAG_ACTIVITY_NEW_DOCUMENT or Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
     }
     val contentIntent = Intent(context, MainActivity::class.java).apply {

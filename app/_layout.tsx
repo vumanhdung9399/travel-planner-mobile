@@ -1,6 +1,7 @@
 import { AppToastContainer } from "@/src/components/AppToast";
 import CustomDrawer from "@/src/components/layout/CustomDrawer";
 import { usePushNotification } from "@/src/hook/usePushNotification";
+import { useCallPermissions } from "@/src/hook/useCallPermissions";
 import { getNotificationRedirect } from "@/src/utils/helper";
 import {
   DarkTheme as NavigationDarkTheme,
@@ -114,6 +115,7 @@ export default function RootLayout() {
   }, [darkMode, hasHydrated, paperTheme.colors.background]);
 
   usePushNotification();
+  useCallPermissions(hasHydrated);
 
   useSocket();
 

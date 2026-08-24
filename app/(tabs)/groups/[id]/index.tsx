@@ -1041,6 +1041,7 @@ export default function GroupDetailScreen() {
         open={menuMode !== null}
         onClose={() => setMenuMode(null)}
         actions={actions}
+        animated={false}
       />
       <ConfirmDialog
         visible={memberDeleteOpen}

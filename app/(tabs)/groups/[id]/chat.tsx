@@ -6,10 +6,12 @@ import { getSocket } from "@/src/utils/socket";
 import { COLORS } from "@/src/utils/constants";
 import { useAppPalette } from "@/src/hook/useAppPalette";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams } from "expo-router";
+import { CommonActions, useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  BackHandler,
   FlatList,
   KeyboardAvoidingView,
   NativeModules,
@@ -26,7 +28,12 @@ import GroupCall, { type CallMedia } from "@/src/components/group/GroupCall";
 const EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🎉"];
 
 export default function GroupChatScreen() {
-  const { id, call } = useLocalSearchParams<{ id: string; call?: string }>();
+  const { id, call, source } = useLocalSearchParams<{
+    id: string;
+    call?: string;
+    source?: string;
+  }>();
+  const navigation = useNavigation();
   const userId = useAuthStore((state) => state.user?.id);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [readers, setReaders] = useState<MessagePage["readers"]>([]);
@@ -35,7 +42,41 @@ export default function GroupChatScreen() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<ChatMessage | null>(null);
   const listRef = useRef<FlatList<ChatMessage>>(null);
+  const isHandlingNotificationBackRef = useRef(false);
   const palette = useAppPalette();
+  const openedFromNotification =
+    call === "audio" || call === "video" || source === "notification";
+
+  const returnHomeFromNotification = useCallback(() => {
+    if (isHandlingNotificationBackRef.current) return;
+    isHandlingNotificationBackRef.current = true;
+
+    // A notification can open this route without a usable navigation history.
+    // Reset the group stack, then select the Home (groups) tab.
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [{ name: "index" }],
+      }),
+    );
+    navigation.getParent()?.navigate("index");
+  }, [navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!openedFromNotification) return;
+
+      const subscription = BackHandler.addEventListener(
+        "hardwareBackPress",
+        () => {
+          returnHomeFromNotification();
+          return true;
+        },
+      );
+
+      return () => subscription.remove();
+    }, [openedFromNotification, returnHomeFromNotification]),
+  );
 
   const load = useCallback(
     async (markAsRead = false) => {
@@ -47,7 +88,18 @@ export default function GroupChatScreen() {
             params: { limit: 100 },
           }),
         ]);
-        setGroupName((conversation.data as any)?.group?.name || "Trò chuyện nhóm");
+        const conversationData = conversation.data as any;
+        setGroupName(conversationData?.group?.name || "Trò chuyện nhóm");
+        if (Platform.OS === "android") {
+          const groupAvatar =
+            conversationData?.groupAvatar || conversationData?.group?.coverImage || "";
+          if (groupAvatar) {
+            void NativeModules.TravelCallAudio?.cacheGroupAvatar?.(
+              id,
+              groupAvatar,
+            ).catch(() => undefined);
+          }
+        }
         setMessages(page.data.data || []);
         setReaders(page.data.readers || []);
         if (markAsRead) await api.patch(`/chat/groups/${id}/read`);
@@ -113,6 +165,13 @@ export default function GroupChatScreen() {
       : "Đã gửi";
   };
 
+  const belongsToSameGroup = (first?: ChatMessage, second?: ChatMessage) =>
+    !!first &&
+    !!second &&
+    first.sender.id === second.sender.id &&
+    Math.abs(new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime()) <=
+      5 * 60 * 1000;
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: palette.background }]}
@@ -121,6 +180,9 @@ export default function GroupChatScreen() {
       <CommonHeader
         title={groupName}
         fallbackHref={{ pathname: "/groups/[id]", params: { id } }}
+        onBack={
+          openedFromNotification ? returnHomeFromNotification : undefined
+        }
         rightElement={
           id ? (
             <View style={styles.headerActions}>
@@ -194,21 +256,26 @@ export default function GroupChatScreen() {
               <Text style={[styles.emptySubtitle, { color: palette.textSecondary }]}>Hãy bắt đầu cuộc trò chuyện với nhóm.</Text>
             </View>
           }
-          renderItem={({ item }) => {
+          renderItem={({ item, index }) => {
             const mine = item.sender.id === userId;
+            const groupedWithPrevious = belongsToSameGroup(messages[index - 1], item);
+            const groupedWithNext = belongsToSameGroup(item, messages[index + 1]);
+            const firstInGroup = !groupedWithPrevious;
+            const lastInGroup = !groupedWithNext;
             return (
               <Pressable
                 onLongPress={() => setSelected(item)}
-                style={[styles.row, mine && styles.rowMine]}
+                style={[styles.row, groupedWithPrevious && styles.rowGrouped, mine && styles.rowMine]}
               >
-                {!mine &&
+                {!mine && lastInGroup &&
                   (item.sender.avatar ? (
                     <Avatar.Image size={30} source={{ uri: item.sender.avatar }} />
                   ) : (
                     <Avatar.Text size={30} label={item.sender.name?.[0] || "?"} />
                   ))}
+                {!mine && !lastInGroup && <View style={styles.avatarSpacer} />}
                 <View style={[styles.messageWrap, mine && styles.messageWrapMine]}>
-                  {!mine && (
+                  {!mine && firstInGroup && (
                     <Text style={[styles.sender, { color: palette.textSecondary }]}>
                       {item.sender.name}
                     </Text>
@@ -221,6 +288,8 @@ export default function GroupChatScreen() {
                         borderColor: palette.border,
                       },
                       mine && styles.bubbleMine,
+                      groupedWithPrevious && (mine ? styles.bubbleMineGroupedPrev : styles.bubbleOtherGroupedPrev),
+                      groupedWithNext && (mine ? styles.bubbleMineGroupedNext : styles.bubbleOtherGroupedNext),
                     ]}
                   >
                     {item.isPinned && <Text style={styles.pin}>📌 </Text>}
@@ -246,19 +315,21 @@ export default function GroupChatScreen() {
                       </Text>
                     </View>
                   )}
-                  <Text
-                    style={[
-                      styles.meta,
-                      { color: palette.textSecondary },
-                      mine && styles.metaMine,
-                    ]}
-                  >
-                    {new Date(item.createdAt).toLocaleTimeString("vi-VN", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                    {status(item) ? ` · ${status(item)}` : ""}
-                  </Text>
+                  {lastInGroup && (
+                    <Text
+                      style={[
+                        styles.meta,
+                        { color: palette.textSecondary },
+                        mine && styles.metaMine,
+                      ]}
+                    >
+                      {new Date(item.createdAt).toLocaleTimeString("vi-VN", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                      {status(item) ? ` · ${status(item)}` : ""}
+                    </Text>
+                  )}
                 </View>
               </Pressable>
             );
@@ -368,7 +439,9 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 16, fontWeight: "800" },
   emptySubtitle: { marginTop: 5, fontSize: 12, textAlign: "center" },
   row: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
+  rowGrouped: { marginTop: -6 },
   rowMine: { justifyContent: "flex-start", flexDirection: "row-reverse" },
+  avatarSpacer: { width: 30 },
   messageWrap: { maxWidth: "78%" },
   messageWrapMine: { alignItems: "flex-end" },
   sender: { fontSize: 11, marginLeft: 8, marginBottom: 3, fontWeight: "600" },
@@ -382,6 +455,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   bubbleMine: { backgroundColor: COLORS.primary, borderColor: COLORS.primary, borderBottomLeftRadius: 18, borderBottomRightRadius: 6 },
+  bubbleMineGroupedPrev: { borderTopRightRadius: 6 },
+  bubbleMineGroupedNext: { borderBottomRightRadius: 6 },
+  bubbleOtherGroupedPrev: { borderTopLeftRadius: 6 },
+  bubbleOtherGroupedNext: { borderBottomLeftRadius: 6 },
   messageText: { fontSize: 15, lineHeight: 20 },
   mineText: { color: "#FFFFFF" },
   pin: { fontSize: 11 },

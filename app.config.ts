@@ -29,6 +29,7 @@ export default {
         "CAMERA",
         "RECORD_AUDIO",
         "MODIFY_AUDIO_SETTINGS",
+        "SYSTEM_ALERT_WINDOW",
         "USE_FULL_SCREEN_INTENT",
       ],
       package: "com.anonymous.travelplanner",
@@ -60,6 +61,7 @@ export default {
     },
 
     plugins: [
+      "@react-native-google-signin/google-signin",
       [
         "@config-plugins/react-native-webrtc",
         {

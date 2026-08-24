@@ -319,6 +319,7 @@ const HomeScreen = () => {
       <ActionSheet
         open={openSheet}
         onClose={() => setOpenSheet(false)}
+        animated={false}
         actions={[
           ...(selectedGroup?.canManageCover
             ? [

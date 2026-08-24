@@ -1,23 +1,29 @@
-import { showSuccess } from "@/src/utils/errorHandler";
+import { handleApiError, showError, showSuccess } from "@/src/utils/errorHandler";
 import { useAppPalette } from "@/src/hook/useAppPalette";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { api } from "@services/api";
 import { useAuthStore } from "@store/auth.store";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import {
+  GoogleSignin,
+  isErrorWithCode,
+  isSuccessResponse,
+  statusCodes,
+} from "@react-native-google-signin/google-signin";
 import { Controller, useForm } from "react-hook-form";
 import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   Avatar,
   Button,
   Card,
-  Divider,
   Text,
   TextInput,
 } from "react-native-paper";
@@ -39,6 +45,66 @@ export default function LoginScreen() {
 
   const [secureText, setSecureText] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+  const isGoogleAuthConfigured = Boolean(
+    googleWebClientId &&
+      (Platform.OS !== "android" ||
+        process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID),
+  );
+
+  useEffect(() => {
+    if (googleWebClientId) {
+      GoogleSignin.configure({
+        webClientId: googleWebClientId,
+        offlineAccess: false,
+      });
+    }
+  }, [googleWebClientId]);
+
+  const handleGoogleLogin = async () => {
+    if (!isGoogleAuthConfigured) {
+      showError("Google Login chưa được cấu hình");
+      return;
+    }
+    try {
+      setGoogleLoading(true);
+      if (Platform.OS === "android") {
+        await GoogleSignin.hasPlayServices({
+          showPlayServicesUpdateDialog: true,
+        });
+      }
+      const response = await GoogleSignin.signIn();
+      if (!isSuccessResponse(response)) return;
+      const idToken = response.data.idToken;
+      if (!idToken) throw new Error("Google không trả về ID token");
+
+      const { data } = await api.post("/auth/google", { idToken });
+      setAuth({
+        user: data.user,
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token,
+      });
+      showSuccess("Đăng nhập với Google thành công");
+      router.replace("/(tabs)");
+    } catch (error) {
+      if (isErrorWithCode(error)) {
+        if (error.code === statusCodes.SIGN_IN_CANCELLED) return;
+        if (error.code === statusCodes.IN_PROGRESS) {
+          showError("Đăng nhập Google đang được xử lý");
+          return;
+        }
+        if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+          showError("Thiết bị chưa có Google Play Services phù hợp");
+          return;
+        }
+      }
+      handleApiError(error);
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   const {
     control,
@@ -71,7 +137,7 @@ export default function LoginScreen() {
     }
   };
 
-  const screenBackground = palette.isDark ? palette.background : "#1687F8";
+  const screenBackground = palette.isDark ? palette.background : "#F3F7FB";
 
   return (
     <SafeAreaView
@@ -97,13 +163,13 @@ export default function LoginScreen() {
               />
 
               <Text variant="headlineMedium" style={styles.title}>
-                Đăng nhập
+                Chào mừng trở lại
               </Text>
 
               <Text
                 style={[styles.subtitle, { color: palette.textSecondary }]}
               >
-                Tiếp tục hành trình của bạn ✈️
+                Tiếp tục hành trình của bạn
               </Text>
 
               <Controller
@@ -155,6 +221,10 @@ export default function LoginScreen() {
                 <Text style={styles.error}>{errors.password.message}</Text>
               )}
 
+              <View style={styles.forgotRow}>
+                <Button compact onPress={() => router.push("/(auth)/forgot-password")}>Quên mật khẩu?</Button>
+              </View>
+
               <Button
                 mode="contained"
                 onPress={handleSubmit(onSubmit)}
@@ -165,22 +235,31 @@ export default function LoginScreen() {
                 {loading ? "Đang đăng nhập..." : "Đăng nhập"}
               </Button>
 
-              <Divider
-                style={{ marginVertical: 20, backgroundColor: palette.border }}
-              />
+              <View style={styles.dividerRow}>
+                <View style={[styles.dividerLine, { backgroundColor: palette.border }]} />
+                <Text style={[styles.orText, { color: palette.textSecondary }]}>hoặc tiếp tục với</Text>
+                <View style={[styles.dividerLine, { backgroundColor: palette.border }]} />
+              </View>
 
               <Button
                 mode="outlined"
-                onPress={() => router.push("/register")}
+                icon="google"
+                onPress={handleGoogleLogin}
+                loading={googleLoading}
+                disabled={
+                  !isGoogleAuthConfigured ||
+                  googleLoading ||
+                  loading
+                }
+                style={styles.googleButton}
               >
-                Tạo tài khoản
+                Tiếp tục với Google
               </Button>
 
-              <Text
-                style={[styles.footer, { color: palette.textSecondary }]}
-              >
-                Chưa có tài khoản Travel Planner?
-              </Text>
+              <View style={styles.registerRow}>
+                <Text style={{ color: palette.textSecondary }}>Chưa có tài khoản?</Text>
+                <Button compact onPress={() => router.push("/register")} labelStyle={styles.registerLabel}>Đăng ký</Button>
+              </View>
             </Card.Content>
           </Card>
         </ScrollView>
@@ -195,37 +274,46 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     justifyContent: "center",
-    padding: 16,
+    padding: 18,
   },
   card: {
-    borderRadius: 14,
-    paddingVertical: 10,
+    borderRadius: 28,
+    paddingVertical: 18,
+    shadowColor: "#2D4E6E",
+    shadowOpacity: 0.13,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 5,
   },
   logo: { alignSelf: "center", marginBottom: 16 },
   title: {
     textAlign: "center",
-    fontWeight: "bold",
+    fontWeight: "800",
     marginBottom: 8,
   },
   subtitle: {
     textAlign: "center",
-    marginBottom: 20,
+    marginBottom: 26,
   },
   input: {
-    marginBottom: 10,
+    marginBottom: 14,
+    backgroundColor: "transparent",
   },
   button: {
-    marginTop: 10,
+    marginTop: 12,
     borderRadius: 14,
     paddingVertical: 6,
-  },
-  footer: {
-    textAlign: "center",
-    marginTop: 10,
   },
   error: {
     color: "red",
     marginBottom: 5,
     fontSize: 12,
   },
+  forgotRow: { alignItems: "flex-end", marginTop: -12 },
+  dividerRow: { flexDirection: "row", alignItems: "center", gap: 12, marginVertical: 22 },
+  dividerLine: { height: StyleSheet.hairlineWidth, flex: 1 },
+  orText: { textAlign: "center", fontSize: 13 },
+  googleButton: { borderRadius: 14, marginBottom: 16, paddingVertical: 4 },
+  registerRow: { flexDirection: "row", alignItems: "center", justifyContent: "center" },
+  registerLabel: { color: "#1687F8", fontWeight: "800" },
 });

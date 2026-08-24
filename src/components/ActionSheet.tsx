@@ -27,7 +27,19 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-export default function ActionSheet({ open, onClose, actions }: any) {
+interface ActionSheetProps {
+  open: boolean;
+  onClose: () => void;
+  actions: any[];
+  animated?: boolean;
+}
+
+export default function ActionSheet({
+  open,
+  onClose,
+  actions,
+  animated = true,
+}: ActionSheetProps) {
   const { height: screenHeight } = useWindowDimensions();
   const translateY = useSharedValue(screenHeight);
   const dragStartY = useSharedValue(0);
@@ -56,6 +68,10 @@ export default function ActionSheet({ open, onClose, actions }: any) {
 
       closing.current = true;
       pendingAction.current = afterClose ?? null;
+      if (!animated) {
+        finishClose();
+        return;
+      }
       translateY.value = withTiming(
         screenHeight,
         { duration: 230 },
@@ -66,19 +82,21 @@ export default function ActionSheet({ open, onClose, actions }: any) {
         },
       );
     },
-    [finishClose, screenHeight, translateY],
+    [animated, finishClose, screenHeight, translateY],
   );
 
   useEffect(() => {
     if (open) {
       closing.current = false;
-      translateY.value = screenHeight;
-      translateY.value = withSpring(0, {
-        damping: 22,
-        stiffness: 240,
-      });
+      translateY.value = animated ? screenHeight : 0;
+      if (animated) {
+        translateY.value = withSpring(0, {
+          damping: 22,
+          stiffness: 240,
+        });
+      }
     }
-  }, [open, screenHeight, translateY]);
+  }, [animated, open, screenHeight, translateY]);
 
   const dragGesture = useMemo(
     () =>
@@ -143,7 +161,7 @@ export default function ActionSheet({ open, onClose, actions }: any) {
       <GestureHandlerRootView style={styles.container}>
         <Animated.View
           pointerEvents="none"
-          style={[styles.overlay, backdropAnimatedStyle]}
+          style={[styles.overlay, animated && backdropAnimatedStyle]}
         />
         <Pressable
           style={StyleSheet.absoluteFill}
@@ -157,7 +175,7 @@ export default function ActionSheet({ open, onClose, actions }: any) {
             {
               backgroundColor: theme.colors.surface,
             },
-            sheetAnimatedStyle,
+          animated && sheetAnimatedStyle,
           ]}
         >
           <GestureDetector gesture={dragGesture}>

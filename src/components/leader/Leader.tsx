@@ -35,6 +35,8 @@ interface LeaderProps {
   contentInsetTop?: number;
 }
 
+type SettlementMode = 'leader' | 'simplified';
+
 const Leader = ({
   trip,
   setTrip,
@@ -49,6 +51,8 @@ const Leader = ({
   const [tasks, setTasks] = useState<TripTask[]>([]);
   const [tasksLoading, setTasksLoading] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [settlementMode, setSettlementMode] = useState<SettlementMode>(trip.settlementMode ?? 'leader');
+  const [settlementModeLoading, setSettlementModeLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [memberModalVisible, setMemberModalVisible] = useState(false);
@@ -92,6 +96,22 @@ const Leader = ({
     } finally {
       setLoading(false);
       setConfirmOpen(false);
+    }
+  };
+
+  const handleSettlementModeChange = async (mode: SettlementMode) => {
+    if (mode === settlementMode) return;
+    try {
+      setSettlementModeLoading(true);
+      await api.patch(`/trips/${trip.id}/settlement-mode`, { settlementMode: mode });
+      setSettlementMode(mode);
+      setTrip({ ...trip, settlementMode: mode });
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      console.error(error);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setSettlementModeLoading(false);
     }
   };
 
@@ -226,6 +246,32 @@ const Leader = ({
           <Text style={styles.addTaskText}>Thêm việc cần làm</Text>
         </TouchableOpacity>
 
+        <View style={[styles.settlementCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+          <Text style={[styles.settlementTitle, { color: palette.textPrimary }]}>Cách thanh toán cuối chuyến</Text>
+          <Text style={[styles.settlementDescription, { color: palette.textSecondary }]}>
+            {settlementMode === 'simplified'
+              ? 'Ghép trực tiếp người nợ với người cần nhận để hạn chế số giao dịch.'
+              : 'Mọi khoản thu và hoàn tiền được quy về leader.'}
+          </Text>
+          <View style={styles.settlementModeRow}>
+            {([['leader', 'Qua leader'], ['simplified', 'Đơn giản hóa']] as const).map(([mode, label]) => {
+              const active = settlementMode === mode;
+              return (
+                <TouchableOpacity key={mode} activeOpacity={0.75}
+                  disabled={trip.isCloseTrip || settlementModeLoading}
+                  onPress={() => handleSettlementModeChange(mode)}
+                  style={[styles.settlementModeButton, {
+                    borderColor: active ? COLORS.primary : palette.border,
+                    backgroundColor: active ? palette.primaryLight : palette.surface,
+                    opacity: trip.isCloseTrip || settlementModeLoading ? 0.6 : 1,
+                  }]}>
+                  <Text style={[styles.settlementModeText, { color: active ? COLORS.primary : palette.textSecondary }]}>{label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
         <TouchableOpacity style={[styles.notificationButton, { backgroundColor: palette.surface, borderColor: palette.border }]} onPress={() => setNotificationOpen(true)} activeOpacity={0.75}>
           <View style={[styles.notificationIcon, { backgroundColor: palette.primaryLight }]}><Ionicons name="notifications-outline" size={22} color={COLORS.primary} /></View>
           <View style={styles.actionBody}>
@@ -340,6 +386,12 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 12, color: COLORS.textSecondary },
   addTaskButton: { height: 52, marginTop: 12, borderWidth: 1.5, borderStyle: 'dashed', borderColor: '#79B9F8', borderRadius: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, backgroundColor: COLORS.surfaceMuted },
   addTaskText: { color: COLORS.primary, fontSize: 14, fontWeight: '700' },
+  settlementCard: { marginTop: 18, padding: 15, borderRadius: 17, borderWidth: 1 },
+  settlementTitle: { fontSize: 14, fontWeight: '800' },
+  settlementDescription: { marginTop: 4, marginBottom: 12, fontSize: 11, lineHeight: 16 },
+  settlementModeRow: { flexDirection: 'row', gap: 8 },
+  settlementModeButton: { flex: 1, minHeight: 40, borderWidth: 1, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  settlementModeText: { fontSize: 13, fontWeight: '700' },
   notificationButton: { minHeight: 76, marginTop: 18, padding: 13, borderRadius: 17, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, flexDirection: 'row', alignItems: 'center', gap: 12 },
   notificationIcon: { width: 43, height: 43, borderRadius: 14, backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center' },
   actionBody: { flex: 1 },

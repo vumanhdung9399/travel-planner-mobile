@@ -39,6 +39,7 @@ type Props = {
   debtItems: BalanceItem[];
   users: UserGroup[];
   isCurrent?: boolean;
+  centralizedSettlement?: boolean;
 };
 
 const BalanceCard = ({
@@ -51,6 +52,7 @@ const BalanceCard = ({
   paidItems,
   debtItems,
   isCurrent,
+  centralizedSettlement = true,
 }: Props) => {
   const palette = useAppPalette();
   const theme = useTheme();
@@ -74,6 +76,7 @@ const BalanceCard = ({
 
   const receiver = isNeedToPay ? leader : user;
   const sender = isNeedToPay ? user : leader;
+  const qrAmount = paymentAmount;
   const isLeader = leader.id === currentUser.id;
 
   const isValidQR =
@@ -126,6 +129,11 @@ const BalanceCard = ({
   };
 
   const getDescriptionText = () => {
+    if (!centralizedSettlement) {
+      const fundPrefix = fundAmount > 0 ? `Đã đóng quỹ ${formatMoney(fundAmount)}. ` : "";
+      return `${fundPrefix}Thanh toán theo kế hoạch nhóm phía trên`;
+    }
+
     if (isNeedToPay) {
       if (fundAmount > 0) {
         return `Đã đóng quỹ ${formatMoney(fundAmount)}, cần trả thêm ${formatMoney(paymentAmount)} cho ${leader.name}`;
@@ -230,7 +238,7 @@ const BalanceCard = ({
             {getDescriptionText()}
           </Text>
           <View style={styles.actions}>
-            {(isLeader || isCurrent) && (
+            {centralizedSettlement && (isLeader || isCurrent) && (
               <TouchableOpacity
                 style={[
                   styles.qrButton,
@@ -238,6 +246,7 @@ const BalanceCard = ({
                 ]}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setQrError(false);
                   setQrModalVisible(true);
                 }}
               >
@@ -585,7 +594,7 @@ const BalanceCard = ({
                   { color: theme.colors.primary },
                 ]}
               >
-                {formatMoney(paymentAmount)}
+                {formatMoney(qrAmount)}
               </Text>
 
               <View
@@ -612,7 +621,7 @@ const BalanceCard = ({
                   <Image
                     source={{
                       uri: generateQRUrl({
-                        amount: paymentAmount,
+                        amount: qrAmount,
                         content: `Thanh toan ${sender.name} cho ${receiver.name}`,
                         accountNo: receiver.bankAccNumber ?? "",
                         bankCode: receiver.bank ?? "",

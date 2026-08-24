@@ -22,7 +22,8 @@ export interface ExpenseItem {
   userId: string;
   createdBy: UserGroup;
   paidBy: UserGroup;
-  participants: UserGroupRole[];
+  splitMode?: "equal" | "exact";
+  participants: (UserGroupRole & { amount: number })[];
 }
 
 export interface Trip {
@@ -39,6 +40,7 @@ export interface Trip {
   isLeader: boolean;
   group: Group;
   isCloseTrip: boolean;
+  settlementMode?: "leader" | "simplified";
 }
 
 interface Group {
