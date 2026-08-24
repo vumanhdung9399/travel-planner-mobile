@@ -10,8 +10,14 @@ import { useAuthStore } from "@/src/store/auth.store";
 import { COLORS, UI_RADIUS } from "@/src/utils/constants";
 import { showSuccess } from "@/src/utils/errorHandler";
 import { yupResolver } from "@hookform/resolvers/yup";
+import {
+  GoogleSignin,
+  isErrorWithCode,
+  isSuccessResponse,
+  statusCodes,
+} from "@react-native-google-signin/google-signin";
 import { router } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
   KeyboardAvoidingView,
@@ -41,6 +47,66 @@ export default function LoginScreen() {
   const styles = useMemo(() => createStyles(palette.isDark), [palette.isDark]);
   const [secureText, setSecureText] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+  const isGoogleAuthConfigured = Boolean(
+    googleWebClientId &&
+    (Platform.OS !== "android" ||
+      process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID),
+  );
+
+  useEffect(() => {
+    if (googleWebClientId) {
+      GoogleSignin.configure({
+        webClientId: googleWebClientId,
+        offlineAccess: false,
+      });
+    }
+  }, [googleWebClientId]);
+
+  const handleGoogleLogin = async () => {
+    if (!isGoogleAuthConfigured) {
+      showError("Google Login chưa được cấu hình");
+      return;
+    }
+    try {
+      setGoogleLoading(true);
+      if (Platform.OS === "android") {
+        await GoogleSignin.hasPlayServices({
+          showPlayServicesUpdateDialog: true,
+        });
+      }
+      const response = await GoogleSignin.signIn();
+      if (!isSuccessResponse(response)) return;
+      const idToken = response.data.idToken;
+      if (!idToken) throw new Error("Google không trả về ID token");
+
+      const { data } = await api.post("/auth/google", { idToken });
+      setAuth({
+        user: data.user,
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token,
+      });
+      showSuccess("Đăng nhập với Google thành công");
+      router.replace("/(tabs)");
+    } catch (error) {
+      if (isErrorWithCode(error)) {
+        if (error.code === statusCodes.SIGN_IN_CANCELLED) return;
+        if (error.code === statusCodes.IN_PROGRESS) {
+          showError("Đăng nhập Google đang được xử lý");
+          return;
+        }
+        if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+          showError("Thiết bị chưa có Google Play Services phù hợp");
+          return;
+        }
+      }
+      handleApiError(error);
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   const {
     control,

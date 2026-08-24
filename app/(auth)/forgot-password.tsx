@@ -1,4 +1,8 @@
-import { PageKicker, PageSubtitle, PageTitle } from "@/src/components/ui/AppTypography";
+import {
+  PageKicker,
+  PageSubtitle,
+  PageTitle,
+} from "@/src/components/ui/AppTypography";
 import { useAppPalette } from "@/src/hook/useAppPalette";
 import { api } from "@/src/services/api";
 import { COLORS, UI_RADIUS } from "@/src/utils/constants";
@@ -14,8 +18,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Button, Surface, TextInput } from "react-native-paper";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 type Step = 1 | 2 | 3;
 
@@ -96,34 +100,70 @@ export default function ForgotPasswordScreen() {
     else router.back();
   };
 
-  const action = step === 1 ? sendCode : step === 2 ? verifyCode : resetPassword;
+  const action =
+    step === 1 ? sendCode : step === 2 ? verifyCode : resetPassword;
   const actionLabel =
-    step === 1 ? "Gửi mã xác thực" : step === 2 ? "Xác thực mã" : "Đặt lại mật khẩu";
+    step === 1
+      ? "Gửi mã xác thực"
+      : step === 2
+        ? "Xác thực mã"
+        : "Đặt lại mật khẩu";
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
-      <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+    <SafeAreaView
+      style={[styles.safeArea, { backgroundColor: palette.background }]}
+    >
+      <KeyboardAvoidingView
+        style={styles.fill}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+        >
           <Surface
             elevation={0}
             style={[
               styles.card,
               {
                 backgroundColor: palette.surface,
-                borderColor: palette.isDark ? palette.border : palette.textPrimary,
+                borderColor: palette.isDark
+                  ? palette.border
+                  : palette.textPrimary,
               },
             ]}
           >
-            <TouchableOpacity accessibilityLabel="Quay lại" onPress={goBack} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={20} color={palette.textSecondary} />
+            <TouchableOpacity
+              accessibilityLabel="Quay lại"
+              onPress={goBack}
+              style={styles.backButton}
+            >
+              <Ionicons
+                name="arrow-back"
+                size={20}
+                color={palette.textSecondary}
+              />
             </TouchableOpacity>
 
-            <View style={[styles.iconBox, { backgroundColor: palette.primaryLight }]}>
-              <Ionicons name="lock-open-outline" size={36} color={COLORS.primary} />
+            <View
+              style={[
+                styles.iconBox,
+                { backgroundColor: palette.primaryLight },
+              ]}
+            >
+              <Ionicons
+                name="lock-open-outline"
+                size={36}
+                color={COLORS.primary}
+              />
             </View>
             <PageKicker style={styles.center}>Bước {step}/3</PageKicker>
             <PageTitle style={[styles.title, styles.center]}>
-              {step === 1 ? "Quên mật khẩu?" : step === 2 ? "Xác thực mã" : "Đặt lại mật khẩu"}
+              {step === 1
+                ? "Quên mật khẩu?"
+                : step === 2
+                  ? "Xác thực mã"
+                  : "Đặt lại mật khẩu"}
             </PageTitle>
             <PageSubtitle style={[styles.subtitle, styles.center]}>
               {step === 1
@@ -151,7 +191,9 @@ export default function ForgotPasswordScreen() {
                 placeholder="000000"
                 mode="outlined"
                 value={code}
-                onChangeText={(value) => setCode(value.replace(/\D/g, "").slice(0, 6))}
+                onChangeText={(value) =>
+                  setCode(value.replace(/\D/g, "").slice(0, 6))
+                }
                 keyboardType="number-pad"
                 maxLength={6}
                 outlineColor={palette.border}
@@ -196,7 +238,11 @@ export default function ForgotPasswordScreen() {
               {actionLabel}
             </Button>
             {step === 2 ? (
-              <Button mode="text" disabled={loading} onPress={() => void sendCode()}>
+              <Button
+                mode="text"
+                disabled={loading}
+                onPress={() => void sendCode()}
+              >
                 Gửi lại mã
               </Button>
             ) : null}
@@ -213,14 +259,44 @@ export default function ForgotPasswordScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   fill: { flex: 1 },
-  container: { flexGrow: 1, alignItems: "center", justifyContent: "center", padding: 18 },
-  card: { width: "100%", maxWidth: 390, padding: 28, borderWidth: 1, borderRadius: UI_RADIUS.overlay },
-  backButton: { width: 40, height: 40, justifyContent: "center", marginLeft: -8, marginTop: -8 },
-  iconBox: { width: 76, height: 76, borderRadius: 12, alignSelf: "center", alignItems: "center", justifyContent: "center", marginBottom: 16 },
+  container: {
+    flexGrow: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 18,
+  },
+  card: {
+    width: "100%",
+    maxWidth: 390,
+    padding: 28,
+    borderWidth: 1,
+    borderRadius: UI_RADIUS.overlay,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    marginLeft: -8,
+    marginTop: -8,
+  },
+  iconBox: {
+    width: 76,
+    height: 76,
+    borderRadius: 12,
+    alignSelf: "center",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
   center: { textAlign: "center" },
   title: { marginTop: 6 },
   subtitle: { marginTop: 8, marginBottom: 24 },
-  otpInput: { textAlign: "center", fontSize: 24, fontWeight: "800", letterSpacing: 9 },
+  otpInput: {
+    textAlign: "center",
+    fontSize: 24,
+    fontWeight: "800",
+    letterSpacing: 9,
+  },
   passwordFields: { gap: 12 },
   actionButton: { marginTop: 16, borderRadius: UI_RADIUS.control },
   actionButtonContent: { minHeight: 50 },

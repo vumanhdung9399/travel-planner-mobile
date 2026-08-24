@@ -25,6 +25,8 @@ type IncomingCall = {
 
 type TravelCallAudioModule = {
   dismissIncomingCallNotification?: (groupId: string) => Promise<void>;
+  startIncomingRingtone?: () => Promise<boolean>;
+  stopIncomingRingtone?: () => Promise<void>;
 };
 
 const callAudio = NativeModules.TravelCallAudio as
@@ -52,6 +54,7 @@ export default function IncomingCallListener() {
     const dismissedGroupId = incomingRef.current?.groupId;
     incomingRef.current = null;
     setIncoming(null);
+    void callAudio?.stopIncomingRingtone?.().catch(() => undefined);
     if (dismissedGroupId) {
       void callAudio?.dismissIncomingCallNotification?.(dismissedGroupId).catch(
         () => undefined,
@@ -65,6 +68,7 @@ export default function IncomingCallListener() {
       if (String(data.userId) === String(currentUser?.id)) return;
       incomingRef.current = data;
       setIncoming(data);
+      void callAudio?.startIncomingRingtone?.().catch(() => undefined);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     };
     const onEnded = (data: { groupId: string; callId?: string }) => {
@@ -84,6 +88,13 @@ export default function IncomingCallListener() {
       socket.off("call:ended", onEnded);
     };
   }, [clearIncoming, currentUser?.id, socket]);
+
+  useEffect(
+    () => () => {
+      void callAudio?.stopIncomingRingtone?.().catch(() => undefined);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (
