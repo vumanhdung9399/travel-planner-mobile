@@ -237,7 +237,7 @@ const TripFundForm = () => {
             styles.addMemberButton,
             {
               backgroundColor: palette.primaryLight,
-              borderColor: palette.isDark ? "#315C86" : "#8DC3FF",
+              borderColor: palette.isDark ? "#4EAD91" : "#9FD7C4",
             },
           ]}
           onPress={() =>
@@ -381,7 +381,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     borderWidth: 1.5,
     borderStyle: "dashed",
-    borderColor: "#8DC3FF",
+    borderColor: "#9FD7C4",
     borderRadius: 12,
     backgroundColor: COLORS.infoLight,
   },

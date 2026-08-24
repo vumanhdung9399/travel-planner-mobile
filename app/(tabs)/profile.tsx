@@ -7,6 +7,7 @@ import { useRouter } from "expo-router";
 import { api } from "@/src/services/api";
 import { removeCurrentDeviceToken } from "@/src/hook/usePushNotification";
 import { useAppPalette } from "@/src/hook/useAppPalette";
+import { PageKicker, PageTitle, SectionTitle } from "@/src/components/ui/AppTypography";
 import {
   ActivityIndicator,
   Image,
@@ -55,17 +56,25 @@ export default function ProfileScreen() {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.titleRow}>
-        <Text style={[styles.title, { color: palette.textPrimary }]}>Tài khoản</Text>
+        <View>
+          <PageKicker>Không gian của bạn</PageKicker>
+          <PageTitle style={styles.pageTitle}>Hồ sơ & cài đặt</PageTitle>
+        </View>
       </View>
 
-      <View style={[styles.profileCard, { backgroundColor: palette.surface }]}>
+      <View
+        style={[
+          styles.profileCard,
+          { backgroundColor: palette.surface, borderColor: palette.border },
+        ]}
+      >
         <ImageBackground
           source={require("@/assets/images/trip-hero-cao-bang.png")}
           style={styles.cover}
           imageStyle={styles.coverImage}
         >
           <LinearGradient
-            colors={["rgba(7,94,158,.28)", "rgba(3,22,38,.58)"]}
+            colors={["rgba(15,81,68,.88)", "rgba(23,107,89,.5)"]}
             style={styles.coverOverlay}
           >
             <Ionicons name="airplane" size={28} color="rgba(255,255,255,.88)" />
@@ -87,7 +96,17 @@ export default function ProfileScreen() {
               },
             ]}
           />
-          <Text style={[styles.name, { color: palette.textPrimary }]}>{user.name}</Text>
+          <View style={styles.identityCopy}>
+            <Text style={[styles.name, { color: palette.textPrimary }]} numberOfLines={1}>{user.name}</Text>
+            <Text style={[styles.email, { color: palette.textSecondary }]} numberOfLines={1}>{user.email}</Text>
+          </View>
+          <TouchableOpacity
+            accessibilityLabel="Chỉnh sửa hồ sơ"
+            onPress={() => router.push("/change-profile/edit")}
+            style={[styles.editButton, { backgroundColor: palette.surfaceMuted }]}
+          >
+            <Ionicons name="create-outline" size={18} color={COLORS.primary} />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -133,7 +152,10 @@ export default function ProfileScreen() {
         />
       </View>
 
-      <Text style={[styles.sectionLabel, { color: palette.textSecondary }]}>TUỲ CHỌN ỨNG DỤNG</Text>
+      <View style={styles.sectionHeading}>
+        <PageKicker>Trải nghiệm</PageKicker>
+        <SectionTitle style={styles.sectionTitle}>Tuỳ chọn ứng dụng</SectionTitle>
+      </View>
       <View
         style={[
           styles.menuCard,
@@ -274,11 +296,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 10,
+    marginBottom: 16,
     paddingHorizontal: 16,
     paddingTop: 14,
   },
-  title: { fontSize: 25, fontWeight: "800", color: COLORS.textPrimary },
+  pageTitle: { marginTop: 4 },
   iconButton: {
     width: 44,
     height: 44,
@@ -289,9 +311,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  profileCard: { backgroundColor: COLORS.surface },
+  profileCard: {
+    marginHorizontal: 16,
+    overflow: "hidden",
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderRadius: UI_RADIUS.card,
+  },
   cover: {
-    height: 188,
+    height: 86,
     overflow: "hidden",
   },
   coverImage: {},
@@ -314,27 +342,42 @@ const styles = StyleSheet.create({
     bottom: -55,
     backgroundColor: "rgba(255,255,255,.18)",
   },
-  identity: { alignItems: "center", paddingHorizontal: 16 },
+  identity: {
+    minHeight: 102,
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+    flexDirection: "row",
+    alignItems: "center",
+  },
   avatar: {
-    width: 98,
-    height: 98,
-    borderRadius: 49,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     borderWidth: 4,
     borderColor: COLORS.surface,
-    marginTop: -49,
+    marginTop: -30,
     backgroundColor: COLORS.surfaceMuted,
   },
+  identityCopy: { flex: 1, minWidth: 0, marginLeft: 12, paddingTop: 10 },
   name: {
-    marginTop: 8,
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: "800",
     color: COLORS.textPrimary,
   },
-  email: { marginTop: 3, fontSize: 13, color: COLORS.textSecondary },
+  email: { marginTop: 3, fontSize: 10.5, color: COLORS.textSecondary },
+  editButton: {
+    width: 38,
+    height: 38,
+    marginTop: 10,
+    marginLeft: 8,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   stats: {
     flexDirection: "row",
     marginHorizontal: 16,
-    marginTop: 18,
+    marginTop: 12,
     paddingVertical: 14,
     backgroundColor: COLORS.surface,
     borderRadius: 14,
@@ -383,7 +426,8 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
   settingsCard: { marginTop: 6 },
-  sectionLabel: { marginTop: 18, marginHorizontal: 20, fontSize: 11, fontWeight: "700", letterSpacing: 0.5 },
+  sectionHeading: { marginTop: 24, marginHorizontal: 20 },
+  sectionTitle: { marginTop: 3 },
   menuItem: {
     minHeight: 58,
     flexDirection: "row",
@@ -410,6 +454,7 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     minHeight: 50,
+    marginHorizontal: 16,
     marginTop: 16,
     borderRadius: UI_RADIUS.control,
     flexDirection: "row",

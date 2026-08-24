@@ -59,15 +59,15 @@ const ConfirmDialog = ({
           iconBgColor: palette.errorLight,
           iconColor: COLORS.error,
           defaultConfirmColor: COLORS.error,
-          gradientColors: ["#EF4444", "#DC2626"] as const,
+          gradientColors: [COLORS.error, "#B94B3B"] as const,
         };
       case "warning":
         return {
           icon: "warning",
           iconBgColor: palette.warningLight,
-          iconColor: "#F59E0B",
-          defaultConfirmColor: "#F59E0B",
-          gradientColors: ["#F59E0B", "#D97706"] as const,
+          iconColor: COLORS.warning,
+          defaultConfirmColor: COLORS.warning,
+          gradientColors: [COLORS.warning, "#C98928"] as const,
         };
       case "success":
         return {
@@ -75,7 +75,7 @@ const ConfirmDialog = ({
           iconBgColor: palette.successLight,
           iconColor: COLORS.success,
           defaultConfirmColor: COLORS.success,
-          gradientColors: ["#10B981", "#059669"] as const,
+          gradientColors: [COLORS.success, COLORS.primaryDark] as const,
         };
       case "info":
       default:
@@ -191,7 +191,7 @@ const ConfirmDialog = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(7, 17, 14, .52)",
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 24,
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 360,
     borderRadius: UI_RADIUS.overlay,
-    padding: 24,
+    padding: 26,
     backgroundColor: COLORS.surface,
   },
   iconContainer: {
@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
   iconGradient: {
     width: 64,
     height: 64,
-    borderRadius: 20,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
   },

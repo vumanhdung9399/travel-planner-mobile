@@ -158,9 +158,10 @@ export default function RootLayout() {
             screenOptions={{
               headerShown: false,
               drawerStyle: {
-                width: 280,
+                width: 320,
                 backgroundColor: paperTheme.colors.surface,
               },
+              overlayColor: "rgba(7,17,14,.42)",
               sceneStyle: { backgroundColor: paperTheme.colors.background },
             }}
           >

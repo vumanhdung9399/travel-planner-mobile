@@ -5,6 +5,7 @@ import { COLORS } from "@/src/utils/constants";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import dayjs from "dayjs";
 import { useCallback, useEffect, useState } from "react";
+import { LinearGradient } from "expo-linear-gradient";
 import {
   ActivityIndicator,
   Pressable,
@@ -80,7 +81,7 @@ export default function WeatherForecast(props: Props) {
   const current = weatherMeta(data.current.weatherCode);
   return (
     <View>
-      <View style={styles.current}>
+      <LinearGradient colors={COLORS.primaryGradient} style={styles.current}>
         <View>
           <Text style={styles.location}>{props.location}</Text>
           <Text style={styles.temperature}>{data.current.temperature}°</Text>
@@ -89,7 +90,7 @@ export default function WeatherForecast(props: Props) {
           </Text>
         </View>
         <Ionicons name={current.icon} size={64} color="#fff" />
-      </View>
+      </LinearGradient>
       <View style={styles.metrics}>
         <Text style={[styles.metric, { color: palette.textSecondary }]}>💧 {data.current.humidity}%</Text>
         <Text style={[styles.metric, { color: palette.textSecondary }]}>💨 {data.current.windSpeed} km/h</Text>
@@ -130,16 +131,16 @@ export default function WeatherForecast(props: Props) {
 
 const styles = StyleSheet.create({
   current: {
-    borderRadius: 16,
+    borderRadius: 12,
     padding: 18,
-    backgroundColor: "#2563eb",
+    backgroundColor: COLORS.primary,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  location: { color: "#dbeafe", fontSize: 13 },
+  location: { color: "#DFF3E9", fontSize: 13 },
   temperature: { color: "#fff", fontSize: 48, fontWeight: "300" },
-  condition: { color: COLORS.infoLight },
+  condition: { color: "rgba(255,255,255,.72)" },
   metrics: {
     flexDirection: "row",
     justifyContent: "space-around",

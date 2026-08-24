@@ -1,4 +1,4 @@
-import { COLORS } from "@/src/utils/constants";
+import { COLORS, UI_RADIUS } from "@/src/utils/constants";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import type { ComponentProps, ReactNode } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
@@ -54,12 +54,12 @@ export default function CollapsibleCard({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.surface,
-    borderRadius: 20,
+    borderRadius: UI_RADIUS.card,
     marginBottom: 12,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: COLORS.border,
-    shadowColor: "#3D4E62",
+    shadowColor: COLORS.primaryDark,
     shadowOpacity: 0.04,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 5 },

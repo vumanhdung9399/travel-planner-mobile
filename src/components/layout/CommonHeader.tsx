@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons"; // Hoặc Lucide-react-native
+import { Ionicons } from "@expo/vector-icons";
 import type { Href } from "expo-router";
 import { useRouter } from "expo-router";
 import React from "react";
@@ -43,10 +43,14 @@ export const CommonHeader = ({
       ]}
     >
       <View style={styles.content}>
-        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+        <TouchableOpacity
+          accessibilityLabel="Quay lại"
+          onPress={handleBack}
+          style={[styles.backButton, { backgroundColor: theme.colors.surfaceVariant }]}
+        >
           <Ionicons
             name="chevron-back"
-            size={26}
+            size={22}
             color={theme.colors.onSurface}
           />
         </TouchableOpacity>
@@ -75,7 +79,7 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.border,
   },
   content: {
-    height: 56,
+    height: 64,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -85,6 +89,8 @@ const styles = StyleSheet.create({
     zIndex: 10,
     width: 40,
     height: 40,
+    borderRadius: 20,
+    alignItems: "center",
     justifyContent: "center",
   },
   titleContainer: {
@@ -94,8 +100,8 @@ const styles = StyleSheet.create({
     zIndex: 0,
   },
   title: {
-    fontSize: 18,
-    fontWeight: "600",
+    fontSize: 15,
+    fontWeight: "800",
     color: COLORS.textPrimary,
     maxWidth: "70%",
   },

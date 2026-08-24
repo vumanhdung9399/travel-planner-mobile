@@ -118,7 +118,7 @@ export default function TripInfo({
                 styles.editButton,
                 {
                   backgroundColor: palette.primaryLight,
-                  borderColor: palette.isDark ? "#315C86" : "#C6E2FF",
+                  borderColor: palette.isDark ? "#4EAD91" : "#BFE2D4",
                 },
               ]}
               onPress={() =>

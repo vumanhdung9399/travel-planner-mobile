@@ -1,16 +1,16 @@
-import { useAppPalette } from "@/src/hook/useAppPalette";
 import { useAuthStore } from "@/src/store/auth.store";
-import { COLORS } from "@/src/utils/constants";
+import { COLORS, UI_RADIUS } from "@/src/utils/constants";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useRef, useState } from "react";
 import {
-    Image,
-    SafeAreaView,
-    StatusBar,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  Image,
+  Platform,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import AppIntroSlider from "react-native-app-intro-slider";
 import { Text } from "react-native-paper";
@@ -19,306 +19,178 @@ interface Slide {
   key: string;
   title: string;
   text: string;
-  image: any; // Sử dụng require() cho ảnh local
-  backgroundColor: string;
+  image: number;
 }
 
 const slides: Slide[] = [
   {
     key: "1",
-    title: "Quản lý chi tiêu\ndễ dàng",
+    title: "Quản lý chi tiêu dễ dàng",
     text: "Theo dõi mọi khoản chi tiêu trong chuyến đi một cách đơn giản và minh bạch. Chia sẻ chi phí với bạn bè chưa bao giờ dễ đến thế.",
     image: require("@/assets/images/onboarding-1.png"),
-    backgroundColor: COLORS.surface,
   },
   {
     key: "2",
-    title: "Lịch trình\nthông minh",
+    title: "Lịch trình thông minh",
     text: "Lên kế hoạch chi tiết cho từng ngày trong chuyến đi. Đặt thông báo nhắc nhở để không bỏ lỡ bất kỳ hoạt động nào.",
     image: require("@/assets/images/onboarding-2.png"),
-    backgroundColor: COLORS.surface,
   },
   {
     key: "3",
-    title: "Cân đối thu chi\ntự động",
+    title: "Cân đối thu chi tự động",
     text: "Kết thúc chuyến đi, hệ thống tự động tính toán ai nợ ai bao nhiêu. Thanh toán dễ dàng qua mã QR.",
     image: require("@/assets/images/onboarding-3.png"),
-    backgroundColor: COLORS.surface,
   },
 ];
 
-const OnboardingScreen = () => {
+export default function OnboardingScreen() {
   const router = useRouter();
-  const palette = useAppPalette();
   const { completeFirstTime } = useAuthStore();
   const sliderRef = useRef<AppIntroSlider>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  const handleDone = async () => {
+  const finish = () => {
     completeFirstTime();
     router.replace("/(auth)/login");
   };
 
-  const handleSkip = async () => {
-    completeFirstTime();
-    router.replace("/(auth)/login");
-  };
+  const renderItem = ({ item }: { item: Slide }) => (
+    <LinearGradient
+      colors={["#123F35", "#184F42", "#153F35"]}
+      locations={[0, 0.56, 1]}
+      style={styles.slide}
+    >
+      <View pointerEvents="none" style={styles.ambientTop} />
+      <View pointerEvents="none" style={styles.ambientBottom} />
 
-  const renderItem = ({ item }: { item: Slide }) => {
-    return (
-      <View style={[styles.slide, { backgroundColor: palette.surface }]}>
-        {/* Background Decorations */}
-        <View style={styles.bgDecorTop}>
-          <LinearGradient
-            colors={COLORS.primaryGradient as readonly [string, string]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.bgCircle1}
-          />
-          <LinearGradient
-            colors={[COLORS.primaryGradient[1], COLORS.primaryGradient[0]]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.bgCircle2}
-          />
-        </View>
-
-        <View style={styles.bgDecorBottom}>
-          <LinearGradient
-            colors={COLORS.primaryGradient as readonly [string, string]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.bgCircle3}
-          />
-        </View>
-
-        {/* Illustration */}
-        <View style={styles.illustrationContainer}>
-          <View style={styles.imageWrapper}>
-            <Image
-              source={item.image}
-              style={styles.image}
-              resizeMode="contain"
-            />
-          </View>
-        </View>
-
-        {/* Content */}
-        <View style={styles.contentContainer}>
-          <Text style={[styles.title, { color: palette.textPrimary }]}>
-            {item.title}
-          </Text>
-          <Text style={[styles.text, { color: palette.textSecondary }]}>
-            {item.text}
-          </Text>
-        </View>
+      <View style={styles.imageArea}>
+        <Image source={item.image} style={styles.image} resizeMode="contain" />
       </View>
-    );
-  };
 
-  const renderNextButton = () => (
-    <View style={styles.buttonContainer}>
-      <LinearGradient
-        colors={COLORS.primaryGradient as readonly [string, string]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.nextButton}
-      >
-        <Text style={styles.nextButtonText}>Tiếp theo</Text>
-      </LinearGradient>
-    </View>
+      <View style={styles.copy}>
+        <Text style={styles.title}>{item.title}</Text>
+        <Text style={styles.description}>{item.text}</Text>
+      </View>
+    </LinearGradient>
   );
 
-  const renderDoneButton = () => (
-    <View style={styles.buttonContainer}>
-      <LinearGradient
-        colors={COLORS.primaryGradient as readonly [string, string]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.doneButton}
-      >
-        <Text style={styles.doneButtonText}>Bắt đầu</Text>
-      </LinearGradient>
+  const renderButton = (label: string) => (
+    <View style={styles.nextButton}>
+      <Text style={styles.nextButtonText}>{label}</Text>
     </View>
   );
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: palette.surface }]}
-    >
-      <StatusBar
-        barStyle={palette.isDark ? "light-content" : "dark-content"}
-        backgroundColor={palette.surface}
-      />
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#123F35" />
 
-      {/* Skip button */}
-      {activeIndex < slides.length - 1 && (
-        <TouchableOpacity
-          style={styles.skipButtonContainer}
-          onPress={handleSkip}
-        >
+      {activeIndex < slides.length - 1 ? (
+        <TouchableOpacity style={styles.skipButton} onPress={finish}>
           <Text style={styles.skipText}>Bỏ qua</Text>
         </TouchableOpacity>
-      )}
+      ) : null}
 
       <AppIntroSlider
         ref={sliderRef}
         data={slides}
         renderItem={renderItem}
-        renderNextButton={renderNextButton}
-        renderDoneButton={renderDoneButton}
+        renderNextButton={() => renderButton("Tiếp theo")}
+        renderDoneButton={() => renderButton("Bắt đầu")}
         showSkipButton={false}
-        onSlideChange={(index) => setActiveIndex(index)}
-        onDone={handleDone}
-        bottomButton
-        activeDotStyle={styles.activeDotStyle}
-        dotStyle={{ ...styles.dotStyle, backgroundColor: palette.border }}
+        onSlideChange={setActiveIndex}
+        onDone={finish}
+        activeDotStyle={styles.activeDot}
+        dotStyle={styles.dot}
       />
     </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.surface,
-  },
+  container: { flex: 1, backgroundColor: "#153F35" },
   slide: {
     flex: 1,
-    alignItems: "center",
+    paddingHorizontal: 30,
+    paddingTop: 52,
+    paddingBottom: 92,
     justifyContent: "center",
-    paddingHorizontal: 24,
+    overflow: "hidden",
   },
-  // Background decorations
-  bgDecorTop: {
+  ambientTop: {
     position: "absolute",
-    top: -80,
-    right: -40,
-    width: 250,
-    height: 250,
+    width: 310,
+    height: 310,
+    top: -190,
+    right: -150,
+    borderRadius: 155,
+    backgroundColor: "rgba(223,243,233,.06)",
   },
-  bgCircle1: {
+  ambientBottom: {
     position: "absolute",
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    opacity: 0.06,
-  },
-  bgCircle2: {
-    position: "absolute",
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    opacity: 0.04,
-    top: 60,
-    left: 40,
-  },
-  bgDecorBottom: {
-    position: "absolute",
-    bottom: 150,
-    left: -60,
-    width: 200,
-    height: 200,
-  },
-  bgCircle3: {
-    position: "absolute",
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    opacity: 0.04,
-  },
-  // Skip button
-  skipButtonContainer: {
-    position: "absolute",
-    top: 40,
-    right: 24,
-    zIndex: 10,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-  },
-  skipText: {
-    fontSize: 15,
-    fontWeight: "500",
-    color: COLORS.primaryGradient[1],
-  },
-  // Illustration
-  illustrationContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 40,
-    width: "100%",
-  },
-  imageWrapper: {
     width: 260,
     height: 260,
+    left: -150,
+    bottom: -150,
+    borderRadius: 130,
+    backgroundColor: "rgba(237,118,94,.055)",
+  },
+  skipButton: {
+    position: "absolute",
+    zIndex: 10,
+    top: 14,
+    right: 16,
+    minWidth: 72,
+    minHeight: 44,
+    alignItems: "center",
     justifyContent: "center",
+  },
+  skipText: { color: "rgba(255,255,255,.8)", fontSize: 13, fontWeight: "600" },
+  imageArea: {
+    height: "49%",
+    minHeight: 250,
     alignItems: "center",
+    justifyContent: "center",
   },
-  image: {
-    width: "100%",
-    height: "100%",
-  },
-  // Content
-  contentContainer: {
-    alignItems: "center",
-    width: "100%",
-    paddingHorizontal: 8,
-  },
+  image: { width: "100%", maxWidth: 330, height: "100%" },
+  copy: { alignItems: "center", paddingHorizontal: 6 },
   title: {
+    color: "#FFFFFF",
+    fontFamily: Platform.select({ ios: "Georgia", android: "serif", default: "serif" }),
     fontSize: 30,
-    fontWeight: "800",
-    color: COLORS.textPrimary,
+    fontWeight: "700",
+    lineHeight: 37,
     textAlign: "center",
-    marginBottom: 16,
-    lineHeight: 38,
   },
-  text: {
-    fontSize: 15,
-    color: COLORS.textSecondary,
+  description: {
+    marginTop: 16,
+    maxWidth: 350,
+    color: "rgba(255,255,255,.67)",
+    fontSize: 13,
+    lineHeight: 21,
     textAlign: "center",
-    lineHeight: 24,
-  },
-  // Buttons
-  buttonContainer: {
-    marginBottom: 16,
-    paddingHorizontal: 24,
-    width: "100%",
   },
   nextButton: {
-    paddingVertical: 16,
-    borderRadius: 14,
+    minWidth: 108,
+    minHeight: 46,
+    paddingHorizontal: 18,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,.08)",
+    borderRadius: UI_RADIUS.control,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,.08)",
   },
-  nextButtonText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#fff",
-  },
-  doneButton: {
-    paddingVertical: 16,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  doneButtonText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#fff",
-  },
-  // Dots
-  dotStyle: {
-    backgroundColor: COLORS.border,
-    width: 8,
-    height: 8,
+  nextButtonText: { color: "#FFFFFF", fontSize: 13, fontWeight: "800" },
+  dot: {
+    width: 7,
+    height: 7,
     borderRadius: 4,
+    backgroundColor: "rgba(255,255,255,.25)",
   },
-  activeDotStyle: {
-    backgroundColor: COLORS.primary,
-    width: 24,
-    height: 8,
+  activeDot: {
+    width: 20,
+    height: 7,
     borderRadius: 4,
+    backgroundColor: COLORS.primaryLight,
   },
 });
-
-export default OnboardingScreen;

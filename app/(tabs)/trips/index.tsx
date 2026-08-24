@@ -1,5 +1,6 @@
 import { api } from "@/src/services/api";
 import { type AppPalette, useAppPalette } from "@/src/hook/useAppPalette";
+import { PageKicker, PageSubtitle, PageTitle } from "@/src/components/ui/AppTypography";
 import { ListTrip } from "@/src/type/trip";
 import { COLORS } from "@/src/utils/constants";
 import { formatMoney, getNameFirstLetterUpper } from "@/src/utils/helper";
@@ -149,12 +150,29 @@ const MyTripsScreen = () => {
           </ImageBackground>
 
           <View style={styles.cardBody}>
+            <Text style={styles.tripKicker} numberOfLines={1}>
+              {item.group?.name || "Chuyến đi của tôi"}
+            </Text>
             <Text
               style={[styles.tripName, { color: palette.textPrimary }]}
               numberOfLines={1}
             >
               {item.name}
             </Text>
+            <View style={styles.metaRow}>
+              <Ionicons name="calendar-outline" size={16} color={COLORS.primary} />
+              <Text style={[styles.metaText, { color: palette.textSecondary }]}>
+                {new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(item.startDate))}
+                {" – "}
+                {new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(item.endDate))}
+              </Text>
+            </View>
+            <View style={styles.metaRow}>
+              <Ionicons name="location-outline" size={16} color={COLORS.primary} />
+              <Text style={[styles.metaText, { color: palette.textSecondary }]} numberOfLines={1}>
+                {item.location || "Điểm đến đang cập nhật"}
+              </Text>
+            </View>
             <View style={styles.cardFooter}>
               <View style={styles.membersContainer}>
               {item.members?.slice(0, 4).map((member, index) => (
@@ -252,9 +270,12 @@ const MyTripsScreen = () => {
     <SafeAreaView
       style={[styles.container, { backgroundColor: palette.background }]}
     >
-      {/* Header */}
       <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: palette.textPrimary }]}>Chuyến đi của tôi</Text>
+        <PageKicker>Bộ sưu tập hành trình</PageKicker>
+        <PageTitle style={styles.pageTitle}>Chuyến đi của tôi</PageTitle>
+        <PageSubtitle style={styles.pageSubtitle}>
+          Lưu giữ những hành trình đáng nhớ và tiếp tục khám phá.
+        </PageSubtitle>
       </View>
 
       {/* Filter Tabs */}
@@ -263,7 +284,7 @@ const MyTripsScreen = () => {
           style={[
             styles.filterTab,
             { backgroundColor: palette.surface, borderColor: palette.border },
-            filter === "all" && styles.filterTabActive,
+            filter === "all" && { backgroundColor: palette.surface },
           ]}
           onPress={() => setFilter("all")}
         >
@@ -271,7 +292,7 @@ const MyTripsScreen = () => {
             style={[
               styles.filterTabText,
               { color: palette.textSecondary },
-              filter === "all" && styles.filterTabTextActive,
+              filter === "all" && { color: palette.textPrimary, fontWeight: "800" },
             ]}
           >
             Tất cả
@@ -281,7 +302,7 @@ const MyTripsScreen = () => {
           style={[
             styles.filterTab,
             { backgroundColor: palette.surface, borderColor: palette.border },
-            filter === "active" && styles.filterTabActive,
+            filter === "active" && { backgroundColor: palette.surface },
           ]}
           onPress={() => setFilter("active")}
         >
@@ -289,7 +310,7 @@ const MyTripsScreen = () => {
             style={[
               styles.filterTabText,
               { color: palette.textSecondary },
-              filter === "active" && styles.filterTabTextActive,
+              filter === "active" && { color: palette.textPrimary, fontWeight: "800" },
             ]}
           >
             Đang diễn ra
@@ -304,7 +325,7 @@ const MyTripsScreen = () => {
           style={[
             styles.filterTab,
             { backgroundColor: palette.surface, borderColor: palette.border },
-            filter === "completed" && styles.filterTabActive,
+            filter === "completed" && { backgroundColor: palette.surface },
           ]}
           onPress={() => setFilter("completed")}
         >
@@ -312,7 +333,7 @@ const MyTripsScreen = () => {
             style={[
               styles.filterTabText,
               { color: palette.textSecondary },
-              filter === "completed" && styles.filterTabTextActive,
+              filter === "completed" && { color: palette.textPrimary, fontWeight: "800" },
             ]}
           >
             Đã kết thúc
@@ -352,18 +373,12 @@ const createStyles = (palette: AppPalette) => StyleSheet.create({
     backgroundColor: palette.background,
   },
   header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 14,
+    paddingHorizontal: 16,
+    paddingTop: 18,
+    paddingBottom: 16,
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: palette.textPrimary,
-  },
+  pageTitle: { marginTop: 4 },
+  pageSubtitle: { marginTop: 7 },
   headerSubtitle: {
     fontSize: 13,
     color: palette.textSecondary,
@@ -371,11 +386,12 @@ const createStyles = (palette: AppPalette) => StyleSheet.create({
   },
   filterTabs: {
     flexDirection: "row",
-    marginHorizontal: 20,
-    marginBottom: 10,
-    gap: 8,
-    borderRadius: 0,
-    backgroundColor: "transparent",
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 4,
+    gap: 4,
+    borderRadius: 12,
+    backgroundColor: palette.surfaceMuted,
   },
   filterTab: {
     flex: 1,
@@ -383,23 +399,14 @@ const createStyles = (palette: AppPalette) => StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 8,
-    paddingVertical: 9,
+    minHeight: 42,
     borderRadius: 10,
-    backgroundColor: palette.surface,
-    borderWidth: 1,
-    borderColor: palette.border,
-  },
-  filterTabActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+    backgroundColor: "transparent",
   },
   filterTabText: {
     fontSize: 12,
     fontWeight: "500",
     color: palette.textSecondary,
-  },
-  filterTabTextActive: {
-    color: "#fff",
   },
   filterBadge: {
     backgroundColor: palette.surface,
@@ -414,7 +421,7 @@ const createStyles = (palette: AppPalette) => StyleSheet.create({
     color: COLORS.primary,
   },
   listContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 6,
     paddingBottom: 80,
   },
@@ -423,12 +430,12 @@ const createStyles = (palette: AppPalette) => StyleSheet.create({
   },
   card: {
     backgroundColor: palette.surface,
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: palette.border,
     overflow: "hidden",
   },
-  cover: { height: 148, backgroundColor: palette.primaryLight },
+  cover: { height: 180, backgroundColor: palette.primaryLight },
   coverImage: { resizeMode: "cover" },
   coverOverlay: {
     flex: 1,
@@ -454,7 +461,14 @@ const createStyles = (palette: AppPalette) => StyleSheet.create({
   },
   coverTitle: { color: "#FFFFFF", fontSize: 20, fontWeight: "800" },
   coverGroup: { color: "rgba(255,255,255,.82)", fontSize: 12, marginTop: 3 },
-  cardBody: { padding: 12 },
+  cardBody: { padding: 16 },
+  tripKicker: {
+    color: COLORS.primary,
+    fontSize: 9.5,
+    fontWeight: "800",
+    letterSpacing: 1.1,
+    textTransform: "uppercase",
+  },
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -495,7 +509,11 @@ const createStyles = (palette: AppPalette) => StyleSheet.create({
     fontWeight: "800",
     color: palette.textPrimary,
     flexShrink: 1,
+    marginTop: 5,
+    marginBottom: 8,
   },
+  metaRow: { flexDirection: "row", alignItems: "center", marginTop: 6 },
+  metaText: { flex: 1, marginLeft: 7, fontSize: 11.5 },
   tripGroup: {
     fontSize: 13,
     color: palette.textSecondary,
@@ -556,6 +574,10 @@ const createStyles = (palette: AppPalette) => StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginTop: 15,
+    paddingTop: 13,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: palette.border,
   },
   membersContainer: {
     flexDirection: "row",

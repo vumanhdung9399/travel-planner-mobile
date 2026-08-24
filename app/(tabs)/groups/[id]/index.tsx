@@ -67,8 +67,8 @@ const getTripStatus = (trip: Trip, darkMode: boolean) => {
   }
   return {
     label: "ĐANG DIỄN RA",
-    background: darkMode ? "#123429" : "#DFF7E9",
-    color: darkMode ? "#63D7A8" : "#159A6F",
+    background: darkMode ? "#173B33" : "#DFF3E9",
+    color: darkMode ? "#69C7AA" : COLORS.success,
   };
 };
 

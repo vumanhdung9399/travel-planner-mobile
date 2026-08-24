@@ -7,6 +7,7 @@ import { showSuccess } from "@/src/utils/errorHandler";
 import { formatTimeAgo } from "@/src/utils/helper";
 import ActionSheet from "@components/ActionSheet";
 import { useAppPalette } from "@/src/hook/useAppPalette";
+import { PageKicker, PageSubtitle, PageTitle } from "@/src/components/ui/AppTypography";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useFocusEffect } from "expo-router";
@@ -84,16 +85,22 @@ export default function NotificationScreen() {
         styles.header,
         {
           backgroundColor: palette.background,
-          borderBottomColor: palette.border,
         },
       ]}
     >
-      <Text style={[styles.headerTitle, { color: palette.textPrimary }]}>Thông báo</Text>
-      {count > 0 && (
-        <TouchableOpacity onPress={handleReadAll}>
-          <Text style={styles.readAllBtn}>Đánh dấu đã đọc</Text>
+      <View style={styles.headerCopy}>
+        <PageKicker>Trung tâm cập nhật</PageKicker>
+        <PageTitle style={styles.pageTitle}>Thông báo</PageTitle>
+        <PageSubtitle style={styles.pageSubtitle}>
+          Theo dõi lời mời, lịch trình và những thay đổi mới nhất.
+        </PageSubtitle>
+      </View>
+      {count > 0 ? (
+        <TouchableOpacity onPress={handleReadAll} style={[styles.readAllButton, { backgroundColor: palette.primaryLight }]}>
+          <MaterialCommunityIcons name="check-all" size={17} color={COLORS.primary} />
+          <Text style={styles.readAllBtn}>Đã đọc</Text>
         </TouchableOpacity>
-      )}
+      ) : null}
     </View>
   );
 
@@ -114,10 +121,10 @@ export default function NotificationScreen() {
   const getIcon = (type: string, isRead: boolean) => {
     const appearance =
       {
-        [NOTIFICATION_TYPE.EXPENSE]: { color: "#FF6B3D", bg: palette.orangeLight },
-        [NOTIFICATION_TYPE.TIMELINE]: { color: "#1687F8", bg: palette.primaryLight },
-        [NOTIFICATION_TYPE.INVITE]: { color: "#23B96F", bg: palette.successLight },
-        [NOTIFICATION_TYPE.TRIP]: { color: "#E3A008", bg: palette.warningLight },
+        [NOTIFICATION_TYPE.EXPENSE]: { color: COLORS.coral, bg: palette.orangeLight },
+        [NOTIFICATION_TYPE.TIMELINE]: { color: COLORS.info, bg: palette.primaryLight },
+        [NOTIFICATION_TYPE.INVITE]: { color: COLORS.success, bg: palette.successLight },
+        [NOTIFICATION_TYPE.TRIP]: { color: COLORS.warning, bg: palette.warningLight },
         [NOTIFICATION_TYPE.BALANCE]: { color: "#846FE8", bg: palette.purpleLight },
       }[type] || { color: COLORS.primary, bg: palette.primaryLight };
     const color = isRead ? palette.textLight : appearance.color;
@@ -150,7 +157,7 @@ export default function NotificationScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: palette.surface }]}>
+    <View style={[styles.container, { backgroundColor: palette.background }]}>
       {renderHeader()}
       <FlatList
         data={listNotification}
@@ -158,7 +165,7 @@ export default function NotificationScreen() {
         refreshing={loading && listNotification.length === 0}
         onRefresh={() => fetchNotifications(true)}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 90 }}
+        contentContainerStyle={styles.listContent}
         onEndReached={() => {
           if (!loading && hasMore && listNotification.length > 0) {
             fetchNotifications();
@@ -250,31 +257,44 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
+    paddingTop: 18,
+    paddingBottom: 18,
     backgroundColor: COLORS.surface,
-    borderBottomColor: COLORS.border,
   },
-  headerTitle: { fontSize: 24, fontWeight: "800", color: COLORS.textPrimary },
-  readAllBtn: { color: COLORS.primary, fontSize: 13, fontWeight: "700" },
+  headerCopy: { flex: 1, marginRight: 10 },
+  pageTitle: { marginTop: 4 },
+  pageSubtitle: { marginTop: 7 },
+  readAllButton: {
+    minHeight: 38,
+    marginTop: 19,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  readAllBtn: { marginLeft: 5, color: COLORS.primary, fontSize: 10.5, fontWeight: "800" },
+  listContent: { paddingBottom: 90, paddingHorizontal: 16 },
 
   item: {
     flexDirection: "row",
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    minHeight: 92,
+    marginBottom: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
     alignItems: "center",
     backgroundColor: COLORS.surface,
-    borderBottomWidth: 1,
+    borderWidth: 1,
+    borderRadius: 12,
     borderColor: COLORS.border,
   },
   unreadItem: { backgroundColor: COLORS.infoLight },
 
   iconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 10,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 14,
@@ -297,8 +317,13 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 100,
+    marginTop: 48,
+    paddingVertical: 44,
     paddingHorizontal: 40,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: COLORS.border,
+    borderRadius: 12,
   },
   emptyTitle: {
     fontSize: 18,

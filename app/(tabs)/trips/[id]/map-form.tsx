@@ -82,8 +82,8 @@ const DEFAULT_REGION = {
 
 const DARK_MAP_STYLE = [
   { elementType: "geometry", stylers: [{ color: "#172033" }] },
-  { elementType: "labels.text.fill", stylers: [{ color: "#A9B7CA" }] },
-  { elementType: "labels.text.stroke", stylers: [{ color: "#0B1220" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#A9BAB4" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#0C1714" }] },
   {
     featureType: "poi",
     elementType: "geometry",
@@ -97,7 +97,7 @@ const DARK_MAP_STYLE = [
   {
     featureType: "road",
     elementType: "geometry",
-    stylers: [{ color: "#2A384C" }],
+    stylers: [{ color: "#294139" }],
   },
   {
     featureType: "road.highway",

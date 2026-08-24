@@ -3,31 +3,33 @@ import { COLORS, UI_RADIUS } from "@/src/utils/constants";
 
 export const createPaperTheme = (darkMode = false): MD3Theme => {
   const base = darkMode ? MD3DarkTheme : MD3LightTheme;
+  const primary = darkMode ? "#69C7AA" : COLORS.primary;
+  const secondary = darkMode ? "#FF927D" : COLORS.secondary;
 
   return {
     ...base,
     roundness: UI_RADIUS.card / 4,
     colors: {
       ...base.colors,
-      primary: COLORS.primary,
-      onPrimary: "#FFFFFF",
-      primaryContainer: darkMode ? "#122D49" : COLORS.primaryLight,
-      onPrimaryContainer: darkMode ? "#D9ECFF" : COLORS.primaryDark,
-      secondary: COLORS.secondary,
-      onSecondary: "#062E2A",
-      secondaryContainer: darkMode ? "#123832" : "#DDF8F3",
-      onSecondaryContainer: darkMode ? "#DDF8F3" : "#0B625A",
-      background: darkMode ? "#0B1220" : COLORS.background,
-      onBackground: darkMode ? "#F2F6FC" : COLORS.textPrimary,
-      surface: darkMode ? "#141E2E" : COLORS.surface,
-      surfaceVariant: darkMode ? "#1B293D" : COLORS.surfaceMuted,
-      outline: darkMode ? "#2A384C" : COLORS.border,
-      outlineVariant: darkMode ? "#2A384C" : COLORS.border,
-      error: COLORS.error,
+      primary,
+      onPrimary: darkMode ? "#06271F" : "#FFFFFF",
+      primaryContainer: darkMode ? "#173B33" : COLORS.primaryLight,
+      onPrimaryContainer: darkMode ? "#C9F3E4" : COLORS.primaryDark,
+      secondary,
+      onSecondary: darkMode ? "#34110A" : "#FFFFFF",
+      secondaryContainer: darkMode ? "#3C1D22" : COLORS.errorLight,
+      onSecondaryContainer: darkMode ? "#FFD9D0" : "#873B2D",
+      background: darkMode ? "#0C1714" : COLORS.background,
+      onBackground: darkMode ? "#F3F7F4" : COLORS.textPrimary,
+      surface: darkMode ? "#14231F" : COLORS.surface,
+      surfaceVariant: darkMode ? "#101D19" : COLORS.surfaceMuted,
+      outline: darkMode ? "#294139" : COLORS.border,
+      outlineVariant: darkMode ? "#294139" : COLORS.border,
+      error: darkMode ? "#F18471" : COLORS.error,
       errorContainer: darkMode ? "#3C1D22" : COLORS.errorLight,
-      onErrorContainer: darkMode ? "#FFD9DD" : "#7A1F26",
-      onSurface: darkMode ? "#F2F6FC" : COLORS.textPrimary,
-      onSurfaceVariant: darkMode ? "#A9B7CA" : COLORS.textSecondary,
+      onErrorContainer: darkMode ? "#FFD9DD" : "#7A2A20",
+      onSurface: darkMode ? "#F3F7F4" : COLORS.textPrimary,
+      onSurfaceVariant: darkMode ? "#A9BAB4" : COLORS.textSecondary,
     },
   };
 };

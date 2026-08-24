@@ -1,8 +1,10 @@
 import { useAppPalette } from "@/src/hook/useAppPalette";
+import { PageKicker, PageSubtitle, PageTitle } from "@/src/components/ui/AppTypography";
 import { api } from "@/src/services/api";
 import { COLORS } from "@/src/utils/constants";
 import { showError, showSuccess } from "@/src/utils/errorHandler";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -12,8 +14,9 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
+  View,
 } from "react-native";
-import { Text } from "react-native-paper";
+import { Surface, Text } from "react-native-paper";
 
 export default function VerifyEmailScreen() {
   const router = useRouter();
@@ -86,15 +89,24 @@ export default function VerifyEmailScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.content}
       >
-        <Text
-          variant="headlineMedium"
-          style={[styles.title, { color: palette.textPrimary }]}
+        <Surface
+          elevation={0}
+          style={[
+            styles.card,
+            {
+              backgroundColor: palette.surface,
+              borderColor: palette.isDark ? palette.border : palette.textPrimary,
+            },
+          ]}
         >
-          Xác thực email
-        </Text>
-        <Text style={[styles.subtitle, { color: palette.textSecondary }]}>
+        <View style={[styles.iconBox, { backgroundColor: palette.primaryLight }]}>
+          <Ionicons name="mail-open-outline" size={34} color={COLORS.primary} />
+        </View>
+        <PageKicker style={styles.center}>Kiểm tra hộp thư</PageKicker>
+        <PageTitle style={[styles.title, styles.center]}>Xác thực email</PageTitle>
+        <PageSubtitle style={[styles.subtitle, styles.center]}>
           Nhập mã 6 chữ số đã gửi tới {email}
-        </Text>
+        </PageSubtitle>
         <TextInput
           autoFocus
           value={code}
@@ -140,6 +152,7 @@ export default function VerifyEmailScreen() {
             {resending ? "Đang gửi..." : "Gửi lại mã"}
           </Text>
         </TouchableOpacity>
+        </Surface>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -147,15 +160,18 @@ export default function VerifyEmailScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  content: { flex: 1, justifyContent: "center", padding: 28 },
-  title: { textAlign: "center", fontWeight: "700" },
-  subtitle: { textAlign: "center", marginTop: 10, color: COLORS.textSecondary },
+  content: { flex: 1, justifyContent: "center", alignItems: "center", padding: 18 },
+  card: { width: "100%", maxWidth: 390, padding: 28, borderWidth: 1, borderRadius: 14 },
+  iconBox: { width: 68, height: 68, borderRadius: 12, alignSelf: "center", alignItems: "center", justifyContent: "center", marginBottom: 16 },
+  center: { textAlign: "center" },
+  title: { marginTop: 6 },
+  subtitle: { marginTop: 8, color: COLORS.textSecondary },
   code: {
     marginTop: 32,
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 14,
+    borderRadius: 10,
     padding: 16,
     fontSize: 28,
     letterSpacing: 12,
@@ -166,7 +182,7 @@ const styles = StyleSheet.create({
   expired: { color: COLORS.error },
   button: {
     backgroundColor: COLORS.primary,
-    borderRadius: 14,
+    borderRadius: 10,
     padding: 15,
     alignItems: "center",
   },

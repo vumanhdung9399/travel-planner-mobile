@@ -1,7 +1,7 @@
 import { api } from "@/src/services/api";
 import { useAuthStore } from "@/src/store/auth.store";
 import type { ExpenseItem, Trip, UserGroupRole } from "@/src/type/trip";
-import { EXPENSE_STATUS, GROUP_ROLE } from "@/src/utils/constants";
+import { COLORS, EXPENSE_STATUS, GROUP_ROLE } from "@/src/utils/constants";
 import { formatMoney, getNameFirstLetterUpper } from "@/src/utils/helper";
 import { exportPdf, formatPdfCurrency } from "@/src/utils/pdfExport";
 import { Ionicons } from "@expo/vector-icons";
@@ -514,8 +514,8 @@ const BalanceList = ({
                 <View><Text style={[styles.statLabel, { color: palette.textSecondary }]}>Tổng chi</Text><Text style={[styles.statValue, { color: palette.textPrimary }]}>{formatMoney(totalExpenses)}</Text></View>
               </View>
               <View style={[styles.statItem, { backgroundColor: palette.successLight }]}>
-                <View style={[styles.statIcon, { backgroundColor: "#A9E8C5" }]}><Ionicons name="wallet-outline" size={22} color="#159A6F" /></View>
-                <View style={{ flex: 1 }}><Text style={[styles.statLabel, { color: palette.textSecondary }]}>Bạn đã tiêu</Text><Text style={[styles.statValue, { color: "#159A6F" }]} numberOfLines={1} adjustsFontSizeToFit>{formatMoney(currentShare)}</Text></View>
+                <View style={[styles.statIcon, { backgroundColor: palette.primaryLight }]}><Ionicons name="wallet-outline" size={22} color={COLORS.success} /></View>
+                <View style={{ flex: 1 }}><Text style={[styles.statLabel, { color: palette.textSecondary }]}>Bạn đã tiêu</Text><Text style={[styles.statValue, { color: COLORS.success }]} numberOfLines={1} adjustsFontSizeToFit>{formatMoney(currentShare)}</Text></View>
               </View>
             </View>
 
@@ -581,7 +581,7 @@ const BalanceList = ({
                 const qrUrl = getTransferQrUrl(transfer);
                 return <View style={[styles.qrCard, { borderColor: palette.border }]}>
                   <Text style={[styles.qrTitle, { color: palette.textPrimary }]}>{transfer.fromUser.name} → {transfer.toUser.name}</Text>
-                  <Text style={[styles.qrAmount, { color: transfer.fromUserId === currentUserId ? theme.colors.error : "#159A6F" }]}>
+                  <Text style={[styles.qrAmount, { color: transfer.fromUserId === currentUserId ? theme.colors.error : COLORS.success }]}>
                     {transfer.fromUserId === currentUserId ? "-" : "+"}{formatMoney(transfer.amount)}
                   </Text>
                   {qrUrl ? <Image source={{ uri: qrUrl }} style={styles.modalQr} />

@@ -4,7 +4,13 @@ import { Button, Text } from "react-native-paper";
 import { useAppPalette } from "@/src/hook/useAppPalette";
 import { COLORS } from "@/src/utils/constants";
 
-export const EmptyState = ({ onCreatePress }: { onCreatePress: () => void }) => {
+export const EmptyState = ({
+  onCreatePress,
+  filtered = false,
+}: {
+  onCreatePress: () => void;
+  filtered?: boolean;
+}) => {
   const palette = useAppPalette();
 
   return (
@@ -19,22 +25,26 @@ export const EmptyState = ({ onCreatePress }: { onCreatePress: () => void }) => 
       <Text
         style={[styles.emptyTitle, { color: palette.textPrimary }]}
       >
-        Chưa có nhóm nào
+        {filtered ? "Không tìm thấy nhóm" : "Bắt đầu nhóm đầu tiên"}
       </Text>
       <Text style={[styles.emptySubtext, { color: palette.textSecondary }]}>
-        Tạo nhóm đầu tiên để bắt đầu chia sẻ chi tiêu cùng bạn bè
+        {filtered
+          ? "Thử từ khóa hoặc bộ lọc khác."
+          : "Tạo nhóm, mời bạn bè và cùng nhau lên kế hoạch."}
       </Text>
 
-      <Button
-        mode="contained"
-        onPress={onCreatePress}
-        contentStyle={styles.emptyButtonContent}
-        style={styles.emptyButton}
-        labelStyle={styles.emptyButtonLabel}
-        buttonColor={COLORS.primary}
-      >
-        Tạo nhóm ngay
-      </Button>
+      {!filtered ? (
+        <Button
+          mode="contained"
+          onPress={onCreatePress}
+          contentStyle={styles.emptyButtonContent}
+          style={styles.emptyButton}
+          labelStyle={styles.emptyButtonLabel}
+          buttonColor={COLORS.primary}
+        >
+          Tạo nhóm mới
+        </Button>
+      ) : null}
     </View>
   );
 };
@@ -48,19 +58,19 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   emptyIllustration: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
+    width: 72,
+    height: 72,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: 18,
   },
   emptyEmoji: {
-    fontSize: 56,
+    fontSize: 32,
   },
   emptyTitle: {
-    fontSize: 22,
-    fontWeight: "700",
+    fontSize: 18,
+    fontWeight: "800",
     marginBottom: 8,
   },
   emptySubtext: {
@@ -70,7 +80,7 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   emptyButton: {
-    borderRadius: 16,
+    borderRadius: 10,
     overflow: "hidden",
   },
   emptyButtonContent: {

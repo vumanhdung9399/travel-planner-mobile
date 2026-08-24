@@ -1,4 +1,5 @@
 import { useAppPalette } from "@/src/hook/useAppPalette";
+import { PageKicker, PageSubtitle, PageTitle } from "@/src/components/ui/AppTypography";
 import { api } from "@/src/services/api";
 import { COLORS } from "@/src/utils/constants";
 import { showError, showSuccess } from "@/src/utils/errorHandler";
@@ -157,25 +158,32 @@ const RegisterScreen = () => {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Title */}
-          <Text style={[styles.title, { color: palette.textPrimary }]}>
-            Tạo tài khoản
-          </Text>
-          <Text style={[styles.subtitle, { color: palette.textSecondary }]}>
-            Đăng ký để bắt đầu chuyến đi cùng bạn bè
-          </Text>
-
-          {/* Form */}
+          <View style={styles.pageWidth}>
           <Surface
+            elevation={0}
             style={[
-              styles.formCard,
+              styles.authCard,
               {
                 backgroundColor: palette.surface,
-                borderColor: palette.border,
+                borderColor: palette.isDark ? palette.border : palette.textPrimary,
               },
             ]}
-            elevation={0}
           >
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={18} color={palette.textSecondary} />
+            <Text style={[styles.backButtonText, { color: palette.textSecondary }]}>Quay lại</Text>
+          </TouchableOpacity>
+
+          <PageKicker>Bắt đầu miễn phí</PageKicker>
+          <PageTitle style={styles.title}>
+            Chuyến đi hay bắt đầu từ một lời rủ.
+          </PageTitle>
+          <PageSubtitle style={styles.subtitle}>
+            Tạo tài khoản và gửi lời rủ đầu tiên ngay hôm nay.
+          </PageSubtitle>
+
+          {/* Form */}
+          <View style={styles.formCard}>
             {/* Họ tên */}
             <View style={styles.field}>
               <Text style={[styles.label, { color: palette.textPrimary }]}>
@@ -408,7 +416,7 @@ const RegisterScreen = () => {
                 {loading ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text style={styles.registerButtonText}>Đăng ký</Text>
+                  <Text style={styles.registerButtonText}>Tạo tài khoản</Text>
                 )}
               </LinearGradient>
             </TouchableOpacity>
@@ -422,7 +430,7 @@ const RegisterScreen = () => {
                 <Text style={styles.loginLink}>Đăng nhập</Text>
               </TouchableOpacity>
             </View>
-          </Surface>
+          </View>
 
           {/* Terms */}
           <Text style={[styles.termsText, { color: palette.textLight }]}>
@@ -431,6 +439,8 @@ const RegisterScreen = () => {
             <Text style={styles.termsLink}>Chính sách bảo mật</Text> của chúng
             tôi
           </Text>
+          </Surface>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -447,17 +457,27 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: Platform.OS === "ios" ? 20 : 40,
+    alignItems: "center",
+    paddingHorizontal: 18,
+    paddingTop: Platform.OS === "ios" ? 18 : 28,
     paddingBottom: 40,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 16,
+  pageWidth: { width: "100%", maxWidth: 390 },
+  authCard: {
+    padding: 28,
+    borderWidth: 1,
+    borderRadius: 14,
   },
+  backButton: {
+    alignSelf: "flex-start",
+    minWidth: 92,
+    height: 40,
+    flexDirection: "row",
+    justifyContent: "flex-start",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  backButtonText: { marginLeft: 7, fontSize: 12, fontWeight: "700" },
   logoContainer: {
     alignItems: "center",
     marginBottom: 24,
@@ -473,33 +493,21 @@ const styles = StyleSheet.create({
     fontSize: 36,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: COLORS.textPrimary,
-    textAlign: "center",
-    marginBottom: 8,
+    marginTop: 7,
   },
   subtitle: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    textAlign: "center",
-    marginBottom: 28,
-    paddingHorizontal: 20,
+    marginTop: 8,
+    marginBottom: 24,
   },
   formCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 14,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    marginBottom: 16,
+    marginTop: 2,
   },
   field: {
-    marginBottom: 20,
+    marginBottom: 15,
   },
   label: {
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 11.5,
+    fontWeight: "800",
     color: COLORS.textPrimary,
     marginBottom: 8,
   },
@@ -509,17 +517,17 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 14,
-    paddingHorizontal: 16,
+    borderRadius: 10,
+    paddingHorizontal: 14,
   },
   inputIcon: {
     marginRight: 12,
   },
   input: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 14,
     color: COLORS.textPrimary,
-    paddingVertical: 14,
+    paddingVertical: 13,
   },
   inputError: {
     borderColor: COLORS.error,
@@ -530,21 +538,22 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   registerButton: {
-    borderRadius: 14,
+    borderRadius: 10,
     overflow: "hidden",
     marginTop: 8,
     marginBottom: 20,
   },
   registerButtonGradient: {
-    paddingVertical: 16,
+    minHeight: 50,
+    justifyContent: "center",
     alignItems: "center",
   },
   registerButtonDisabled: {
     opacity: 0.6,
   },
   registerButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 14,
+    fontWeight: "800",
     color: "#fff",
   },
   loginLinkContainer: {
@@ -562,6 +571,7 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
   },
   termsText: {
+    marginTop: 20,
     fontSize: 12,
     color: COLORS.textLight,
     textAlign: "center",

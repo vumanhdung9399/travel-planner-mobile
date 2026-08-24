@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { Avatar, Text } from "react-native-paper";
 import type { CallMedia } from "./GroupCall";
+import { COLORS } from "@/src/utils/constants";
 
 type IncomingCall = {
   groupId: string;
@@ -180,7 +181,7 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
     backgroundColor: "#20242A",
   },
-  avatar: { backgroundColor: "#1687F8" },
+  avatar: { backgroundColor: COLORS.primary },
   name: { marginTop: 18, color: "#fff", fontSize: 22, fontWeight: "800" },
   subtitle: {
     marginTop: 7,

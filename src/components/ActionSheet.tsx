@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(7,17,14,.48)",
   },
   sheet: {
     backgroundColor: COLORS.surface,
@@ -240,8 +240,9 @@ const styles = StyleSheet.create({
   item: {
     flexDirection: "row",
     justifyContent: "flex-start",
-    paddingHorizontal: 24,
-    paddingVertical: 18,
+    minHeight: 54,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
     alignItems: "center",
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: COLORS.border,
@@ -249,8 +250,8 @@ const styles = StyleSheet.create({
   text: {
     flex: 1,
     textAlign: "left",
-    fontSize: 17,
-    fontWeight: "500",
+    fontSize: 14,
+    fontWeight: "600",
     color: COLORS.textPrimary,
   },
   icon: {

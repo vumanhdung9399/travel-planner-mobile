@@ -1,7 +1,7 @@
 import type { ExpenseItem, Trip } from "@/src/type/trip";
 import type { UserGroup } from "@/src/type/user";
 import { useAppPalette } from "@/src/hook/useAppPalette";
-import { EXPENSE_STATUS } from "@/src/utils/constants";
+import { COLORS, EXPENSE_STATUS } from "@/src/utils/constants";
 import {
   formatMoney,
   formatTime,
@@ -49,7 +49,7 @@ export const ExpenseCard = ({
   const theme = useTheme();
   const [actionOpen, setActionOpen] = useState(false);
   const [attachmentOpen, setAttachmentOpen] = useState(false);
-  const successColor = palette.isDark ? "#6EE7B7" : "#159A6F";
+  const successColor = palette.isDark ? "#69C7AA" : COLORS.success;
   const errorColor = palette.isDark ? "#FDA4AF" : theme.colors.error;
   const canEdit =
     !isApproval &&

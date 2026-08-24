@@ -11,11 +11,35 @@ import {
 } from "@react-navigation/native";
 import { Redirect, Tabs, useFocusEffect, usePathname, useSegments } from "expo-router";
 import { useCallback } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { COLORS } from "@/src/utils/constants";
 import { useSettingsStore } from "@/src/store/settings.store";
 import OfflineBanner from '@/src/components/OfflineBanner';
+import { useAppPalette } from "@/src/hook/useAppPalette";
+
+function NavIcon({
+  name,
+  color,
+  focused,
+}: {
+  name: keyof typeof Ionicons.glyphMap;
+  color: string;
+  focused: boolean;
+}) {
+  const palette = useAppPalette();
+
+  return (
+    <View
+      style={[
+        styles.navIcon,
+        focused && { backgroundColor: palette.primaryLight },
+      ]}
+    >
+      <Ionicons name={name} size={21} color={color} />
+    </View>
+  );
+}
 
 export default function TabLayout() {
   const navigation = useNavigation();
@@ -28,10 +52,12 @@ export default function TabLayout() {
   const { fetchNotifications, count } = useNotificationStore();
   const darkMode = useSettingsStore((state) => state.darkMode);
   const notificationsEnabled = useSettingsStore((state) => state.notificationsEnabled);
-  const background = darkMode ? "#0B1220" : COLORS.background;
-  const surface = darkMode ? "#141E2E" : COLORS.surface;
-  const border = darkMode ? "#2A384C" : COLORS.border;
-  const muted = darkMode ? "#A9B7CA" : COLORS.textSecondary;
+  const palette = useAppPalette();
+  const background = palette.background;
+  const surface = palette.surface;
+  const border = palette.border;
+  const muted = palette.textSecondary;
+  const primary = darkMode ? "#69C7AA" : COLORS.primary;
 
   const hideTab =
     segments.includes("groups") ||
@@ -73,7 +99,7 @@ export default function TabLayout() {
           flex: 1,
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: darkMode ? "#0B1220" : COLORS.background,
+          backgroundColor: background,
         }}
       >
         <ActivityIndicator color={COLORS.primary} />
@@ -98,17 +124,24 @@ export default function TabLayout() {
         backBehavior="initialRoute"
         screenOptions={{
           headerShown: false,
-          tabBarActiveTintColor: COLORS.primary,
+          tabBarActiveTintColor: primary,
           tabBarInactiveTintColor: muted,
-          tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
+          tabBarHideOnKeyboard: true,
+          tabBarLabelStyle: {
+            fontSize: 10.5,
+            fontWeight: "700",
+            lineHeight: 13,
+          },
           tabBarStyle: hideTab
             ? { display: "none" }
             : {
-                height: 61 + Math.max(7, insets.bottom),
-                paddingTop: 7,
-                paddingBottom: Math.max(7, insets.bottom),
+                height: 68 + Math.max(6, insets.bottom),
+                paddingTop: 6,
+                paddingBottom: Math.max(6, insets.bottom),
                 backgroundColor: surface,
                 borderTopColor: border,
+                borderTopWidth: StyleSheet.hairlineWidth,
+                elevation: 12,
               },
         }}
       >
@@ -116,8 +149,8 @@ export default function TabLayout() {
           name="index"
           options={{
             title: "Nhóm",
-            tabBarIcon: ({ color }) => (
-              <Ionicons name="people-outline" size={20} color={color} />
+            tabBarIcon: ({ color, focused }) => (
+              <NavIcon name="people-outline" color={color} focused={focused} />
             ),
           }}
         />
@@ -127,8 +160,8 @@ export default function TabLayout() {
           options={{
             title: "Chuyến đi",
             headerShown: false,
-            tabBarIcon: ({ color }) => (
-              <Ionicons name="airplane-outline" size={22} color={color} />
+            tabBarIcon: ({ color, focused }) => (
+              <NavIcon name="airplane-outline" color={color} focused={focused} />
             ),
           }}
           listeners={({ navigation: tabsNavigation, route }) => ({
@@ -153,8 +186,8 @@ export default function TabLayout() {
           name="profile"
           options={{
             title: "Cá nhân",
-            tabBarIcon: ({ color }) => (
-              <Ionicons name="person-outline" size={20} color={color} />
+            tabBarIcon: ({ color, focused }) => (
+              <NavIcon name="person-outline" color={color} focused={focused} />
             ),
           }}
         />
@@ -163,12 +196,12 @@ export default function TabLayout() {
           name="notification"
           options={{
             title: "Thông báo",
-            tabBarIcon: ({ color }) => (
-              <Ionicons name="notifications-outline" size={20} color={color} />
+            tabBarIcon: ({ color, focused }) => (
+              <NavIcon name="notifications-outline" color={color} focused={focused} />
             ),
             tabBarBadge: notificationsEnabled && count > 0 ? count : undefined,
             tabBarBadgeStyle: {
-              backgroundColor: "#FF3B30",
+              backgroundColor: COLORS.error,
               color: "white",
               fontSize: 10,
               lineHeight: 14,
@@ -185,8 +218,8 @@ export default function TabLayout() {
           options={{
             title: "Menu",
             headerShown: false,
-            tabBarIcon: ({ color }) => (
-              <Ionicons name="menu" size={22} color={color} />
+            tabBarIcon: ({ color, focused }) => (
+              <NavIcon name="menu-outline" color={color} focused={focused} />
             ),
           }}
           listeners={{
@@ -213,3 +246,13 @@ export default function TabLayout() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  navIcon: {
+    width: 34,
+    height: 28,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});
