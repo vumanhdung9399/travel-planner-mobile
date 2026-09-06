@@ -66,7 +66,7 @@ export default function DraggableBottomSheet({
 
   const animateOut = useCallback(
     (finish: () => void) => {
-      translateY.value = withTiming(
+      translateY.set(withTiming(
         screenHeight,
         { duration: 230 },
         (finished) => {
@@ -74,7 +74,7 @@ export default function DraggableBottomSheet({
             runOnJS(finish)();
           }
         },
-      );
+      ));
     },
     [screenHeight, translateY],
   );
@@ -103,11 +103,11 @@ export default function DraggableBottomSheet({
     if (!visible || !rendered) return;
 
     cancelAnimation(translateY);
-    translateY.value = screenHeight;
-    translateY.value = withSpring(0, {
+    translateY.set(screenHeight);
+    translateY.set(withSpring(0, {
       damping: 22,
       stiffness: 240,
-    });
+    }));
   }, [rendered, screenHeight, translateY, visible]);
 
   const dragGesture = useMemo(
@@ -115,16 +115,16 @@ export default function DraggableBottomSheet({
       Gesture.Pan()
         .activeOffsetY([-5, 5])
         .onBegin(() => {
-          dragStartY.value = translateY.value;
+          dragStartY.set(translateY.get());
         })
         .onUpdate((event) => {
-          translateY.value = Math.max(
+          translateY.set(Math.max(
             0,
-            dragStartY.value + event.translationY,
-          );
+            dragStartY.get() + event.translationY,
+          ));
         })
         .onEnd((event) => {
-          const draggedFarEnough = translateY.value > screenHeight * 0.16;
+          const draggedFarEnough = translateY.get() > screenHeight * 0.16;
           const flickedDown =
             event.translationY > 12 && event.velocityY > 850;
 
@@ -133,29 +133,29 @@ export default function DraggableBottomSheet({
             return;
           }
 
-          translateY.value = withSpring(0, {
+          translateY.set(withSpring(0, {
             damping: 22,
             stiffness: 260,
-          });
+          }));
         })
         .onFinalize((_event, success) => {
           if (!success) {
-            translateY.value = withSpring(0, {
+            translateY.set(withSpring(0, {
               damping: 22,
               stiffness: 260,
-            });
+            }));
           }
         }),
     [dragStartY, requestClose, screenHeight, translateY],
   );
 
   const sheetAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
+    transform: [{ translateY: translateY.get() }],
   }));
 
   const backdropAnimatedStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
-      translateY.value,
+      translateY.get(),
       [0, screenHeight * 0.72],
       [1, 0],
       Extrapolation.CLAMP,
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   sheet: {
     width: "100%",

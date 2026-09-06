@@ -2,7 +2,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { StyleSheet, View } from "react-native";
 import { Button, Text } from "react-native-paper";
 import { useAppPalette } from "@/src/hook/useAppPalette";
-import { COLORS } from "@/src/utils/constants";
+
 
 export const EmptyState = ({
   onCreatePress,
@@ -40,7 +40,6 @@ export const EmptyState = ({
           contentStyle={styles.emptyButtonContent}
           style={styles.emptyButton}
           labelStyle={styles.emptyButtonLabel}
-          buttonColor={COLORS.primary}
         >
           Tạo nhóm mới
         </Button>

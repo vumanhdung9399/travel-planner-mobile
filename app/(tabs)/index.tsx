@@ -230,7 +230,7 @@ const HomeScreen = () => {
           source={
             coverUri
               ? { uri: coverUri }
-              : require("@/assets/images/trip-hero-cao-bang.png")
+              : require("@/assets/images/trip-hero-cao-bang.webp")
           }
           style={styles.avatarGradient}
           imageStyle={styles.groupCoverImage}

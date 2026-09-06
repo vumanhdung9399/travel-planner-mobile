@@ -492,7 +492,7 @@ const styles = StyleSheet.create({
   logoEmoji: {
     fontSize: 36,
   },
-  title: {
+  title: { fontFamily: "DMSerifDisplay", fontWeight: "400",
     marginTop: 7,
   },
   subtitle: {

@@ -8,16 +8,11 @@ import { useAppPalette } from "@/src/hook/useAppPalette";
 import { api } from "@/src/services/api";
 import { useAuthStore } from "@/src/store/auth.store";
 import { COLORS, UI_RADIUS } from "@/src/utils/constants";
-import { showSuccess } from "@/src/utils/errorHandler";
+import { handleApiError, showError, showSuccess } from "@/src/utils/errorHandler";
 import { yupResolver } from "@hookform/resolvers/yup";
-import {
-  GoogleSignin,
-  isErrorWithCode,
-  isSuccessResponse,
-  statusCodes,
-} from "@react-native-google-signin/google-signin";
+import { getGoogleSignIn } from "@/src/services/google-sign-in";
 import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
   KeyboardAvoidingView,
@@ -58,7 +53,7 @@ export default function LoginScreen() {
 
   useEffect(() => {
     if (googleWebClientId) {
-      GoogleSignin.configure({
+      getGoogleSignIn()?.GoogleSignin.configure({
         webClientId: googleWebClientId,
         offlineAccess: false,
       });
@@ -66,6 +61,12 @@ export default function LoginScreen() {
   }, [googleWebClientId]);
 
   const handleGoogleLogin = async () => {
+    const google = getGoogleSignIn();
+    if (!google) {
+      showError("Đăng nhập Google chưa khả dụng trong phiên bản này. Vui lòng dùng email và mật khẩu.");
+      return;
+    }
+    const { GoogleSignin, isSuccessResponse, isErrorWithCode, statusCodes } = google;
     if (!isGoogleAuthConfigured) {
       showError("Google Login chưa được cấu hình");
       return;
@@ -89,7 +90,7 @@ export default function LoginScreen() {
         refreshToken: data.refresh_token,
       });
       showSuccess("Đăng nhập với Google thành công");
-      router.replace("/(tabs)");
+      router.replace("/(tabs)/overview");
     } catch (error) {
       if (isErrorWithCode(error)) {
         if (error.code === statusCodes.SIGN_IN_CANCELLED) return;
@@ -131,7 +132,7 @@ export default function LoginScreen() {
         refreshToken: refresh_token,
       });
       showSuccess("Đăng nhập thành công");
-      router.replace("/(tabs)");
+      router.replace("/(tabs)/overview");
     } catch (error) {
       console.error(error);
     } finally {
@@ -343,7 +344,7 @@ const createStyles = (darkMode: boolean) =>
       borderRadius: UI_RADIUS.overlay,
       borderWidth: 1,
     },
-    title: { marginTop: 7 },
+    title: { fontFamily: "DMSerifDisplay", fontWeight: "400", marginTop: 7 },
     subtitle: { marginTop: 6, marginBottom: 24 },
     field: { marginBottom: 15 },
     label: { marginBottom: 7, fontSize: 11.5, fontWeight: "800" },

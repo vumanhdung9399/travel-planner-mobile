@@ -1,8 +1,8 @@
 import * as Application from "expo-application";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import Constants from "expo-constants";
+
 import * as Device from "expo-device";
-import * as Notifications from "expo-notifications";
+import { getNativeNotifications } from "@/src/services/native-notifications";
 import { useEffect, useRef } from "react";
 import { AppState, NativeModules, Platform } from "react-native";
 import { api } from "../services/api";
@@ -57,6 +57,7 @@ export const getCurrentDeviceId = async () => {
 };
 
 export const removeCurrentDeviceToken = async () => {
+  if (!getNativeNotifications()) return;
   const deviceId = await getCurrentDeviceId();
   if (!deviceId || deviceId === "unknown") return;
   await api.delete("/device-token/remove-device-token", {
@@ -87,7 +88,8 @@ const registerCurrentDevice = async (): Promise<boolean> => {
     // Android emulators backed by Google Play Services can receive native FCM.
     // iOS simulators cannot receive APNs, so only keep the device guard there.
     if (!Device.isDevice && Platform.OS !== ANDROID) return false;
-    const isExpoGo = Constants.appOwnership === "expo";
+    const Notifications = getNativeNotifications();
+    const isExpoGo = !Notifications;
     if (isExpoGo) {
       console.log("⚠️ Expo Go không hỗ trợ push notification");
       return false;
@@ -123,6 +125,8 @@ export const usePushNotification = () => {
   );
 
   useEffect(() => {
+    const Notifications = getNativeNotifications();
+    if (!Notifications) return;
     const userId = user?.id ? String(user.id) : null;
     let cancelled = false;
     let retryAttempt = 0;

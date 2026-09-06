@@ -9,7 +9,7 @@ import { useTripStore } from '@/src/store/trip.store';
 import type { DocumentCategory, DocumentVisibility, TripDocument } from '@/src/type/trip-document';
 import { COLORS } from '@/src/utils/constants';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import dayjs from 'dayjs';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -83,6 +83,7 @@ export default function DocumentsScreen() {
   const [phone, setPhone] = useState('');
   const [reminderAt, setReminderAt] = useState<Date | null>(null);
   const [showReminder, setShowReminder] = useState(false);
+  const [pickerDate, setPickerDate] = useState(() => new Date());
 
   const load = useCallback(async () => {
     try {
@@ -223,7 +224,7 @@ export default function DocumentsScreen() {
   ].map(([label, value]) => ({ label: String(label), value: textValue(value) })).filter((item) => item.value) : [];
 
   return <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.safe}>
-    <StatusBar style={palette.isDark ? 'light' : 'dark'} backgroundColor={palette.surface} />
+    <StatusBar style={palette.isDark ? 'light' : 'dark'} />
     <View style={[styles.header, { paddingTop: insets.top + 4 }]}>
       <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}><Ionicons name="chevron-back" size={25} color={palette.textPrimary} /></TouchableOpacity>
       <View style={{ flex: 1 }}><Text style={styles.title}>Ví tài liệu</Text><Text style={styles.subtitle}>{trip.id === id ? trip.name : 'Tài liệu chuyến đi'}</Text></View>
@@ -271,8 +272,8 @@ export default function DocumentsScreen() {
           <TextInput value={referenceCode} onChangeText={setReferenceCode} placeholder="Mã đặt chỗ" placeholderTextColor={palette.textLight} style={styles.input} />
           <TextInput value={address} onChangeText={setAddress} placeholder="Địa chỉ" placeholderTextColor={palette.textLight} style={styles.input} />
           <TextInput value={phone} onChangeText={setPhone} placeholder="Số điện thoại" placeholderTextColor={palette.textLight} style={styles.input} />
-          <TouchableOpacity onPress={() => setShowReminder(true)} style={styles.reminder}><Ionicons name="notifications-outline" size={18} color={COLORS.primary} /><Text style={styles.switchTitle}>{reminderAt ? `Nhắc ${dayjs(reminderAt).format('HH:mm DD/MM')}` : 'Đặt thời gian nhắc'}</Text></TouchableOpacity>
-          {showReminder ? <DateTimePicker value={reminderAt || new Date(Date.now() + 86400000)} mode="datetime" minimumDate={new Date()} onChange={(_, value) => { setShowReminder(false); if (value) setReminderAt(value); }} /> : null}
+          <TouchableOpacity onPress={() => { setPickerDate(reminderAt || new Date(Date.now() + 86400000)); setShowReminder(true); }} style={styles.reminder}><Ionicons name="notifications-outline" size={18} color={COLORS.primary} /><Text style={styles.switchTitle}>{reminderAt ? `Nhắc ${dayjs(reminderAt).format('HH:mm DD/MM')}` : 'Đặt thời gian nhắc'}</Text></TouchableOpacity>
+          <DateTimePickerModal isVisible={showReminder} date={pickerDate} mode="datetime" minimumDate={new Date()} onCancel={() => setShowReminder(false)} onConfirm={(value) => { setShowReminder(false); setReminderAt(value); }} />
           <View style={styles.switchRow}><View style={{ flex: 1 }}><Text style={styles.switchTitle}>Tài liệu riêng tư</Text><Text style={styles.fileMeta}>Chỉ bạn có thể xem tài liệu này</Text></View><Switch value={visibility === 'private'} onValueChange={(value) => setVisibility(value ? 'private' : 'group')} trackColor={{ true: COLORS.primary }} /></View>
           <View style={styles.switchRow}><View style={{ flex: 1 }}><Text style={styles.switchTitle}>AI tự đọc tài liệu</Text><Text style={styles.fileMeta}>Trích xuất mã, thời gian và địa chỉ</Text></View><Switch value={autoExtract} onValueChange={setAutoExtract} trackColor={{ true: COLORS.primary }} /></View>
         </ScrollView>

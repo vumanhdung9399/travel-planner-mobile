@@ -72,7 +72,7 @@ export default function ActionSheet({
         finishClose();
         return;
       }
-      translateY.value = withTiming(
+      translateY.set(withTiming(
         screenHeight,
         { duration: 230 },
         (finished) => {
@@ -80,7 +80,7 @@ export default function ActionSheet({
             runOnJS(finishClose)();
           }
         },
-      );
+      ));
     },
     [animated, finishClose, screenHeight, translateY],
   );
@@ -88,12 +88,12 @@ export default function ActionSheet({
   useEffect(() => {
     if (open) {
       closing.current = false;
-      translateY.value = animated ? screenHeight : 0;
+      translateY.set(animated ? screenHeight : 0);
       if (animated) {
-        translateY.value = withSpring(0, {
+        translateY.set(withSpring(0, {
           damping: 22,
           stiffness: 240,
-        });
+        }));
       }
     }
   }, [animated, open, screenHeight, translateY]);
@@ -103,16 +103,16 @@ export default function ActionSheet({
       Gesture.Pan()
         .activeOffsetY([-5, 5])
         .onBegin(() => {
-          dragStartY.value = translateY.value;
+          dragStartY.set(translateY.get());
         })
         .onUpdate((event) => {
-          translateY.value = Math.max(
+          translateY.set(Math.max(
             0,
-            dragStartY.value + event.translationY,
-          );
+            dragStartY.get() + event.translationY,
+          ));
         })
         .onEnd((event) => {
-          const draggedFarEnough = translateY.value > 96;
+          const draggedFarEnough = translateY.get() > 96;
           const flickedDown =
             event.translationY > 12 && event.velocityY > 850;
 
@@ -121,29 +121,29 @@ export default function ActionSheet({
             return;
           }
 
-          translateY.value = withSpring(0, {
+          translateY.set(withSpring(0, {
             damping: 22,
             stiffness: 260,
-          });
+          }));
         })
         .onFinalize((_event, success) => {
           if (!success) {
-            translateY.value = withSpring(0, {
+            translateY.set(withSpring(0, {
               damping: 22,
               stiffness: 260,
-            });
+            }));
           }
         }),
     [dragStartY, handleClose, translateY],
   );
 
   const sheetAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
+    transform: [{ translateY: translateY.get() }],
   }));
 
   const backdropAnimatedStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
-      translateY.value,
+      translateY.get(),
       [0, screenHeight * 0.72],
       [1, 0],
       Extrapolation.CLAMP,
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(7,17,14,.48)",
   },
   sheet: {

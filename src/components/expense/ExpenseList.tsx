@@ -1,3 +1,5 @@
+import { useTripStore } from "@/src/store/trip.store";
+import { TripContentScrollView } from '@/src/components/trip/TripDetailContent';
 import { api } from "@/src/services/api";
 import { useAuthStore } from "@/src/store/auth.store";
 import type { ExpenseItem, Trip, UserGroupRole } from "@/src/type/trip";
@@ -64,12 +66,12 @@ const ExpenseList = ({
   );
   const router = useRouter();
   const { user } = useAuthStore();
+  const markContentChanged = useTripStore(state => state.markContentChanged);
 
   const [listExpenses, setListExpenses] = useState<ExpenseItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showPending, setShowPending] = useState(false);
-  const [countPending, setCountPending] = useState(0);
   const [members, setMembers] = useState<UserGroupRole[]>([]);
 
   // Filter states
@@ -219,6 +221,17 @@ const ExpenseList = ({
     sortBy,
   ]);
 
+  const countPending = useMemo(() => {
+    return listExpenses.filter((e) => {
+      const isPending = e.status === EXPENSE_STATUS.PENDING;
+      if (trip.isLeader) return isPending;
+      return (
+        isPending &&
+        (e.createdBy?.id === currentUserId || e.paidBy?.id === currentUserId)
+      );
+    }).length;
+  }, [listExpenses, trip.isLeader, currentUserId]);
+
   const totalDay = useMemo(
     () =>
       listExpenses
@@ -241,18 +254,6 @@ const ExpenseList = ({
           },
     );
   }, [countPending, onSummaryChange, showPending, totalDay]);
-
-  useEffect(() => {
-    const count = listExpenses.filter((e) => {
-      const isPending = e.status === EXPENSE_STATUS.PENDING;
-      if (trip.isLeader) return isPending;
-      return (
-        isPending &&
-        (e.createdBy?.id === currentUserId || e.paidBy?.id === currentUserId)
-      );
-    }).length;
-    setCountPending(count);
-  }, [listExpenses, trip.isLeader, currentUserId]);
 
   const getExpenses = useCallback(async () => {
     try {
@@ -280,6 +281,8 @@ const ExpenseList = ({
 
   useEffect(() => {
     if (!trip.id) return;
+    // Load remote expenses on trip/revision changes; loading is part of that request.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void getExpenses();
     void getMember();
   }, [getExpenses, getMember, refreshKey, trip.id]);
@@ -301,6 +304,7 @@ const ExpenseList = ({
   const deleteExpense = async (id: string) => {
     try {
       await api.delete(`/expenses/${trip.id}/${id}`);
+      markContentChanged();
       getExpenses();
     } catch {
     } finally {
@@ -320,6 +324,7 @@ const ExpenseList = ({
   const approveExpense = async (id: string) => {
     try {
       await api.post(`/expenses/${trip.id}/${id}/approval`);
+      markContentChanged();
       getExpenses();
     } catch {
     } finally {
@@ -661,7 +666,7 @@ const ExpenseList = ({
   }
 
   return (
-    <ScrollView
+    <TripContentScrollView
       style={styles.container}
       contentContainerStyle={{ paddingTop: contentInsetTop }}
       showsVerticalScrollIndicator={false}
@@ -823,7 +828,7 @@ const ExpenseList = ({
         onConfirm={confirmConfig.onConfirm}
         onCancel={() => setConfirmOpen(false)}
       />
-    </ScrollView>
+    </TripContentScrollView>
   );
 };
 

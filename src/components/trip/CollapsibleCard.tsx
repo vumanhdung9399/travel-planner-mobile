@@ -18,7 +18,7 @@ interface Props {
 export default function CollapsibleCard({
   title,
   icon,
-  iconColor = COLORS.primary,
+  iconColor,
   expanded,
   onToggle,
   action,
@@ -34,7 +34,7 @@ export default function CollapsibleCard({
         accessibilityState={{ expanded }}
       >
         <View style={styles.titleRow}>
-          <Ionicons name={icon} size={22} color={iconColor} />
+          <Ionicons name={icon} size={22} color={iconColor ?? palette.primary} />
           <Text style={[styles.title, { color: palette.textPrimary }]}>{title}</Text>
         </View>
         <View style={styles.right}>

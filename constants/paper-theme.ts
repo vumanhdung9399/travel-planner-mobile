@@ -9,6 +9,7 @@ export const createPaperTheme = (darkMode = false): MD3Theme => {
   return {
     ...base,
     roundness: UI_RADIUS.card / 4,
+    fonts: Object.fromEntries(Object.entries(base.fonts).map(([key, value]) => [key, { ...value, fontFamily: "Manrope" }])) as MD3Theme["fonts"],
     colors: {
       ...base.colors,
       primary,
@@ -29,6 +30,14 @@ export const createPaperTheme = (darkMode = false): MD3Theme => {
       errorContainer: darkMode ? "#3C1D22" : COLORS.errorLight,
       onErrorContainer: darkMode ? "#FFD9DD" : "#7A2A20",
       onSurface: darkMode ? "#F3F7F4" : COLORS.textPrimary,
+      elevation: {
+        level0: "transparent",
+        level1: darkMode ? "#182A24" : "#F3F8F5",
+        level2: darkMode ? "#1B3028" : "#EDF5F1",
+        level3: darkMode ? "#1E352D" : "#E7F0EC",
+        level4: darkMode ? "#20372F" : "#E4EEE9",
+        level5: darkMode ? "#233C33" : "#DEEBE5",
+      },
       onSurfaceVariant: darkMode ? "#A9BAB4" : COLORS.textSecondary,
     },
   };

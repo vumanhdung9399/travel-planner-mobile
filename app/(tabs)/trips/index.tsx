@@ -1,15 +1,19 @@
+import { AppToast } from "@/src/components/AppToast";
+import { Group } from "@/src/type/group";
+import { useUserStore } from "@/src/store/user.store";
+import { useFavoriteTripsStore } from "@/src/store/favorite-trips.store";
+import { calendarDate, getTripPhase, tripPhaseOptions, TripPhase } from "@/src/utils/tripPhase";
 import { api } from "@/src/services/api";
 import { type AppPalette, useAppPalette } from "@/src/hook/useAppPalette";
 import { PageKicker, PageSubtitle, PageTitle } from "@/src/components/ui/AppTypography";
 import { ListTrip } from "@/src/type/trip";
 import { COLORS } from "@/src/utils/constants";
-import { formatMoney, getNameFirstLetterUpper } from "@/src/utils/helper";
+import { getNameFirstLetterUpper } from "@/src/utils/helper";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import {
   useFocusEffect,
-  useLocalSearchParams,
   useRouter,
 } from "expo-router";
 import React, { useCallback, useMemo, useRef, useState } from "react";
@@ -18,37 +22,59 @@ import {
     FlatList,
     ImageBackground,
     RefreshControl,
+    ScrollView,
     SafeAreaView,
     StyleSheet,
     TouchableOpacity,
     View,
 } from "react-native";
-import { Avatar, Surface, Text } from "react-native-paper";
+import { Avatar, Button, Dialog, Portal, ProgressBar, Surface, Text } from "react-native-paper";
 
 const MyTripsScreen = () => {
   const router = useRouter();
-  const { tripReturnToken } = useLocalSearchParams<{
-    tripReturnToken?: string;
-  }>();
   const palette = useAppPalette();
   const styles = useMemo(() => createStyles(palette), [palette]);
 
   const [trips, setTrips] = useState<ListTrip[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter] = useState<"all" | "active" | "completed">("all");
+  const [filter, setFilter] = useState<TripPhase>("upcoming");
+  const [referenceTime, setReferenceTime] = useState(Date.now);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [groupPickerOpen, setGroupPickerOpen] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState("all");
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [sortOrder, setSortOrder] = useState<"nearest" | "farthest">("nearest");
+  const [loadError, setLoadError] = useState(false);
+  const userId = useUserStore((state) => state.user?.id) || "guest";
+  const favoritesByUser = useFavoriteTripsStore((state) => state.byUser);
+  const toggleFavorite = useFavoriteTripsStore((state) => state.toggle);
+  const favoriteIds = favoritesByUser[userId] || [];
   const hasLoadedTripsRef = useRef(false);
-  const handledTripReturnRef = useRef<string | null>(null);
 
   const fetchTrips = useCallback(async () => {
     try {
-      setLoading(true);
-      const res = await api.get<ListTrip[]>("/trips/all-by-user");
-      setTrips(res.data);
+      if (!hasLoadedTripsRef.current) setLoading(true);
+      setLoadError(false);
+      const [res, groupRes] = await Promise.all([
+        api.get<ListTrip[] | { data: ListTrip[] }>("/trips/all-by-user"),
+        api.get<Group[] | { data: Group[] }>("/groups").catch(() => ({ data: [] as Group[] })),
+      ]);
+      const nextTrips = Array.isArray(res.data) ? res.data : res.data.data || [];
+      setTrips(nextTrips);
+      setGroups(Array.isArray(groupRes.data) ? groupRes.data : groupRes.data.data || []);
+      const now = Date.now();
+      setReferenceTime(now);
+      if (!hasLoadedTripsRef.current) {
+        setFilter(nextTrips.some((trip) => getTripPhase(trip, now) === "current") ? "current"
+          : nextTrips.some((trip) => getTripPhase(trip, now) === "upcoming") ? "upcoming" : "past");
+      }
+      hasLoadedTripsRef.current = true;
     } catch (error) {
+      setLoadError(true);
       console.error("Failed to fetch trips:", error);
     } finally {
-      hasLoadedTripsRef.current = true;
       setLoading(false);
       setRefreshing(false);
     }
@@ -56,17 +82,9 @@ const MyTripsScreen = () => {
 
   useFocusEffect(
     useCallback(() => {
-      if (
-        tripReturnToken &&
-        handledTripReturnRef.current !== tripReturnToken &&
-        hasLoadedTripsRef.current
-      ) {
-        handledTripReturnRef.current = tripReturnToken;
-        return;
-      }
-
+      // Refresh after edits/closing a trip; preserve filters while fetching.
       void fetchTrips();
-    }, [fetchTrips, tripReturnToken]),
+    }, [fetchTrips]),
   );
 
   const handleRefresh = () => {
@@ -74,38 +92,46 @@ const MyTripsScreen = () => {
     void fetchTrips();
   };
 
-  const filteredTrips = trips.filter((trip) => {
-    if (filter === "active") return !trip.isCloseTrip;
-    if (filter === "completed") return trip.isCloseTrip;
-    return true;
-  });
-
-  const activeCount = trips.filter((t) => !t.isCloseTrip).length;
-
+  const counts = { upcoming: 0, current: 0, past: 0 };
+  trips.forEach((trip) => counts[getTripPhase(trip, referenceTime)]++);
+  const filteredTrips = trips.filter((trip) => getTripPhase(trip, referenceTime) === filter)
+    .filter((trip) => selectedGroup === "all" || trip.group?.id === selectedGroup)
+    .filter((trip) => !favoritesOnly || favoriteIds.includes(trip.id))
+    .sort((a, b) => (calendarDate(a.startDate) - calendarDate(b.startDate)) * (sortOrder === "nearest" ? 1 : -1));
+  const tripGroups = Array.from(new Map(trips.filter((trip) => trip.group?.id).map((trip) => [trip.group.id, trip.group])).values());
+  const creatableGroups = groups.filter((group) => group.canCreateTrip ?? group.isCreate);
+  const activeFilterCount = Number(selectedGroup !== "all") + Number(favoritesOnly) + Number(sortOrder !== "nearest");
+  const createInGroup = (id: string) => {
+    setGroupPickerOpen(false);
+    router.push({ pathname: "/groups/[id]/trip-form", params: { id } });
+  };
+  const openCreateTrip = () => {
+    if (!creatableGroups.length) {
+      AppToast.show({ title: "Không thể tạo chuyến đi", message: "Bạn cần là chủ nhóm hoặc quản trị viên để tạo chuyến đi", type: "info" });
+    } else if (creatableGroups.length === 1) createInGroup(creatableGroups[0].id);
+    else setGroupPickerOpen(true);
+  };
   const handleTripPress = (trip: ListTrip) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push(`/trips/${trip.id}`);
   };
 
   const getTripStatus = (trip: ListTrip) => {
-    if (trip.isCloseTrip) {
-      return {
-        label: "Đã kết thúc",
-        color: palette.textLight,
-        bgColor: palette.surfaceMuted,
-      };
-    }
+    const phase = getTripPhase(trip, referenceTime);
+    const today = new Date(referenceTime);
+    today.setHours(0, 0, 0, 0);
+    const days = Math.max(0, Math.ceil((calendarDate(trip.startDate) - today.getTime()) / 86400000));
     return {
-      label: "Đang diễn ra",
-      color: COLORS.success,
-      bgColor: palette.successLight,
+      label: phase === "current" ? "Đang đi" : phase === "past" ? "Đã qua" : Number.isFinite(days) ? `${days} ngày nữa` : "Sắp tới",
+      color: phase === "current" ? "#FFFFFF" : palette.textPrimary,
+      bgColor: phase === "current" ? COLORS.primary : palette.surface,
     };
   };
-
   const renderTripCard = ({ item }: { item: ListTrip }) => {
     const status = getTripStatus(item);
-    const totalExpenses =
-      item.expenses?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
+    const phase = getTripPhase(item, referenceTime);
+    const preparation = phase === "past" ? 100 : phase === "current" ? 82
+      : Math.min(85, Math.max(24, ((item.timelines?.length || 0) + (item.expenses?.length || 0)) * 8));
     const memberCount = item.members?.length || 0;
 
     return (
@@ -125,7 +151,7 @@ const MyTripsScreen = () => {
             source={
               item.coverImage
                 ? { uri: item.coverImage }
-                : require("@/assets/images/trip-hero-cao-bang.png")
+                : require("@/assets/images/trip-hero-cao-bang.webp")
             }
             style={[styles.cover, { backgroundColor: palette.primaryLight }]}
             imageStyle={styles.coverImage}
@@ -142,9 +168,16 @@ const MyTripsScreen = () => {
                     {status.label}
                   </Text>
                 </View>
-                <View style={styles.coverMenu}>
-                  <Ionicons name="ellipsis-horizontal" size={18} color="#FFFFFF" />
-                </View>
+                <TouchableOpacity style={styles.coverMenu} accessibilityRole="button"
+                  accessibilityLabel={favoriteIds.includes(item.id) ? "Bỏ yêu thích" : "Yêu thích"}
+                  accessibilityState={{ selected: favoriteIds.includes(item.id) }}
+                  onPress={(event) => { event.stopPropagation(); toggleFavorite(userId, item.id); }}>
+                  <Ionicons name={favoriteIds.includes(item.id) ? "heart" : "heart-outline"} size={20} color={favoriteIds.includes(item.id) ? "#ED7966" : "#FFFFFF"} />
+                </TouchableOpacity>
+              </View>
+              <View style={{ position: "absolute", left: 12, bottom: 12, maxWidth: "85%", flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(20,32,28,.62)", paddingHorizontal: 9, paddingVertical: 6, borderRadius: 20 }}>
+                <Ionicons name="location-outline" size={15} color="#FFFFFF" />
+                <Text numberOfLines={1} style={{ color: "#FFFFFF", fontSize: 11.5, flexShrink: 1 }}>{item.location || "Điểm đến đang cập nhật"}</Text>
               </View>
             </LinearGradient>
           </ImageBackground>
@@ -165,12 +198,6 @@ const MyTripsScreen = () => {
                 {new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(item.startDate))}
                 {" – "}
                 {new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(item.endDate))}
-              </Text>
-            </View>
-            <View style={styles.metaRow}>
-              <Ionicons name="location-outline" size={16} color={COLORS.primary} />
-              <Text style={[styles.metaText, { color: palette.textSecondary }]} numberOfLines={1}>
-                {item.location || "Điểm đến đang cập nhật"}
               </Text>
             </View>
             <View style={styles.cardFooter}>
@@ -219,21 +246,16 @@ const MyTripsScreen = () => {
               )}
               </View>
 
-              <View
-                style={[
-                  styles.expensesContainer,
-                  { backgroundColor: palette.surfaceMuted },
-                ]}
-              >
-                <Ionicons
-                  name="wallet-outline"
-                  size={14}
-                  color={palette.textSecondary}
-                />
-                <Text style={[styles.expensesText, { color: palette.textPrimary }]}>
-                  {formatMoney(totalExpenses)}
-                </Text>
+              <Text style={{ color: palette.textSecondary, fontSize: 11.5, marginLeft: 8, flex: 1 }}>
+                {memberCount ? `${memberCount} người tham gia` : "Chưa có thành viên"}
+              </Text>
+            </View>
+            <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: palette.border }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
+                <Text style={{ fontSize: 11.5, fontWeight: "700" }}>Chuẩn bị chuyến đi</Text>
+                <Text style={{ fontSize: 11.5, fontWeight: "800", color: COLORS.primary }}>{preparation}%</Text>
               </View>
+              <ProgressBar progress={preparation / 100} color={COLORS.primary} style={{ height: 6, borderRadius: 6, backgroundColor: palette.primaryLight }} />
             </View>
           </View>
         </Surface>
@@ -251,7 +273,7 @@ const MyTripsScreen = () => {
         elevation={0}
       >
         <Text style={styles.emptyEmoji}>✈️</Text>
-        <Text style={[styles.emptyTitle, { color: palette.textPrimary }]}>Chưa có chuyến đi nào</Text>
+        <Text style={[styles.emptyTitle, { color: palette.textPrimary }]}>Chưa có chuyến đi {tripPhaseOptions.find((option) => option.value === filter)?.label.toLowerCase()}</Text>
       </Surface>
     </View>
   );
@@ -278,69 +300,55 @@ const MyTripsScreen = () => {
         </PageSubtitle>
       </View>
 
-      {/* Filter Tabs */}
       <View style={styles.filterTabs}>
-        <TouchableOpacity
-          style={[
-            styles.filterTab,
-            { backgroundColor: palette.surface, borderColor: palette.border },
-            filter === "all" && { backgroundColor: palette.surface },
-          ]}
-          onPress={() => setFilter("all")}
-        >
-          <Text
-            style={[
-              styles.filterTabText,
-              { color: palette.textSecondary },
-              filter === "all" && { color: palette.textPrimary, fontWeight: "800" },
-            ]}
-          >
-            Tất cả
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.filterTab,
-            { backgroundColor: palette.surface, borderColor: palette.border },
-            filter === "active" && { backgroundColor: palette.surface },
-          ]}
-          onPress={() => setFilter("active")}
-        >
-          <Text
-            style={[
-              styles.filterTabText,
-              { color: palette.textSecondary },
-              filter === "active" && { color: palette.textPrimary, fontWeight: "800" },
-            ]}
-          >
-            Đang diễn ra
-          </Text>
-          {activeCount > 0 && (
-            <View style={[styles.filterBadge, { backgroundColor: palette.surface }]}>
-              <Text style={styles.filterBadgeText}>{activeCount}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.filterTab,
-            { backgroundColor: palette.surface, borderColor: palette.border },
-            filter === "completed" && { backgroundColor: palette.surface },
-          ]}
-          onPress={() => setFilter("completed")}
-        >
-          <Text
-            style={[
-              styles.filterTabText,
-              { color: palette.textSecondary },
-              filter === "completed" && { color: palette.textPrimary, fontWeight: "800" },
-            ]}
-          >
-            Đã kết thúc
-          </Text>
-        </TouchableOpacity>
+        {tripPhaseOptions.map((option) => (
+          <TouchableOpacity key={option.value} accessibilityRole="tab" accessibilityState={{ selected: filter === option.value }}
+            style={[styles.filterTab, { backgroundColor: filter === option.value ? palette.surface : "transparent" }]}
+            onPress={() => setFilter(option.value)}>
+            <Text style={[styles.filterTabText, filter === option.value && { color: palette.textPrimary, fontWeight: "800" }]}>
+              {option.label}{counts[option.value] > 0 ? ` ${counts[option.value]}` : ""}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
-
+      <Button mode="outlined" icon="tune" onPress={() => setFilterOpen(true)}
+        style={{ marginHorizontal: 16, marginBottom: 12, borderColor: activeFilterCount ? COLORS.primary : palette.border }}>
+        Bộ lọc{activeFilterCount ? ` (${activeFilterCount})` : ""}
+      </Button>
+      {loadError && <View style={{ paddingHorizontal: 16 }}>
+        <Text>Không thể tải danh sách chuyến đi.</Text>
+        <Button onPress={handleRefresh}>Thử lại</Button>
+      </View>}
+      <Portal>
+        <Dialog visible={filterOpen} onDismiss={() => setFilterOpen(false)} style={{ backgroundColor: palette.surface }}>
+          <Dialog.Title>Bộ lọc chuyến đi</Dialog.Title>
+          <Dialog.ScrollArea><ScrollView contentContainerStyle={{ gap: 12, paddingVertical: 16 }}>
+            <Text>Sắp xếp theo</Text>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <Button mode={sortOrder === "nearest" ? "contained" : "outlined"} onPress={() => setSortOrder("nearest")}>Gần nhất</Button>
+              <Button mode={sortOrder === "farthest" ? "contained" : "outlined"} onPress={() => setSortOrder("farthest")}>Xa nhất</Button>
+            </View>
+            <Text>Nhóm</Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              {[{ id: "all", name: "Tất cả" }, ...tripGroups].map((group) => (
+                <Button key={group.id} mode={selectedGroup === group.id ? "contained" : "outlined"} onPress={() => setSelectedGroup(group.id)}>{group.name}</Button>
+              ))}
+            </View>
+            <Button icon={favoritesOnly ? "heart" : "heart-outline"} mode={favoritesOnly ? "contained" : "outlined"} onPress={() => setFavoritesOnly(!favoritesOnly)}>Chỉ hiện chuyến yêu thích</Button>
+          </ScrollView></Dialog.ScrollArea>
+          <Dialog.Actions>
+            <Button onPress={() => { setSelectedGroup("all"); setFavoritesOnly(false); setSortOrder("nearest"); }}>Đặt lại</Button>
+            <Button onPress={() => setFilterOpen(false)}>Áp dụng</Button>
+          </Dialog.Actions>
+        </Dialog>
+        <Dialog visible={groupPickerOpen} onDismiss={() => setGroupPickerOpen(false)} style={{ backgroundColor: palette.surface }}>
+          <Dialog.Title>Chọn nhóm tạo chuyến đi</Dialog.Title>
+          <Dialog.ScrollArea><ScrollView>
+            {creatableGroups.map((group) => <Button key={group.id} onPress={() => createInGroup(group.id)}>{group.name}</Button>)}
+          </ScrollView></Dialog.ScrollArea>
+          <Dialog.Actions><Button onPress={() => setGroupPickerOpen(false)}>Đóng</Button></Dialog.Actions>
+        </Dialog>
+      </Portal>
       {/* Trip List */}
       <FlatList
         data={filteredTrips}
@@ -355,8 +363,12 @@ const MyTripsScreen = () => {
             tintColor={COLORS.primary}
           />
         }
-        ListEmptyComponent={renderEmptyState}
+        ListEmptyComponent={loadError ? null : renderEmptyState}
       />
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel="Thêm chuyến đi" onPress={openCreateTrip}
+        style={{ position: "absolute", right: 18, bottom: 20, width: 54, height: 54, borderRadius: 27, backgroundColor: COLORS.primary, alignItems: "center", justifyContent: "center", elevation: 5 }}>
+        <Ionicons name="add" size={28} color="#FFFFFF" />
+      </TouchableOpacity>
     </SafeAreaView>
   );
 };
@@ -452,9 +464,9 @@ const createStyles = (palette: AppPalette) => StyleSheet.create({
     alignItems: "center",
   },
   coverMenu: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(0,0,0,.26)",

@@ -68,10 +68,10 @@ export default function TripDetailFormSheet({
   }, [onCancel]);
 
   const animateClose = useCallback(() => {
-    if (isClosing.value) return;
+    if (isClosing.get()) return;
 
-    isClosing.value = true;
-    translateY.value = withTiming(
+    isClosing.set(true);
+    translateY.set(withTiming(
       screenHeight,
       { duration: 240 },
       (finished) => {
@@ -79,7 +79,7 @@ export default function TripDetailFormSheet({
           runOnJS(finishClose)();
         }
       },
-    );
+    ));
   }, [finishClose, isClosing, screenHeight, translateY]);
 
   const handleSubmitPress = useCallback(() => {
@@ -106,22 +106,22 @@ export default function TripDetailFormSheet({
       Gesture.Pan()
         .activeOffsetY([-5, 5])
         .onBegin(() => {
-          dragStartY.value = translateY.value;
+          dragStartY.set(translateY.get());
         })
         .onUpdate((event) => {
-          translateY.value = Math.max(
+          translateY.set(Math.max(
             0,
-            dragStartY.value + event.translationY,
-          );
+            dragStartY.get() + event.translationY,
+          ));
         })
         .onEnd((event) => {
-          const draggedFarEnough = translateY.value > screenHeight * 0.16;
+          const draggedFarEnough = translateY.get() > screenHeight * 0.16;
           const flickedDown =
             event.translationY > 12 && event.velocityY > 850;
 
           if (draggedFarEnough || flickedDown) {
-            isClosing.value = true;
-            translateY.value = withTiming(
+            isClosing.set(true);
+            translateY.set(withTiming(
               screenHeight,
               { duration: 220 },
               (finished) => {
@@ -129,21 +129,21 @@ export default function TripDetailFormSheet({
                   runOnJS(finishClose)();
                 }
               },
-            );
+            ));
             return;
           }
 
-          translateY.value = withSpring(0, {
+          translateY.set(withSpring(0, {
             damping: 22,
             stiffness: 260,
-          });
+          }));
         })
         .onFinalize((_event, success) => {
-          if (!success && !isClosing.value) {
-            translateY.value = withSpring(0, {
+          if (!success && !isClosing.get()) {
+            translateY.set(withSpring(0, {
               damping: 22,
               stiffness: 260,
-            });
+            }));
           }
         }),
     [
@@ -156,12 +156,12 @@ export default function TripDetailFormSheet({
   );
 
   const sheetAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
+    transform: [{ translateY: translateY.get() }],
   }));
 
   const backdropAnimatedStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
-      translateY.value,
+      translateY.get(),
       [0, screenHeight * 0.72],
       [1, 0],
       Extrapolation.CLAMP,
@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(15, 23, 42, 0.46)",
   },
   sheet: {

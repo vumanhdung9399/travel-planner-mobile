@@ -11,7 +11,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -63,6 +63,8 @@ const ExpenseFormScreen = () => {
   const isEditMode = !!expenseId;
 
   const [loading, setLoading] = useState(false);
+  const submitPending = useRef(false);
+  const mutationId = useRef<string | null>(null);
   const [fetching, setFetching] = useState(isEditMode);
 
   // Form state
@@ -182,6 +184,7 @@ const ExpenseFormScreen = () => {
   };
 
   const handleSubmit = async () => {
+    if (submitPending.current) return;
     if (!validate()) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       return;
@@ -201,6 +204,7 @@ const ExpenseFormScreen = () => {
       note: note.trim() || undefined,
     };
 
+    submitPending.current = true;
     try {
       setLoading(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -209,7 +213,10 @@ const ExpenseFormScreen = () => {
       if (isEditMode) {
         await api.patch(`/expenses/${tripId}/${expenseId}`, data);
       } else {
-        const response = await api.post<ExpenseItem>(`/expenses/${tripId}`, data);
+        const response = await api.post<ExpenseItem>(`/expenses/${tripId}`, {
+          ...data,
+          clientMutationId: mutationId.current ??= `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        });
         savedExpenseId = response.data.id;
       }
 
@@ -251,6 +258,7 @@ const ExpenseFormScreen = () => {
       console.error(err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
+      submitPending.current = false;
       setLoading(false);
     }
   };

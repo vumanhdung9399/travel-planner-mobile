@@ -244,7 +244,7 @@ const TripFormScreen = () => {
               source={
                 coverUri
                   ? { uri: coverUri }
-                  : require("@/assets/images/trip-hero-cao-bang.png")
+                  : require("@/assets/images/trip-hero-cao-bang.webp")
               }
               style={styles.coverPreview}
               imageStyle={styles.coverImage}

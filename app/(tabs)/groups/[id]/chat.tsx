@@ -6,7 +6,7 @@ import { getSocket } from "@/src/utils/socket";
 import { COLORS } from "@/src/utils/constants";
 import { useAppPalette } from "@/src/hook/useAppPalette";
 import { Ionicons } from "@expo/vector-icons";
-import { CommonActions, useNavigation } from "@react-navigation/native";
+import { CommonActions, useNavigation } from "expo-router/react-navigation";
 import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {

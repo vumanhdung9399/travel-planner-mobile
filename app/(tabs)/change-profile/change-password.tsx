@@ -88,7 +88,7 @@ export default function ChangePasswordScreen() {
               onChangeText={field.onChange}
               placeholder="••••••••"
               placeholderTextColor={palette.textLight}
-              selectionColor={COLORS.primary}
+              selectionColor={palette.primary}
               keyboardAppearance={palette.isDark ? "dark" : "light"}
             />
             <TouchableOpacity onPress={() => toggle(key)}>
@@ -101,7 +101,7 @@ export default function ChangePasswordScreen() {
           </View>
 
           {errors[name as keyof typeof errors] && (
-            <Text style={styles.error}>
+            <Text style={[styles.error, { color: palette.error }]}>
               {errors[name as keyof typeof errors]?.message}
             </Text>
           )}
@@ -132,8 +132,8 @@ export default function ChangePasswordScreen() {
           >
             Mật khẩu an toàn nên có
           </Text>
-          <Text style={styles.requirement}>✓ Tối thiểu 8 ký tự</Text>
-          <Text style={styles.requirement}>✓ Chữ hoa, chữ thường và chữ số</Text>
+          <Text style={[styles.requirement, { color: palette.success }]}>✓ Tối thiểu 8 ký tự</Text>
+          <Text style={[styles.requirement, { color: palette.success }]}>✓ Chữ hoa, chữ thường và chữ số</Text>
         </View>
 
         <TouchableOpacity

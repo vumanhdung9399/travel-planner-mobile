@@ -1,3 +1,4 @@
+import { TripContentScrollView } from '@/src/components/trip/TripDetailContent';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useEffect, useMemo, useState } from 'react';
@@ -29,10 +30,12 @@ const filters: { value: TaskFilter; label: string }[] = [
 
 export default function TaskChecklist({
   trip,
+  refreshKey = 0,
   contentInsetTop = 0,
   onScrollOffsetChange,
 }: {
   trip: Trip;
+  refreshKey?: number;
   contentInsetTop?: number;
   onScrollOffsetChange?: (offset: number) => void;
 }) {
@@ -53,13 +56,15 @@ export default function TaskChecklist({
 
   useEffect(() => {
     let active = true;
+    // The revision starts a fresh remote task request.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     taskApi.list(trip.id)
       .then(({ data }) => active && setTasks(data))
       .catch(console.error)
       .finally(() => active && setLoading(false));
     return () => { active = false; };
-  }, [trip.id]);
+  }, [trip.id, refreshKey]);
 
   const visibleTasks = useMemo(() => tasks.filter((task) => {
     if (filter === 'mine') return task.assigneeId === currentUser?.id;
@@ -114,7 +119,7 @@ export default function TaskChecklist({
 
   return (
     <View style={[styles.container, { backgroundColor: palette.background }]}>
-      <ScrollView
+      <TripContentScrollView
         contentContainerStyle={[styles.content, { paddingTop: contentInsetTop + 14 }]}
         keyboardShouldPersistTaps="handled"
         onScroll={(event) =>
@@ -153,7 +158,7 @@ export default function TaskChecklist({
               maxLength={180} returnKeyType="done" style={[styles.input, { backgroundColor: palette.surfaceMuted, borderColor: palette.border, color: palette.textPrimary }]} />
             <TouchableOpacity onPress={createTask} disabled={!title.trim() || creating}
               style={[styles.addButton, (!title.trim() || creating) && styles.disabled]}>
-              {creating ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="add" size={23} color="#fff" />}
+              {creating ? <ActivityIndicator size="small" color="#fff" /> : <><Ionicons name="add" size={20} color="#fff" /><Text style={{ color: "white", fontWeight: "700" }}>Thêm</Text></>}
             </TouchableOpacity>
           </View> : null}
         </View>
@@ -190,7 +195,7 @@ export default function TaskChecklist({
             </View>
           ))}
         </View>
-      </ScrollView>
+      </TripContentScrollView>
 
       <Modal visible={Boolean(assigningTaskId)} transparent animationType="slide" onRequestClose={() => setAssigningTaskId(null)}>
         <Pressable style={styles.overlay} onPress={() => setAssigningTaskId(null)}>
@@ -215,18 +220,18 @@ export default function TaskChecklist({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   content: { padding: 12, paddingTop: 14, paddingBottom: 110 },
-  card: { backgroundColor: COLORS.surface, borderRadius: 18, padding: 15, borderWidth: 1, borderColor: COLORS.border, shadowColor: '#3D4E62', shadowOpacity: 0.04, shadowRadius: 10, shadowOffset: { width: 0, height: 5 }, elevation: 1 },
+  card: { backgroundColor: COLORS.surface, borderRadius: 12, padding: 15, borderWidth: 1, borderColor: COLORS.border, shadowColor: '#3D4E62', shadowOpacity: 0.04, shadowRadius: 10, shadowOffset: { width: 0, height: 5 }, elevation: 1 },
   progressRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
-  progressIcon: { width: 42, height: 42, borderRadius: 14, backgroundColor: COLORS.successLight, alignItems: 'center', justifyContent: 'center' },
+  progressIcon: { width: 42, height: 42, borderRadius: 10, backgroundColor: COLORS.successLight, alignItems: 'center', justifyContent: 'center' },
   progressBody: { flex: 1, marginLeft: 11 },
   progressTitle: { fontSize: 15, fontWeight: '800', color: COLORS.textPrimary },
   progressValue: { fontSize: 18, fontWeight: '800', color: COLORS.success },
   subtitle: { fontSize: 11, color: COLORS.textSecondary, marginTop: 3 },
   readOnlyBanner: { minHeight: 36, marginBottom: 12, paddingHorizontal: 11, borderRadius: 12, backgroundColor: COLORS.surfaceMuted, flexDirection: 'row', alignItems: 'center', gap: 7 },
   readOnlyText: { fontSize: 11, fontWeight: '700', color: COLORS.textSecondary },
-  quickAdd: { flexDirection: 'row', gap: 8 },
-  input: { flex: 1, height: 46, paddingHorizontal: 14, borderRadius: 13, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surfaceMuted, color: COLORS.textPrimary },
-  addButton: { width: 46, height: 46, borderRadius: 13, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' },
+  quickAdd: { gap: 8 },
+  input: { height: 40, paddingHorizontal: 14, borderRadius: 13, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surfaceMuted, color: COLORS.textPrimary },
+  addButton: { flexDirection: 'row', gap: 6, height: 38, borderRadius: 13, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' },
   disabled: { opacity: 0.45 },
   readOnlyControl: { opacity: 0.7 },
   filterBar: { marginTop: 12, marginBottom: 8 },
@@ -236,7 +241,7 @@ const styles = StyleSheet.create({
   filterText: { fontSize: 12, color: COLORS.textSecondary, fontWeight: '600' },
   filterTextActive: { color: COLORS.primary, fontWeight: '700' },
   listCard: { minHeight: 150 },
-  row: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 15, marginBottom: 12, backgroundColor: COLORS.surface, borderRadius: 18, borderWidth: 1, borderColor: COLORS.border, shadowColor: '#3D4E62', shadowOpacity: 0.045, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 1 },
+  row: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 15, marginBottom: 12, backgroundColor: COLORS.surface, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, shadowColor: '#3D4E62', shadowOpacity: 0.045, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 1 },
   checkbox: { width: 25, height: 25, borderRadius: 13, borderWidth: 2, borderColor: '#BCC7D5', alignItems: 'center', justifyContent: 'center' },
   checkboxDone: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
   taskContent: { flex: 1 },
@@ -256,7 +261,7 @@ const styles = StyleSheet.create({
   sheetTitle: { fontSize: 18, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 8 },
   memberRow: { flexDirection: 'row', alignItems: 'center', minHeight: 54, gap: 12 },
   memberAvatar: { width: 36, height: 36, borderRadius: 18 },
-  memberAvatarFallback: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' },
-  unassigned: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.surfaceMuted, alignItems: 'center', justifyContent: 'center' },
+  memberAvatarFallback: { width: 36, height: 36, borderRadius: 12, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' },
+  unassigned: { width: 36, height: 36, borderRadius: 12, backgroundColor: COLORS.surfaceMuted, alignItems: 'center', justifyContent: 'center' },
   memberName: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary },
 });

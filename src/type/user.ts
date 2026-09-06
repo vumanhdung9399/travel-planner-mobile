@@ -17,6 +17,7 @@ export interface UserProfile {
   bank: string;
   bankAccNumber: string;
   stats: Stats;
+  travelStyles?: string[];
 }
 
 interface Stats {

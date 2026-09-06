@@ -300,8 +300,8 @@ export const ExpenseCard = ({
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 16,
-    paddingHorizontal: 11,
+    borderRadius: 12,
+    paddingHorizontal: 12,
     paddingVertical: 12,
     borderWidth: 1,
   },
@@ -311,9 +311,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   iconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40, height: 40, borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 10,

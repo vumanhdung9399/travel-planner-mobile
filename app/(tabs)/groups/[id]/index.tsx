@@ -11,21 +11,20 @@ import type { Trip } from "@/src/type/trip";
 import { COLORS, GROUP_ROLE } from "@/src/utils/constants";
 import { getNameFirstLetterUpper } from "@/src/utils/helper";
 import { Ionicons } from "@expo/vector-icons";
-import { CommonActions, useNavigation } from "@react-navigation/native";
+import { CommonActions, useNavigation } from "expo-router/react-navigation";
 import dayjs from "dayjs";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   BackHandler,
   FlatList,
   Image,
   ImageBackground,
-  Linking,
   Modal,
   RefreshControl,
   ScrollView,
@@ -73,6 +72,11 @@ const getTripStatus = (trip: Trip, darkMode: boolean) => {
 };
 
 export default function GroupDetailScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  return <GroupDetailPage key={id} />;
+}
+
+function GroupDetailPage() {
   const router = useRouter();
   const navigation = useNavigation();
   const palette = useAppPalette();
@@ -101,11 +105,6 @@ export default function GroupDetailScreen() {
   const tripListRef = useRef<FlatList<Trip>>(null);
   const isHandlingBackRef = useRef(false);
   const handledTripReturnRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    setHeaderScrolled(false);
-    setActiveTripIndex(0);
-  }, [id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -154,11 +153,7 @@ export default function GroupDetailScreen() {
     }, [handleBack]),
   );
 
-  useEffect(() => {
-    setActiveTripIndex((current) =>
-      tripCount > 0 ? Math.min(current, tripCount - 1) : 0,
-    );
-  }, [tripCount]);
+  const visibleTripIndex = Math.min(activeTripIndex, Math.max(0, tripCount - 1));
 
   const leader = useMemo(
     () =>
@@ -173,21 +168,6 @@ export default function GroupDetailScreen() {
     !!group?.isCreate || (!!leader && leader.user.id === currentUser?.id);
   const canManageCover =
     group?.canManageCover ?? (!!leader && leader.user.id === currentUser?.id);
-
-  const callLeader = useCallback(async () => {
-    const phone = leader?.user.phone?.trim();
-    if (!phone) return;
-
-    try {
-      await Linking.openURL(`tel:${phone}`);
-    } catch {
-      AppToast.show({
-        title: "Không thể thực hiện cuộc gọi",
-        message: "Thiết bị không hỗ trợ gọi điện hoặc số điện thoại không hợp lệ.",
-        type: "error",
-      });
-    }
-  }, [leader?.user.phone]);
 
   const pickGroupCover = async () => {
     if (!group || coverLoading) return;
@@ -456,8 +436,8 @@ export default function GroupDetailScreen() {
 
   return (
     <SafeAreaView
-      style={[styles.container, { backgroundColor: palette.surface }]}
-      edges={["bottom"]}
+      style={[styles.container, { backgroundColor: palette.background }]}
+      edges={["left", "right"]}
     >
       <StatusBar
         style={
@@ -467,8 +447,6 @@ export default function GroupDetailScreen() {
               ? "dark"
               : "light"
         }
-        backgroundColor="transparent"
-        translucent
       />
       <View
         style={[
@@ -542,9 +520,9 @@ export default function GroupDetailScreen() {
           source={
             groupCoverUri
               ? { uri: groupCoverUri }
-              : require("@/assets/images/trip-hero-cao-bang.png")
+              : require("@/assets/images/trip-hero-cao-bang.webp")
           }
-          style={[styles.hero, { height: 190 + insets.top }]}
+          style={[styles.hero, { height: 224 + insets.top }]}
           imageStyle={styles.heroImage}
         >
           <LinearGradient
@@ -570,236 +548,22 @@ export default function GroupDetailScreen() {
               </TouchableOpacity>
             ) : null}
 
-            <View style={styles.heroBottom}>
-              <View style={styles.heroAvatars}>
-                {group.members.slice(0, 4).map((member, index) =>
-                  member.user.avatar ? (
-                    <Image
-                      key={member.id}
-                      source={{ uri: member.user.avatar }}
-                      style={[
-                        styles.heroAvatar,
-                        index > 0 && styles.avatarOverlap,
-                      ]}
-                    />
-                  ) : (
-                    <View
-                      key={member.id}
-                      style={[
-                        styles.heroAvatar,
-                        styles.avatarFallback,
-                        { backgroundColor: palette.primaryLight },
-                        index > 0 && styles.avatarOverlap,
-                      ]}
-                    >
-                      <Text style={styles.avatarLetter}>
-                        {getNameFirstLetterUpper(member.user.name)}
-                      </Text>
-                    </View>
-                  ),
-                )}
-                {group.members.length > 4 ? (
-                  <View
-                    style={[
-                      styles.heroAvatar,
-                      styles.heroOverflowAvatar,
-                      styles.avatarOverlap,
-                    ]}
-                  >
-                    <Text style={styles.heroOverflowText}>
-                      +{group.members.length - 4}
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
-              <View style={styles.countBadge}>
-                <Text style={styles.countText}>
-                  {group.members.length} thành viên
-                </Text>
-              </View>
-            </View>
           </LinearGradient>
         </ImageBackground>
 
-        <View style={styles.leaderSection}>
-          <Text style={[styles.sectionTitle, { color: palette.textPrimary }]}>Trưởng nhóm</Text>
-          <View
-            style={[
-              styles.leaderCard,
-              { backgroundColor: palette.surface, borderColor: palette.border },
-            ]}
-          >
-            {leader?.user.avatar ? (
-              <Image
-                source={{ uri: leader.user.avatar }}
-                style={styles.leaderAvatar}
-              />
-            ) : (
-              <View
-                style={[
-                  styles.leaderAvatar,
-                  styles.avatarFallback,
-                  { backgroundColor: palette.primaryLight },
-                ]}
-              >
-                <Text style={styles.leaderLetter}>
-                  {getNameFirstLetterUpper(leader?.user.name)}
-                </Text>
-              </View>
-            )}
-            <View style={styles.leaderInfo}>
-              <Text
-                style={[styles.leaderName, { color: palette.textPrimary }]}
-                numberOfLines={1}
-              >
-                {leader?.user.name || "Chưa có thông tin"}
-              </Text>
-              {leader?.user.email ? (
-                <View style={styles.contactRow}>
-                  <Ionicons
-                    name="mail-outline"
-                    size={15}
-                    color={palette.textSecondary}
-                  />
-                  <Text
-                    style={[styles.contactText, { color: palette.textSecondary }]}
-                    numberOfLines={1}
-                  >
-                    {leader.user.email}
-                  </Text>
-                </View>
-              ) : null}
-              {leader?.user.phone ? (
-                <View style={styles.contactRow}>
-                  <Ionicons
-                    name="call-outline"
-                    size={15}
-                    color={palette.textSecondary}
-                  />
-                  <Text
-                    style={[styles.contactText, { color: palette.textSecondary }]}
-                  >
-                    {leader.user.phone}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel={
-                leader?.user.phone
-                  ? `Gọi cho ${leader.user.name}`
-                  : "Trưởng nhóm chưa có số điện thoại"
-              }
-              disabled={!leader?.user.phone}
-              onPress={() => void callLeader()}
-              style={[
-                styles.leaderCall,
-                {
-                  backgroundColor: leader?.user.phone
-                    ? palette.primaryLight
-                    : palette.surfaceMuted,
-                },
-              ]}
-            >
-              <Ionicons
-                name="call"
-                size={16}
-                color={leader?.user.phone ? COLORS.primary : palette.textLight}
-              />
-            </TouchableOpacity>
+        <View style={styles.intro}>
+          <View style={styles.groupEmblem}><Text style={{ fontSize: 30 }}>🏕️</Text></View>
+          <Text style={styles.kicker}>NHÓM DU LỊCH · {group.members.length} THÀNH VIÊN</Text>
+          <Text style={styles.groupName}>{group.name}</Text>
+          <Text style={styles.description}>{group.description || "Cùng nhau lên kế hoạch và bắt đầu những hành trình đáng nhớ."}</Text>
+          <View style={styles.quickButtons}>
+            <TouchableOpacity style={[styles.quickButton, { backgroundColor: COLORS.primary }]} onPress={() => router.push(`/groups/${group.id}/chat`)}><Ionicons name="chatbubble-outline" size={18} color="white" /><Text style={{ color: "white", fontWeight: "700" }}>Trò chuyện</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.quickButton} onPress={() => router.push(`/groups/${group.id}/polls`)}><Ionicons name="stats-chart-outline" size={18} color={palette.textPrimary} /><Text style={{ color: palette.textPrimary, fontWeight: "700" }}>Biểu quyết</Text></TouchableOpacity>
           </View>
         </View>
 
-        <TouchableOpacity
-          onPress={() => router.push(`/groups/${group.id}/polls`)}
-          style={[styles.decisionCard, { backgroundColor: palette.primaryLight, borderColor: palette.border }]}
-        >
-          <View style={styles.decisionIcon}><Ionicons name="stats-chart" size={22} color="#FFFFFF" /></View>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.decisionTitle, { color: palette.textPrimary }]}>Biểu quyết nhóm</Text>
-            <Text style={[styles.decisionText, { color: palette.textSecondary }]}>Cùng chọn ngày đi, địa điểm và phương án tốt nhất</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={21} color={palette.textSecondary} />
-        </TouchableOpacity>
-
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: palette.textPrimary }]}>Thành viên nhóm</Text>
-          {canEdit ? (
-            <TouchableOpacity
-              onPress={() => router.push(`/groups/${group.id}/add-member`)}
-            >
-              <Text style={styles.actionText}>Thêm</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.members}
-        >
-          {group.members.map((member) => {
-            const isLeader =
-              member.role === GROUP_ROLE.LEADER ||
-              member.role === GROUP_ROLE.OWNER;
-            return (
-              <TouchableOpacity
-                key={member.id}
-                style={styles.member}
-                onPress={() => {
-                  setSelectedMember(member);
-                  setMemberPreviewOpen(true);
-                }}
-                onLongPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setSelectedMember(member);
-                  setMenuMode("member");
-                }}
-              >
-                <View style={styles.memberAvatarWrap}>
-                  {member.user.avatar ? (
-                    <Image
-                      source={{ uri: member.user.avatar }}
-                      style={styles.memberAvatar}
-                    />
-                  ) : (
-                    <View
-                      style={[
-                        styles.memberAvatar,
-                        styles.avatarFallback,
-                        { backgroundColor: palette.primaryLight },
-                      ]}
-                    >
-                      <Text style={styles.memberLetter}>
-                        {getNameFirstLetterUpper(member.user.name)}
-                      </Text>
-                    </View>
-                  )}
-                  {isLeader ? (
-                    <View style={styles.leaderCrown}>
-                      <Ionicons name="ribbon-outline" size={14} color="#24476D" />
-                    </View>
-                  ) : null}
-                </View>
-                <Text
-                  style={[styles.memberName, { color: palette.textPrimary }]}
-                  numberOfLines={1}
-                >
-                  {member.user.name}
-                </Text>
-                {isLeader ? (
-                  <View style={styles.leaderBadge}>
-                    <Text style={styles.leaderText}>Trưởng nhóm</Text>
-                  </View>
-                ) : null}
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: palette.textPrimary }]}>Chuyến đi sắp tới và đã qua</Text>
+          <Text style={[styles.sectionTitle, { color: palette.textPrimary }]}>Chuyến đi của nhóm</Text>
           {canEdit ? (
             <TouchableOpacity
               onPress={() => router.push(`/groups/${group.id}/trip-form`)}
@@ -848,7 +612,7 @@ export default function GroupDetailScreen() {
               setActiveTripIndex(nextIndex);
             }}
             renderItem={({ item: trip, index }) => {
-              const featured = index === activeTripIndex;
+              const featured = index === visibleTripIndex;
               const status = getTripStatus(trip, palette.isDark);
               return (
                 <TouchableOpacity
@@ -890,7 +654,7 @@ export default function GroupDetailScreen() {
                     source={
                       trip.coverImage
                         ? { uri: trip.coverImage }
-                        : require("@/assets/images/trip-hero-cao-bang.png")
+                        : require("@/assets/images/trip-hero-cao-bang.webp")
                     }
                     style={styles.tripCardCover}
                     imageStyle={styles.tripCardCoverImage}
@@ -990,6 +754,42 @@ export default function GroupDetailScreen() {
             <Text style={[styles.emptyText, { color: palette.textSecondary }]}>Chưa có chuyến đi</Text>
           </View>
         )}
+        <View style={styles.panel}>
+          <Text style={styles.kicker}>KỶ NIỆM</Text>
+          <Text style={styles.panelTitle}>Đã cùng nhau đi</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
+            {group.trips.filter(trip => trip.isCloseTrip).map(trip => <TouchableOpacity key={trip.id} onPress={() => router.push({ pathname: "/trips/[id]", params: { id: trip.id, originGroupId: group.id } })} onLongPress={canEdit ? () => { setSelectedTrip(trip); setMenuMode("trip"); } : undefined}>
+              <ImageBackground source={trip.coverImage ? { uri: trip.coverImage } : require("@/assets/images/trip-hero-cao-bang.webp")} style={styles.memory} imageStyle={{ borderRadius: 12 }}>
+                <LinearGradient colors={["transparent", "rgba(7,27,21,.85)"]} style={styles.memoryOverlay}>
+                  <Text style={{ color: "white", fontSize: 10 }}>{trip.location || "Kỷ niệm chuyến đi"}</Text>
+                  <Text numberOfLines={1} style={{ color: "white", fontSize: 13, fontWeight: "800" }}>{trip.name}</Text>
+                  <Text style={{ color: "white", fontSize: 9 }}>{dayjs(trip.startDate).format("DD/MM/YYYY")} — {dayjs(trip.endDate).format("DD/MM/YYYY")}</Text>
+                </LinearGradient>
+              </ImageBackground>
+            </TouchableOpacity>)}
+          </ScrollView>
+          {!group.trips.some(trip => trip.isCloseTrip) && <Text style={styles.description}>Những chuyến đi đã hoàn thành sẽ trở thành kỷ niệm tại đây.</Text>}
+        </View>
+        <View style={styles.panel}>
+          <Text style={styles.kicker}>THÀNH VIÊN</Text>
+          <Text style={styles.panelTitle}>{group.members.length} người</Text>
+          <ScrollView nestedScrollEnabled style={{ maxHeight: 266 }}>
+            {group.members.map(member => {
+              const isLeader = member.role === GROUP_ROLE.LEADER || member.role === GROUP_ROLE.OWNER;
+              return <TouchableOpacity key={member.id} style={styles.memberRow} onPress={() => { setSelectedMember(member); setMemberPreviewOpen(true); }} onLongPress={() => { void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedMember(member); setMenuMode("member"); }}>
+                {member.user.avatar ? <Image source={{ uri: member.user.avatar }} style={styles.rowAvatar} /> : <View style={[styles.rowAvatar, styles.avatarFallback]}><Text style={styles.avatarLetter}>{getNameFirstLetterUpper(member.user.name)}</Text></View>}
+                <View style={{ flex: 1 }}><Text numberOfLines={1} style={{ color: palette.textPrimary, fontSize: 12.5, fontWeight: "700" }}>{member.user.name}</Text><Text style={{ color: palette.textSecondary, fontSize: 10, marginTop: 3 }}>{isLeader ? "Trưởng nhóm" : "Thành viên"}</Text></View>
+                <Ionicons name={isLeader ? "ribbon-outline" : "chevron-forward"} size={19} color={isLeader ? "#C89113" : palette.textSecondary} />
+              </TouchableOpacity>;
+            })}
+          </ScrollView>
+          {canEdit && <TouchableOpacity style={[styles.quickButton, { marginTop: 12 }]} onPress={() => router.push(`/groups/${group.id}/add-member`)}><Text style={{ color: palette.textPrimary, fontWeight: "700" }}>Mời thêm thành viên</Text></TouchableOpacity>}
+        </View>
+        <View style={styles.panel}>
+          <Text style={styles.kicker}>TRUY CẬP NHANH</Text>
+          <TouchableOpacity style={styles.memberRow} onPress={() => router.push(`/groups/${group.id}/polls`)}><Ionicons name="stats-chart-outline" size={22} color={COLORS.primary} /><View style={{ flex: 1 }}><Text style={styles.panelTitle}>Biểu quyết đang mở</Text><Text style={styles.description}>Cùng cả nhóm đưa ra lựa chọn</Text></View><Ionicons name="chevron-forward" size={18} color={palette.textSecondary} /></TouchableOpacity>
+          <TouchableOpacity style={styles.memberRow} onPress={() => router.push(`/groups/${group.id}/chat`)}><Ionicons name="chatbubble-outline" size={22} color={COLORS.primary} /><View style={{ flex: 1 }}><Text style={styles.panelTitle}>Nhóm trò chuyện</Text><Text style={styles.description}>Trao đổi kế hoạch cùng nhau</Text></View><Ionicons name="chevron-forward" size={18} color={palette.textSecondary} /></TouchableOpacity>
+        </View>
       </ScrollView>
 
       <GroupChatFab groupId={group.id} />
@@ -1082,6 +882,19 @@ export default function GroupDetailScreen() {
 }
 
 const createStyles = (palette: AppPalette) => StyleSheet.create({
+  intro: { paddingHorizontal: 16 },
+  groupEmblem: { width: 66, height: 66, marginTop: -33, marginBottom: 12, borderRadius: 12, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surface, alignItems: "center", justifyContent: "center" },
+  kicker: { fontSize: 10, fontWeight: "800", letterSpacing: 1, color: COLORS.primary },
+  groupName: { fontFamily: "DMSerifDisplay", fontSize: 34, lineHeight: 38, marginTop: 7, color: palette.textPrimary },
+  description: { fontSize: 12, lineHeight: 19, color: palette.textSecondary, marginTop: 6 },
+  quickButtons: { flexDirection: "row", gap: 10, marginTop: 16, marginBottom: 8 },
+  quickButton: { flexGrow: 1, minHeight: 46, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surface, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+  panel: { marginHorizontal: 16, marginTop: 20, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surface },
+  panelTitle: { fontSize: 15, fontWeight: "800", color: palette.textPrimary, marginTop: 4, marginBottom: 8 },
+  memberRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },
+  rowAvatar: { width: 38, height: 38, borderRadius: 19 },
+  memory: { width: 210, height: 112, overflow: "hidden", borderRadius: 12 },
+  memoryOverlay: { flex: 1, justifyContent: "flex-end", padding: 12, gap: 4 },
   container: { flex: 1, backgroundColor: palette.surface },
   centered: {
     flex: 1,

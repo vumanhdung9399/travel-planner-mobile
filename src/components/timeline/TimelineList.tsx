@@ -1,22 +1,25 @@
+import TimelineTypeIcon from "./TimelineTypeIcon";
+import { timelineClock } from "@/src/utils/tripDetail";
+import { TripContentScrollView } from '@/src/components/trip/TripDetailContent';
+import { TIMELINE_TYPE_OPTIONS } from "@/src/utils/travelOptions";
 import { api } from "@/src/services/api";
 import type { TimelineItemType, Trip } from "@/src/type/trip";
 import { COLORS } from "@/src/utils/constants";
 import { Ionicons } from "@expo/vector-icons";
 import dayjs from "dayjs";
 import * as Haptics from "expo-haptics";
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Modal,
+
   RefreshControl,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
 } from "react-native";
-import { Surface, Text } from "react-native-paper";
+import { Button, Chip, Dialog, Portal, Surface, Text } from "react-native-paper";
 import ActionSheet from "../ActionSheet";
 import AIChatModal from "./AIChatModal";
 import { type AppPalette, useAppPalette } from "@/src/hook/useAppPalette";
@@ -24,6 +27,8 @@ import { type AppPalette, useAppPalette } from "@/src/hook/useAppPalette";
 interface TimelineListProps {
   trip: Trip;
   refreshKey?: number;
+  createActionOpen?: boolean;
+  onCreateActionClose?: () => void;
   contentInsetTop?: number;
   onScrollOffsetChange?: (offset: number) => void;
   onUpdate?: () => void;
@@ -34,11 +39,11 @@ interface TimelineListProps {
   }) => void;
 }
 
-type FilterType = "all" | "active" | "upcoming" | "passed" | "today";
-
 export default function TimelineList({
   trip,
   refreshKey = 0,
+  createActionOpen = false,
+  onCreateActionClose = () => {},
   contentInsetTop = 0,
   onScrollOffsetChange,
   onUpdate,
@@ -50,55 +55,18 @@ export default function TimelineList({
   const [allData, setAllData] = useState<TimelineItemType[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [currentTime, setCurrentTime] = useState(dayjs());
   const [actionOpen, setActionOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<TimelineItemType | null>(null);
   const [aiOpen, setAiOpen] = useState(false);
 
   // Filter states
   const [filterModalVisible, setFilterModalVisible] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState<FilterType>("all");
+  const [timeFilter, setTimeFilter] = useState("all");
+  const [reminderFilter, setReminderFilter] = useState("all");
+  const [typeFilters, setTypeFilters] = useState<string[]>([]);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTime(dayjs());
-    }, 60000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const getItemStatus = (item: TimelineItemType): FilterType => {
-    if (!trip.startDate) return "upcoming";
-
-    const now = currentTime;
-    const itemDateTime = dayjs(trip.startDate)
-      .add(item.day - 1, "day")
-      .set("hour", dayjs(item.time, "HH:mm").hour())
-      .set("minute", dayjs(item.time, "HH:mm").minute());
-
-    const diffMinutes = now.diff(itemDateTime, "minute");
-
-    if (diffMinutes >= 0 && diffMinutes < 60) {
-      return "active";
-    } else if (diffMinutes < 0) {
-      return "upcoming";
-    } else {
-      return "passed";
-    }
-  };
-
-  const isItemActive = (item: TimelineItemType): boolean => {
-    return getItemStatus(item) === "active";
-  };
-
-  const isCurrentDay = (day: number): boolean => {
-    if (!trip.startDate) return false;
-    const tripStart = dayjs(trip.startDate);
-    const currentTripDay = currentTime.diff(tripStart, "day") + 1;
-    return day === currentTripDay;
-  };
-
-  const getTimeline = async () => {
+  const getTimeline = useCallback(async () => {
     try {
       setLoading(true);
       const res = await api.get<TimelineItemType[]>(
@@ -111,33 +79,33 @@ export default function TimelineList({
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [trip.id]);
 
   useEffect(() => {
+    // Fetch this trip again when returning from a content edit.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void getTimeline();
-  }, [refreshKey, trip.id]);
+  }, [refreshKey, getTimeline]);
 
   // Filter data
   const filteredData = useMemo(() => {
     let data = [...allData];
 
-    // Filter by status
-    if (selectedStatus !== "all") {
-      if (selectedStatus === "today") {
-        const currentDay = currentTime.diff(dayjs(trip.startDate), "day") + 1;
-        data = data.filter((item) => item.day === currentDay);
-      } else {
-        data = data.filter((item) => getItemStatus(item) === selectedStatus);
-      }
-    }
-
-    // Filter by specific day
+    data = data.filter((item) => {
+      const hour = Number(timelineClock(item.time).slice(0, 2));
+      if (timeFilter === "morning" && hour >= 12) return false;
+      if (timeFilter === "afternoon" && (hour < 12 || hour >= 18)) return false;
+      if (timeFilter === "evening" && hour < 18) return false;
+      if (reminderFilter === "withReminder" && !item.notify) return false;
+      if (reminderFilter === "withoutReminder" && item.notify) return false;
+      return !typeFilters.length || typeFilters.includes(item.type || "other");
+    });    // Filter by specific day
     if (selectedDay !== null) {
       data = data.filter((item) => item.day === selectedDay);
     }
 
     return data;
-  }, [allData, selectedStatus, selectedDay, currentTime, trip.startDate]);
+  }, [allData, selectedDay, timeFilter, reminderFilter, typeFilters]);
 
   const groupedData = useMemo(() => {
     const map: Record<number, TimelineItemType[]> = {};
@@ -146,7 +114,7 @@ export default function TimelineList({
       map[item.day].push(item);
     });
     Object.keys(map).forEach((day) => {
-      map[Number(day)].sort((a, b) => a.time.localeCompare(b.time));
+      map[Number(day)].sort((a, b) => timelineClock(a.time).localeCompare(timelineClock(b.time)));
     });
     return map;
   }, [filteredData]);
@@ -169,35 +137,7 @@ export default function TimelineList({
     }
   };
 
-  const getStatusCount = () => {
-    const counts = {
-      all: allData.length,
-      active: 0,
-      upcoming: 0,
-      passed: 0,
-      today: 0,
-    };
-
-    const currentDay = currentTime.diff(dayjs(trip.startDate), "day") + 1;
-
-    allData.forEach((item) => {
-      const status = getItemStatus(item);
-      if (status === "active") counts.active++;
-      if (status === "upcoming") counts.upcoming++;
-      if (status === "passed") counts.passed++;
-      if (item.day === currentDay) counts.today++;
-    });
-
-    return counts;
-  };
-
-  const statusCounts = getStatusCount();
-
-  const availableDays = useMemo(() => {
-    const days = new Set<number>();
-    allData.forEach((item) => days.add(item.day));
-    return Array.from(days).sort((a, b) => a - b);
-  }, [allData]);
+  const availableDays = Array.from(new Set(allData.map((item) => item.day))).sort((a, b) => a - b);
 
   useEffect(() => {
     onSummaryChange?.({
@@ -220,543 +160,46 @@ export default function TimelineList({
 
   // Render filter chips
   // Render filter chips - Version cải tiến
-  const renderFilterChips = () => {
-    if (allData.length === 0) return null;
-
-    return (
-      <View style={styles.filterContainer}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.filterChipsContainer}
-          contentContainerStyle={styles.filterChipsContent}
-        >
-          {/* Filter button */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            style={[
-              styles.chipWrapper,
-              styles.filterChip,
-              filterModalVisible && styles.chipWrapperActive,
-            ]}
-            onPress={() => setFilterModalVisible(true)}
-          >
-            <View style={styles.chipContent}>
-              <Ionicons
-                name="filter-outline"
-                size={16}
-                color={
-                  filterModalVisible ? COLORS.primary : palette.textSecondary
-                }
-              />
-              <Text
-                style={[
-                  styles.chipText,
-                  filterModalVisible && styles.chipTextActive,
-                ]}
-              >
-                Bộ lọc
-              </Text>
-              {(selectedDay !== null || selectedStatus !== "all") && (
-                <View style={styles.activeFilterDot} />
-              )}
-            </View>
-          </TouchableOpacity>
-          {/* All filter */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            style={[
-              styles.chipWrapper,
-              selectedStatus === "all" &&
-                selectedDay === null &&
-                styles.chipWrapperActive,
-            ]}
-            onPress={() => {
-              setSelectedStatus("all");
-              setSelectedDay(null);
-            }}
-          >
-            <View style={styles.chipContent}>
-              <Ionicons
-                name="apps-outline"
-                size={16}
-                color={
-                  selectedStatus === "all" && selectedDay === null
-                    ? COLORS.primary
-                    : palette.textSecondary
-                }
-              />
-              <Text
-                style={[
-                  styles.chipText,
-                  selectedStatus === "all" &&
-                    selectedDay === null &&
-                    styles.chipTextActive,
-                ]}
-              >
-                Tất cả
-              </Text>
-              <View style={styles.chipCount}>
-                <Text style={styles.chipCountText}>{statusCounts.all}</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-
-          {/* Active filter */}
-          {statusCounts.active > 0 && (
-            <TouchableOpacity
-              activeOpacity={0.7}
-              style={[
-                styles.chipWrapper,
-                selectedStatus === "active" && styles.chipWrapperActive,
-              ]}
-              onPress={() => {
-                setSelectedStatus("active");
-                setSelectedDay(null);
-              }}
-            >
-              <View style={styles.chipContent}>
-                <View style={[styles.chipDot, styles.activeDot]} />
-                <Text
-                  style={[
-                    styles.chipText,
-                    selectedStatus === "active" && styles.chipTextActive,
-                  ]}
-                >
-                  Đang diễn ra
-                </Text>
-                <View style={[styles.chipCount, styles.activeCount]}>
-                  <Text style={styles.chipCountText}>
-                    {statusCounts.active}
-                  </Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          )}
-
-          {/* Upcoming filter */}
-          {statusCounts.upcoming > 0 && (
-            <TouchableOpacity
-              activeOpacity={0.7}
-              style={[
-                styles.chipWrapper,
-                selectedStatus === "upcoming" && styles.chipWrapperActive,
-              ]}
-              onPress={() => {
-                setSelectedStatus("upcoming");
-                setSelectedDay(null);
-              }}
-            >
-              <View style={styles.chipContent}>
-                <View style={[styles.chipDot, styles.upcomingDot]} />
-                <Text
-                  style={[
-                    styles.chipText,
-                    selectedStatus === "upcoming" && styles.upcomingText,
-                  ]}
-                >
-                  Sắp tới
-                </Text>
-                <View style={[styles.chipCount, styles.upcomingCount]}>
-                  <Text style={styles.chipCountText}>
-                    {statusCounts.upcoming}
-                  </Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          )}
-
-          {/* Passed filter */}
-          {statusCounts.passed > 0 && (
-            <TouchableOpacity
-              activeOpacity={0.7}
-              style={[
-                styles.chipWrapper,
-                selectedStatus === "passed" && styles.chipWrapperActive,
-              ]}
-              onPress={() => {
-                setSelectedStatus("passed");
-                setSelectedDay(null);
-              }}
-            >
-              <View style={styles.chipContent}>
-                <View style={[styles.chipDot, styles.passedDot]} />
-                <Text
-                  style={[
-                    styles.chipText,
-                    selectedStatus === "passed" && styles.passedText,
-                  ]}
-                >
-                  Đã qua
-                </Text>
-                <View style={[styles.chipCount, styles.passedCount]}>
-                  <Text style={styles.chipCountText}>
-                    {statusCounts.passed}
-                  </Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          )}
-
-          {/* Today filter */}
-          {statusCounts.today > 0 && (
-            <TouchableOpacity
-              activeOpacity={0.7}
-              style={[
-                styles.chipWrapper,
-                selectedStatus === "today" && styles.chipWrapperActive,
-              ]}
-              onPress={() => {
-                setSelectedStatus("today");
-                setSelectedDay(null);
-              }}
-            >
-              <View style={styles.chipContent}>
-                <Ionicons
-                  name="calendar-outline"
-                  size={14}
-                  color={
-                    selectedStatus === "today"
-                      ? "#10B981"
-                      : palette.textSecondary
-                  }
-                />
-                <Text
-                  style={[
-                    styles.chipText,
-                    selectedStatus === "today" && styles.todayText,
-                  ]}
-                >
-                  Hôm nay
-                </Text>
-                <View style={[styles.chipCount, styles.todayCount]}>
-                  <Text style={styles.chipCountText}>{statusCounts.today}</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          )}
-        </ScrollView>
-      </View>
-    );
-  };
-
-  const renderTimelineItem = (item: TimelineItemType, isActive: boolean) => {
-    const isLeader = trip.isLeader && !trip.isCloseTrip;
-
-    return (
-      <Surface
-        style={[styles.timelineItem, isActive && styles.timelineItemActive]}
-        elevation={isActive ? 2 : 0}
-      >
-        <View style={styles.timelineItemContent}>
-          <View style={styles.timelineLeft}>
-            <View style={styles.timeRow}>
-              <Text style={styles.timeText}>
-                {dayjs(item.time, "HH:mm").format("HH:mm")}
-              </Text>
-              {item.notify && (
-                <View style={styles.notifyBadge}>
-                  <Ionicons name="notifications" size={12} color="#F59E0B" />
-                </View>
-              )}
-              {isActive && (
-                <View style={styles.activeNowBadge}>
-                  <Text style={styles.activeNowText}>Đang diễn ra</Text>
-                </View>
-              )}
-            </View>
-
-            <Text
-              style={[styles.itemTitle, isActive && styles.itemTitleActive]}
-            >
-              {item.title}
-            </Text>
-
-            {item.description && (
-              <Text style={styles.itemDescription} numberOfLines={2}>
-                {item.description}
-              </Text>
-            )}
-          </View>
-
-          {isLeader && (
-            <View style={styles.timelineActions}>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setSelectedItem(item);
-                  setActionOpen(true);
-                }}
-              >
-                <Ionicons
-                  name="ellipsis-horizontal"
-                  size={22}
-                  color={palette.textSecondary}
-                />
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      </Surface>
-    );
-  };
-
+  const resetFilters = () => { setSelectedDay(null); setTimeFilter("all"); setReminderFilter("all"); setTypeFilters([]); };
+  const activeFilters = Number(timeFilter !== "all") + Number(reminderFilter !== "all") + Number(typeFilters.length > 0);
+  const renderFilterChips = () => allData.length > 0 && <View style={{ paddingHorizontal: 12, gap: 12 }}>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+      {[null, ...availableDays].map(day => { const active = selectedDay === day; const date = day === null ? null : dayjs(trip.startDate).add(day - 1, "day"); return <TouchableOpacity key={day ?? "all"} onPress={() => setSelectedDay(day)} accessibilityState={{ selected: active }} style={{ width: 96, minHeight: 64, paddingVertical: 9, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1, borderColor: active ? COLORS.primary : palette.border, backgroundColor: active ? COLORS.primary : palette.surface, justifyContent: "center" }}>
+        <Text style={{ fontSize: 8.5, fontWeight: "700", color: active ? "#FFFFFFC7" : palette.textSecondary }}>{day === null ? "LỊCH TRÌNH" : `Ngày ${day}`}</Text>
+        <Text style={{ fontSize: 14, fontWeight: "800", color: active ? "white" : palette.textPrimary }}>{day === null ? "Tất cả" : date?.format("DD/MM")}</Text>
+        <Text style={{ fontSize: 8.5, color: active ? "#FFFFFFC7" : palette.textSecondary }}>{day === null ? `${allData.length} hoạt động` : new Intl.DateTimeFormat("vi-VN", { weekday: "short" }).format(date!.toDate())}</Text>
+      </TouchableOpacity>; })}
+    </ScrollView>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}><Ionicons name="calendar-outline" size={19} color={COLORS.primary} /><Text style={{ flex: 1, fontSize: 11, color: COLORS.primary }}>{selectedDay === null ? "Tất cả các ngày" : dayjs(trip.startDate).add(selectedDay - 1, "day").format("DD/MM/YYYY")}</Text><Text style={{ fontSize: 11, color: palette.textSecondary }}>{filteredData.length} hoạt động</Text><TouchableOpacity onPress={() => setFilterModalVisible(true)} accessibilityLabel="Mở bộ lọc nâng cao" style={{ flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 1, borderColor: palette.border, paddingHorizontal: 8, minHeight: 30, borderRadius: 8, backgroundColor: activeFilters ? COLORS.primary : palette.surface }}><Ionicons name="options-outline" size={15} color={activeFilters ? "white" : COLORS.primary} /><Text style={{ fontSize: 10, color: activeFilters ? "white" : COLORS.primary }}>Lọc{activeFilters ? ` (${activeFilters})` : ""}</Text></TouchableOpacity></View>
+  </View>;
   const renderDaySection = (day: number) => {
     const items = groupedData[day];
-    const isCurrent = isCurrentDay(day);
-
-    if (!items || items.length === 0) return null;
-
-    return (
-      <View key={day} style={styles.daySection}>
-        <View style={styles.dayHeader}>
-          <View style={styles.dayHeaderLeft}>
-            <Text style={[styles.dayText, isCurrent && styles.dayTextActive]}>
-              Ngày {day}
-            </Text>
-          </View>
-          {isCurrent && (
-            <View style={styles.currentBadge}>
-              <LinearGradient
-                colors={COLORS.primaryGradient as readonly [string, string]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.currentBadgeGradient}
-              >
-                <Text style={styles.currentBadgeText}>Hôm nay</Text>
-              </LinearGradient>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.timelineContainer}>
-          <View style={styles.verticalLine} />
-          <View style={styles.itemsContainer}>
-            {items.map((item, index) => {
-              const itemActive = isItemActive(item);
-              const isLast = index === items.length - 1;
-              return (
-                <View key={item.id} style={styles.itemWrapper}>
-                  <View
-                    style={[
-                      styles.connectorDot,
-                      itemActive && styles.connectorDotActive,
-                      isLast && styles.connectorDotLast,
-                    ]}
-                  />
-                  {renderTimelineItem(item, itemActive)}
-                </View>
-              );
-            })}
-          </View>
-        </View>
-      </View>
-    );
+    if (!items?.length) return null;
+    return <View key={day} style={{ marginBottom: 12 }}>
+      {selectedDay === null && <View style={{ marginBottom: 9, marginTop: 4 }}><Text style={{ color: COLORS.primary, fontSize: 9, fontWeight: "800", letterSpacing: .8 }}>NGÀY {day} · {dayjs(trip.startDate).add(day - 1, "day").format("DD/MM/YYYY")}</Text><Text style={{ fontSize: 16, fontWeight: "800", marginTop: 2 }}>{items.length} hoạt động</Text></View>}
+      {items.map((item, index) => <View key={item.id || index} style={{ flexDirection: "row", gap: 3, minHeight: item.description?.trim() ? 116 : 82 }}>
+        <View style={{ width: 42, alignItems: "center" }}>{index < items.length - 1 && <View style={{ position: "absolute", top: 31, bottom: -1, width: 2, backgroundColor: palette.border }} />}<View style={{ width: 34, height: 34, borderWidth: 4, borderColor: palette.surface, backgroundColor: palette.primaryLight, borderRadius: 17, alignItems: "center", justifyContent: "center" }}><TimelineTypeIcon type={item.type} /></View></View>
+        <Surface elevation={0} style={{ flex: 1, marginBottom: 11, paddingVertical: 13, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surface }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}><Ionicons name="time-outline" size={14} color={COLORS.primary} /><Text style={{ color: COLORS.primary, fontSize: 10, fontWeight: "800" }}>{timelineClock(item.time)}</Text>{item.notify && <Ionicons name="notifications" size={14} color="#F59E0B" />}<View style={{ flex: 1 }} />{trip.isLeader && !trip.isCloseTrip && <TouchableOpacity accessibilityLabel={`Tuỳ chọn hoạt động ${item.title}`} style={{ width: 28, height: 28, alignItems: "center", justifyContent: "center" }} onPress={() => { setSelectedItem(item); setActionOpen(true); }}><Ionicons name="ellipsis-horizontal" size={20} color={palette.textSecondary} /></TouchableOpacity>}</View>
+          <Text style={{ marginTop: 6, fontSize: 14, lineHeight: 19, fontWeight: "600" }}>{item.title}</Text>
+          {!!item.description?.trim() && <Text style={{ fontSize: 11, lineHeight: 16, color: palette.textSecondary, marginTop: 4 }}>{item.description}</Text>}
+        </Surface>
+      </View>)}
+    </View>;
   };
 
-  const renderFilterModal = () => (
-    <Modal
-      visible={filterModalVisible}
-      transparent
-      animationType="slide"
-      onRequestClose={() => setFilterModalVisible(false)}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Bộ lọc</Text>
-            <TouchableOpacity onPress={() => setFilterModalVisible(false)}>
-              <Ionicons
-                name="close-outline"
-                size={24}
-                color={palette.textSecondary}
-              />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            style={styles.modalScroll}
-          >
-            {/* Filter by Day */}
-            {availableDays.length > 0 && (
-              <View style={styles.filterSection}>
-                <Text style={styles.filterSectionTitle}>📅 Ngày</Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.daysContainer}
-                >
-                  <TouchableOpacity
-                    style={[
-                      styles.dayButton,
-                      selectedDay === null && styles.dayButtonActive,
-                    ]}
-                    onPress={() => setSelectedDay(null)}
-                  >
-                    <Text
-                      style={[
-                        styles.dayButtonText,
-                        selectedDay === null && styles.dayButtonTextActive,
-                      ]}
-                    >
-                      Tất cả
-                    </Text>
-                  </TouchableOpacity>
-                  {availableDays.map((day) => (
-                    <TouchableOpacity
-                      key={day}
-                      style={[
-                        styles.dayButton,
-                        selectedDay === day && styles.dayButtonActive,
-                      ]}
-                      onPress={() => setSelectedDay(day)}
-                    >
-                      <Text
-                        style={[
-                          styles.dayButtonText,
-                          selectedDay === day && styles.dayButtonTextActive,
-                        ]}
-                      >
-                        Ngày {day}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
-
-            {/* Filter by Status */}
-            <View style={styles.filterSection}>
-              <Text style={styles.filterSectionTitle}>⏰ Trạng thái</Text>
-              <View style={styles.statusGrid}>
-                <TouchableOpacity
-                  style={[
-                    styles.statusCard,
-                    selectedStatus === "all" && styles.statusCardActive,
-                  ]}
-                  onPress={() => setSelectedStatus("all")}
-                >
-                  <Text style={styles.statusIcon}>📋</Text>
-                  <Text style={styles.statusName}>Tất cả</Text>
-                  <Text style={styles.statusCount}>{statusCounts.all}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.statusCard,
-                    selectedStatus === "active" && styles.statusCardActive,
-                  ]}
-                  onPress={() => setSelectedStatus("active")}
-                >
-                  <Text style={styles.statusIcon}>⚡</Text>
-                  <Text style={styles.statusName}>Đang diễn ra</Text>
-                  <Text style={styles.statusCount}>{statusCounts.active}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.statusCard,
-                    selectedStatus === "upcoming" && styles.statusCardActive,
-                  ]}
-                  onPress={() => setSelectedStatus("upcoming")}
-                >
-                  <Text style={styles.statusIcon}>⏳</Text>
-                  <Text style={styles.statusName}>Sắp tới</Text>
-                  <Text style={styles.statusCount}>
-                    {statusCounts.upcoming}
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.statusCard,
-                    selectedStatus === "passed" && styles.statusCardActive,
-                  ]}
-                  onPress={() => setSelectedStatus("passed")}
-                >
-                  <Text style={styles.statusIcon}>✅</Text>
-                  <Text style={styles.statusName}>Đã qua</Text>
-                  <Text style={styles.statusCount}>{statusCounts.passed}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.statusCard,
-                    selectedStatus === "today" && styles.statusCardActive,
-                  ]}
-                  onPress={() => setSelectedStatus("today")}
-                >
-                  <Text style={styles.statusIcon}>📆</Text>
-                  <Text style={styles.statusName}>Hôm nay</Text>
-                  <Text style={styles.statusCount}>{statusCounts.today}</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Show active filters info */}
-            {(selectedStatus !== "all" || selectedDay !== null) && (
-              <View style={styles.activeFiltersSection}>
-                <Text style={styles.activeFiltersTitle}>
-                  Bộ lọc đang áp dụng:
-                </Text>
-                <View style={styles.activeFiltersContainer}>
-                  {selectedStatus !== "all" && (
-                    <View style={styles.activeFilterBadge}>
-                      <Text style={styles.activeFilterText}>
-                        {selectedStatus === "active"
-                          ? "Đang diễn ra"
-                          : selectedStatus === "upcoming"
-                            ? "Sắp tới"
-                            : selectedStatus === "passed"
-                              ? "Đã qua"
-                              : "Hôm nay"}
-                      </Text>
-                    </View>
-                  )}
-                  {selectedDay !== null && (
-                    <View style={styles.activeFilterBadge}>
-                      <Text style={styles.activeFilterText}>
-                        Ngày {selectedDay}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-            )}
-          </ScrollView>
-
-          <View style={styles.modalFooter}>
-            <TouchableOpacity
-              style={styles.resetButton}
-              onPress={() => {
-                setSelectedStatus("all");
-                setSelectedDay(null);
-              }}
-            >
-              <Text style={styles.resetButtonText}>Đặt lại</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.applyButton}
-              onPress={() => setFilterModalVisible(false)}
-            >
-              <LinearGradient
-                colors={COLORS.primaryGradient as readonly [string, string]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.applyButtonGradient}
-              >
-                <Text style={styles.applyButtonText}>Xem kết quả</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-
+  const renderFilterModal = () => <Portal><Dialog visible={filterModalVisible} onDismiss={() => setFilterModalVisible(false)} style={{ backgroundColor: palette.surface }}>
+    <Dialog.Title>Bộ lọc lịch trình</Dialog.Title>
+    <Dialog.ScrollArea><ScrollView contentContainerStyle={{ paddingVertical: 16, gap: 12 }}>
+      <Text style={{ fontWeight: "800" }}>Buổi trong ngày</Text>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>{[{ value: "all", label: "Tất cả" }, { value: "morning", label: "Buổi sáng" }, { value: "afternoon", label: "Buổi chiều" }, { value: "evening", label: "Buổi tối" }].map((option) => <Chip key={option.value} selected={timeFilter === option.value} onPress={() => setTimeFilter(option.value)}>{option.label}</Chip>)}</View>
+      <Text style={{ fontWeight: "800" }}>Nhắc nhở</Text>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>{[{ value: "all", label: "Tất cả" }, { value: "withReminder", label: "Có nhắc nhở" }, { value: "withoutReminder", label: "Không nhắc nhở" }].map((option) => <Chip key={option.value} selected={reminderFilter === option.value} onPress={() => setReminderFilter(option.value)}>{option.label}</Chip>)}</View>
+      <Text style={{ fontWeight: "800" }}>Loại hoạt động</Text>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>{TIMELINE_TYPE_OPTIONS.map((option) => <Chip key={option.value} selected={typeFilters.includes(option.value)} onPress={() => setTypeFilters((current) => current.includes(option.value) ? current.filter((value) => value !== option.value) : [...current, option.value])}>{option.icon} {option.label}</Chip>)}</View>
+    </ScrollView></Dialog.ScrollArea>
+    <Dialog.Actions><Button onPress={resetFilters}>Đặt lại</Button><Button onPress={() => setFilterModalVisible(false)}>Áp dụng</Button></Dialog.Actions>
+  </Dialog></Portal>;
   if (loading && !refreshing) {
     return (
       <View style={styles.centered}>
@@ -768,7 +211,7 @@ export default function TimelineList({
   const hasNoResults = filteredData.length === 0 && allData.length > 0;
 
   return (
-    <ScrollView
+    <TripContentScrollView
       style={styles.container}
       contentContainerStyle={{ paddingTop: contentInsetTop }}
       showsVerticalScrollIndicator={false}
@@ -787,44 +230,6 @@ export default function TimelineList({
         />
       }
     >
-      {trip.isLeader && !trip.isCloseTrip && (
-        <View style={styles.aiToolbar}>
-          <TouchableOpacity
-            activeOpacity={0.85}
-            style={styles.aiButton}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setAiOpen(true);
-            }}
-          >
-            <LinearGradient
-              colors={
-                palette.isDark
-                  ? [palette.purpleLight, palette.primaryLight]
-                  : ["#F5F3FF", "#EEF2FF"]
-              }
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.aiButtonGradient}
-            >
-              <View style={styles.aiIcon}>
-                <Ionicons name="sparkles" size={17} color="#fff" />
-              </View>
-              <View style={styles.aiButtonCopy}>
-                <Text style={styles.aiButtonTitle}>Lên lịch bằng AI</Text>
-                <Text style={styles.aiButtonSubtitle}>
-                  Tạo và tối ưu lịch trình tự động
-                </Text>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={18}
-                color={palette.isDark ? "#C4B5FD" : "#7C3AED"}
-              />
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-      )}
       {renderFilterChips()}
 
       {sortedDays.length === 0 ? (
@@ -843,8 +248,7 @@ export default function TimelineList({
               <TouchableOpacity
                 style={styles.clearFilterButton}
                 onPress={() => {
-                  setSelectedStatus("all");
-                  setSelectedDay(null);
+                  resetFilters();
                 }}
               >
                 <Text style={styles.clearFilterText}>Xóa bộ lọc</Text>
@@ -858,6 +262,23 @@ export default function TimelineList({
         </View>
       )}
 
+      <ActionSheet
+        open={createActionOpen && !!trip.isLeader && !trip.isCloseTrip}
+        animated={false}
+        onClose={onCreateActionClose}
+        actions={[
+          {
+            label: "Tạo hoạt động thủ công",
+            icon: "add-outline",
+            onPress: () => router.push(`/trips/${trip.id}/timeline-form`),
+          },
+          {
+            label: "Gợi ý lịch trình bằng AI",
+            icon: "sparkles-outline",
+            onPress: () => setAiOpen(true),
+          },
+        ]}
+      />
       {renderFilterModal()}
       <AIChatModal
         open={aiOpen}
@@ -895,7 +316,7 @@ export default function TimelineList({
           },
         ]}
       />
-    </ScrollView>
+    </TripContentScrollView>
   );
 }
 
@@ -913,7 +334,7 @@ const createStyles = (palette: AppPalette) => StyleSheet.create({
   listContent: {
     paddingHorizontal: 12,
     paddingTop: 14,
-    paddingBottom: 96,
+    paddingBottom: 0,
   },
   filterChipsContainer: {
     backgroundColor: palette.surface,
@@ -1367,51 +788,5 @@ const createStyles = (palette: AppPalette) => StyleSheet.create({
   },
   filterChip: {
     backgroundColor: palette.surfaceMuted,
-  },
-  aiToolbar: {
-    paddingHorizontal: 12,
-    paddingTop: 12,
-    paddingBottom: 6,
-    backgroundColor: palette.surface,
-  },
-  aiButton: {
-    borderRadius: 16,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: palette.isDark ? "#4C3E73" : "#DDD6FE",
-  },
-  aiButtonGradient: {
-    minHeight: 62,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  aiIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: "#7C3AED",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 11,
-    shadowColor: "#7C3AED",
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
-  },
-  aiButtonCopy: {
-    flex: 1,
-  },
-  aiButtonTitle: {
-    color: palette.isDark ? "#E9D5FF" : "#4C1D95",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  aiButtonSubtitle: {
-    color: palette.isDark ? "#C4B5FD" : "#7C3AED",
-    fontSize: 11,
-    marginTop: 2,
   },
 });

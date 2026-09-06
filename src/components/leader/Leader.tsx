@@ -1,3 +1,4 @@
+import { TripContentScrollView } from '@/src/components/trip/TripDetailContent';
 import ConfirmDialog from '@/src/components/ConfirmDialog';
 import { api } from '@/src/services/api';
 import { taskApi } from '@/src/services/task';
@@ -16,7 +17,6 @@ import {
   Image,
   Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
@@ -32,6 +32,7 @@ interface LeaderProps {
   onOpenTasks?: () => void;
   isActive?: boolean;
   onScrollOffsetChange?: (offset: number) => void;
+  refreshKey?: number;
   contentInsetTop?: number;
 }
 
@@ -43,6 +44,7 @@ const Leader = ({
   onUpdate,
   onOpenTasks,
   isActive,
+  refreshKey = 0,
   contentInsetTop = 0,
   onScrollOffsetChange,
 }: LeaderProps) => {
@@ -79,8 +81,10 @@ const Leader = ({
   }, [trip.id]);
 
   useEffect(() => {
+    // Reload server tasks when the management tab becomes active.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (isActive !== false) void loadTasks();
-  }, [isActive, loadTasks]);
+  }, [isActive, loadTasks, refreshKey]);
 
   const handleEndTrip = async () => {
     try {
@@ -165,7 +169,7 @@ const Leader = ({
 
   return (
     <View style={[styles.container, { backgroundColor: palette.background }]}>
-      <ScrollView
+      <TripContentScrollView
         contentContainerStyle={[styles.content, { paddingTop: contentInsetTop + 14 }]}
         showsVerticalScrollIndicator={false}
         onScroll={(event) =>
@@ -289,7 +293,7 @@ const Leader = ({
           </View>
           <Ionicons name="chevron-forward" size={22} color={COLORS.error} />
         </TouchableOpacity>
-      </ScrollView>
+      </TripContentScrollView>
 
       <Modal visible={notificationOpen} transparent animationType="slide" onRequestClose={() => setNotificationOpen(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setNotificationOpen(false)}>
@@ -354,7 +358,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   content: { padding: 12, paddingTop: 14, paddingBottom: 104 },
   statsRow: { flexDirection: 'row', gap: 10, marginBottom: 24 },
-  statCard: { flex: 1, minHeight: 126, backgroundColor: COLORS.surface, borderRadius: 18, padding: 14, borderWidth: 1, borderColor: COLORS.border, shadowColor: '#3D4E62', shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 2 },
+  statCard: { flex: 1, minHeight: 126, backgroundColor: COLORS.surface, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: COLORS.border, shadowColor: '#3D4E62', shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 2 },
   statTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   statValue: { flexShrink: 1, fontSize: 14, fontWeight: '700', color: COLORS.textPrimary },
   avatarStack: { flexDirection: 'row', alignItems: 'center', marginTop: 22 },
@@ -366,8 +370,8 @@ const styles = StyleSheet.create({
   completedText: { marginTop: 24, color: COLORS.success, fontSize: 13, fontWeight: '700', textAlign: 'center' },
   sectionTitle: { fontSize: 16, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 10 },
   taskList: { gap: 12 },
-  taskLoading: { height: 86, borderRadius: 18, backgroundColor: COLORS.surface },
-  taskRow: { minHeight: 84, padding: 15, borderRadius: 18, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface, flexDirection: 'row', alignItems: 'center', gap: 10, shadowColor: '#3D4E62', shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 1 },
+  taskLoading: { height: 86, borderRadius: 12, backgroundColor: COLORS.surface },
+  taskRow: { minHeight: 80, padding: 15, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface, flexDirection: 'row', alignItems: 'center', gap: 10, shadowColor: '#3D4E62', shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 1 },
   taskIcon: { width: 46, height: 46, borderRadius: 23, backgroundColor: COLORS.successLight, alignItems: 'center', justifyContent: 'center' },
   taskIconDone: { backgroundColor: COLORS.successLight },
   taskBody: { flex: 1, minWidth: 0 },
@@ -382,22 +386,22 @@ const styles = StyleSheet.create({
   doingText: { color: COLORS.warning },
   doneText: { color: COLORS.success },
   taskDate: { fontSize: 11, color: COLORS.textLight },
-  emptyTasks: { height: 112, borderRadius: 18, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface, alignItems: 'center', justifyContent: 'center', gap: 7 },
+  emptyTasks: { height: 112, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface, alignItems: 'center', justifyContent: 'center', gap: 7 },
   emptyText: { fontSize: 12, color: COLORS.textSecondary },
-  addTaskButton: { height: 52, marginTop: 12, borderWidth: 1.5, borderStyle: 'dashed', borderColor: '#79B9F8', borderRadius: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, backgroundColor: COLORS.surfaceMuted },
+  addTaskButton: { height: 50, marginTop: 12, borderWidth: 1.5, borderStyle: 'dashed', borderColor: '#79B9F8', borderRadius: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, backgroundColor: COLORS.surfaceMuted },
   addTaskText: { color: COLORS.primary, fontSize: 14, fontWeight: '700' },
-  settlementCard: { marginTop: 18, padding: 15, borderRadius: 17, borderWidth: 1 },
+  settlementCard: { marginTop: 18, padding: 15, borderRadius: 12, borderWidth: 1 },
   settlementTitle: { fontSize: 14, fontWeight: '800' },
   settlementDescription: { marginTop: 4, marginBottom: 12, fontSize: 11, lineHeight: 16 },
   settlementModeRow: { flexDirection: 'row', gap: 8 },
   settlementModeButton: { flex: 1, minHeight: 40, borderWidth: 1, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   settlementModeText: { fontSize: 13, fontWeight: '700' },
-  notificationButton: { minHeight: 76, marginTop: 18, padding: 13, borderRadius: 17, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  notificationButton: { minHeight: 76, marginTop: 18, padding: 13, borderRadius: 12, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, flexDirection: 'row', alignItems: 'center', gap: 12 },
   notificationIcon: { width: 43, height: 43, borderRadius: 14, backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center' },
   actionBody: { flex: 1 },
   notificationTitle: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary },
   actionSubtitle: { fontSize: 11, color: COLORS.textSecondary, marginTop: 4 },
-  endTripCard: { minHeight: 82, marginTop: 12, padding: 13, borderRadius: 17, backgroundColor: COLORS.errorLight, borderWidth: 1, borderColor: '#F7D8D8', flexDirection: 'row', alignItems: 'center', gap: 12 },
+  endTripCard: { minHeight: 82, marginTop: 12, padding: 13, borderRadius: 12, backgroundColor: COLORS.errorLight, borderWidth: 1, borderColor: '#F7D8D8', flexDirection: 'row', alignItems: 'center', gap: 12 },
   endTripIcon: { width: 43, height: 43, borderRadius: 14, backgroundColor: COLORS.errorLight, alignItems: 'center', justifyContent: 'center' },
   endTripTitle: { fontSize: 14, fontWeight: '700', color: COLORS.error },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(15,23,42,.48)', justifyContent: 'flex-end' },

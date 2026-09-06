@@ -1,6 +1,9 @@
 import type { UserGroup } from "./user";
 
+export type TimelineType = "transportation" | "accommodation" | "dining" | "sightseeing" | "activity" | "shopping" | "rest" | "other";
+
 export interface TimelineItemType {
+  type?: TimelineType;
   id?: string;
   title: string;
   description: string;

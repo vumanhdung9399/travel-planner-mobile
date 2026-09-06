@@ -11,7 +11,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Modal, RefreshControl, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { Text } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -34,6 +34,7 @@ export default function PollsScreen() {
   const [deadline, setDeadline] = useState<Date | null>(null);
   const [selectedTripId, setSelectedTripId] = useState<string | undefined>();
   const [showDeadline, setShowDeadline] = useState(false);
+  const [pickerDate, setPickerDate] = useState(() => new Date());
   const [addingTo, setAddingTo] = useState<GroupPoll | null>(null);
   const [newOption, setNewOption] = useState('');
   const [options, setOptions] = useState(['', '']);
@@ -89,7 +90,7 @@ export default function PollsScreen() {
   ]);
 
   return <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.safe}>
-    <StatusBar style={palette.isDark ? 'light' : 'dark'} backgroundColor={palette.surface} />
+    <StatusBar style={palette.isDark ? 'light' : 'dark'} />
     <View style={[styles.header, { paddingTop: insets.top + 4 }]}>
       <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}><Ionicons name="chevron-back" size={25} color={palette.textPrimary} /></TouchableOpacity>
       <View style={{ flex: 1 }}><Text style={styles.title}>Biểu quyết nhóm</Text><Text style={styles.subtitle}>{group?.name || 'Cùng nhau ra quyết định'}</Text></View>
@@ -132,8 +133,8 @@ export default function PollsScreen() {
         <TextInput value={description} onChangeText={setDescription} placeholder="Mô tả (không bắt buộc)" placeholderTextColor={palette.textLight} style={[styles.input, { minHeight: 70 }]} multiline maxLength={1000} />
         <Text style={styles.label}>Loại biểu quyết</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>{(['date','hotel','restaurant','place','custom'] as PollType[]).map((value) => <TouchableOpacity key={value} onPress={() => setPollType(value)} style={[styles.chip, pollType === value && styles.chipActive]}><Text style={[styles.chipText, pollType === value && styles.chipTextActive]}>{value === 'date' ? 'Ngày đi' : value === 'hotel' ? 'Khách sạn' : value === 'restaurant' ? 'Nhà hàng' : value === 'place' ? 'Địa điểm' : 'Khác'}</Text></TouchableOpacity>)}</ScrollView>
         <Text style={styles.label}>Cách bình chọn</Text><View style={styles.chips}>{(['single','multiple','ranked'] as VotingMethod[]).map((value) => <TouchableOpacity key={value} onPress={() => setMethod(value)} style={[styles.chip, method === value && styles.chipActive]}><Text style={[styles.chipText, method === value && styles.chipTextActive]}>{value === 'single' ? 'Chọn một' : value === 'multiple' ? 'Chọn nhiều' : 'Xếp hạng'}</Text></TouchableOpacity>)}</View>
-        <TouchableOpacity onPress={() => setShowDeadline(true)} style={styles.deadline}><Ionicons name="time-outline" size={18} color={COLORS.primary} /><Text style={styles.optionLabel}>{deadline ? `Hạn ${dayjs(deadline).format('HH:mm DD/MM/YYYY')}` : 'Đặt hạn bình chọn'}</Text></TouchableOpacity>
-        {showDeadline ? <DateTimePicker value={deadline || new Date(Date.now() + 86400000)} mode="datetime" minimumDate={new Date()} onChange={(_, value) => { setShowDeadline(false); if (value) setDeadline(value); }} /> : null}
+        <TouchableOpacity onPress={() => { setPickerDate(deadline || new Date(Date.now() + 86400000)); setShowDeadline(true); }} style={styles.deadline}><Ionicons name="time-outline" size={18} color={COLORS.primary} /><Text style={styles.optionLabel}>{deadline ? `Hạn ${dayjs(deadline).format('HH:mm DD/MM/YYYY')}` : 'Đặt hạn bình chọn'}</Text></TouchableOpacity>
+        <DateTimePickerModal isVisible={showDeadline} date={pickerDate} mode="datetime" minimumDate={new Date()} onCancel={() => setShowDeadline(false)} onConfirm={(value) => { setShowDeadline(false); setDeadline(value); }} />
         {group?.trips?.length ? <><Text style={styles.label}>Gắn với chuyến đi</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}><TouchableOpacity onPress={() => setSelectedTripId(undefined)} style={[styles.chip, !selectedTripId && styles.chipActive]}><Text style={[styles.chipText, !selectedTripId && styles.chipTextActive]}>Không gắn</Text></TouchableOpacity>{group.trips.map((trip) => <TouchableOpacity key={trip.id} onPress={() => setSelectedTripId(trip.id)} style={[styles.chip, selectedTripId === trip.id && styles.chipActive]}><Text style={[styles.chipText, selectedTripId === trip.id && styles.chipTextActive]}>{trip.name}</Text></TouchableOpacity>)}</ScrollView></> : null}
         {options.map((value, index) => <View key={index} style={styles.optionInputRow}><TextInput value={value} onChangeText={(text) => setOptions((current) => current.map((item, i) => i === index ? text : item))} placeholder={`Phương án ${index + 1}`} placeholderTextColor={palette.textLight} style={[styles.input, { flex: 1 }]} maxLength={180} />{options.length > 2 ? <TouchableOpacity onPress={() => setOptions((current) => current.filter((_, i) => i !== index))}><Ionicons name="close-circle" size={24} color={palette.textLight} /></TouchableOpacity> : null}</View>)}
         {options.length < 12 ? <TouchableOpacity onPress={() => setOptions((current) => [...current, ''])}><Text style={styles.addOption}>+ Thêm phương án</Text></TouchableOpacity> : null}

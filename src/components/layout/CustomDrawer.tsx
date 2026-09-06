@@ -5,7 +5,7 @@ import { useAuthStore } from "@/src/store/auth.store";
 import { useUserStore } from "@/src/store/user.store";
 import { COLORS, UI_RADIUS } from "@/src/utils/constants";
 import { Ionicons } from "@expo/vector-icons";
-import { DrawerContentScrollView } from "@react-navigation/drawer";
+import { DrawerContentScrollView } from "expo-router/drawer";
 import { type Href, router, usePathname } from "expo-router";
 import { Image, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
@@ -14,8 +14,10 @@ const menu: {
   path: Href;
   icon: keyof typeof Ionicons.glyphMap;
 }[] = [
+  { label: "Tổng quan", path: "/overview", icon: "home-outline" },
   { label: "Nhóm của tôi", path: "/", icon: "people-outline" },
   { label: "Chuyến đi", path: "/trips", icon: "airplane-outline" },
+  { label: "Bản đồ", path: "/maps", icon: "map-outline" },
   { label: "Hồ sơ & cài đặt", path: "/profile", icon: "person-outline" },
   {
     label: "Thông báo",

@@ -8,15 +8,16 @@ import {
   DrawerActions,
   StackActions,
   useNavigation,
-} from "@react-navigation/native";
+} from "expo-router/react-navigation";
 import { Redirect, Tabs, useFocusEffect, usePathname, useSegments } from "expo-router";
 import { useCallback } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { ActivityIndicator, StyleSheet, View, type ColorValue } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { COLORS } from "@/src/utils/constants";
 import { useSettingsStore } from "@/src/store/settings.store";
 import OfflineBanner from '@/src/components/OfflineBanner';
 import { useAppPalette } from "@/src/hook/useAppPalette";
+import TabHeader from "@/src/components/layout/TabHeader";
 
 function NavIcon({
   name,
@@ -24,7 +25,7 @@ function NavIcon({
   focused,
 }: {
   name: keyof typeof Ionicons.glyphMap;
-  color: string;
+  color: ColorValue;
   focused: boolean;
 }) {
   const palette = useAppPalette();
@@ -63,6 +64,7 @@ export default function TabLayout() {
     segments.includes("groups") ||
     (segments.includes("trips") && segments.length > 2) ||
     segments.includes("change-profile");
+  const showTripDetailTabBar = /^\/(trips|groups)\/[^/]+\/?$/.test(pathname);
   const immersiveDetail =
     /^\/groups\/[^/]+\/?$/.test(pathname) ||
     /^\/groups\/[^/]+\/polls\/?$/.test(pathname) ||
@@ -120,7 +122,9 @@ export default function TabLayout() {
       edges={immersiveDetail ? [] : ["top"]}
     >
       <OfflineBanner />
+      {!hideTab && <TabHeader title={pathname === "/overview" ? "Trang chủ" : pathname === "/trips" ? "Chuyến đi" : pathname === "/maps" ? "Bản đồ" : pathname === "/profile" ? "Cá nhân" : pathname === "/notification" ? "Thông báo" : "Nhóm của tôi"} />}
       <Tabs
+        initialRouteName="overview"
         backBehavior="initialRoute"
         screenOptions={{
           headerShown: false,
@@ -132,7 +136,7 @@ export default function TabLayout() {
             fontWeight: "700",
             lineHeight: 13,
           },
-          tabBarStyle: hideTab
+          tabBarStyle: hideTab && !showTripDetailTabBar
             ? { display: "none" }
             : {
                 height: 68 + Math.max(6, insets.bottom),
@@ -145,6 +149,7 @@ export default function TabLayout() {
               },
         }}
       >
+        <Tabs.Screen name="overview" options={{ title: "Tổng quan", tabBarIcon: ({ color, focused }) => <NavIcon name="home-outline" color={color} focused={focused} /> }} />
         <Tabs.Screen
           name="index"
           options={{
@@ -160,6 +165,7 @@ export default function TabLayout() {
           options={{
             title: "Chuyến đi",
             headerShown: false,
+            popToTopOnBlur: true,
             tabBarIcon: ({ color, focused }) => (
               <NavIcon name="airplane-outline" color={color} focused={focused} />
             ),
@@ -182,6 +188,7 @@ export default function TabLayout() {
           })}
         />
 
+        <Tabs.Screen name="maps" options={{ title: "Bản đồ", tabBarIcon: ({ color, focused }) => <NavIcon name="map-outline" color={color} focused={focused} /> }} />
         <Tabs.Screen
           name="profile"
           options={{
@@ -196,6 +203,7 @@ export default function TabLayout() {
           name="notification"
           options={{
             title: "Thông báo",
+            href: null,
             tabBarIcon: ({ color, focused }) => (
               <NavIcon name="notifications-outline" color={color} focused={focused} />
             ),
@@ -217,6 +225,7 @@ export default function TabLayout() {
           name="menu"
           options={{
             title: "Menu",
+            href: null,
             headerShown: false,
             tabBarIcon: ({ color, focused }) => (
               <NavIcon name="menu-outline" color={color} focused={focused} />

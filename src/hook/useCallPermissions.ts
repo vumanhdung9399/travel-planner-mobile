@@ -14,7 +14,7 @@ export function useCallPermissions(isReady: boolean) {
   const hasRequested = useRef(false);
 
   useEffect(() => {
-    if (!isReady || hasRequested.current) return;
+    if (!isReady || hasRequested.current || !NativeModules.WebRTCModule) return;
     hasRequested.current = true;
 
     const requestPermissions = async () => {

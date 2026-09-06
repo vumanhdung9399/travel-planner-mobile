@@ -168,7 +168,7 @@ const BalanceCard = ({
         <View style={styles.header}>
           <View style={styles.userInfo}>
             {user?.avatar ? (
-              <Avatar.Image source={{ uri: user.avatar }} size={48} />
+              <Avatar.Image source={{ uri: user.avatar }} size={38} />
             ) : (
               <Avatar.Text
                 size={48}
@@ -665,7 +665,7 @@ const BalanceCard = ({
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 18,
+    borderRadius: 12,
     padding: 15,
     borderWidth: 1,
     shadowOpacity: 0.04,
@@ -690,7 +690,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   userName: {
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: "600",
     flexShrink: 1,
     marginRight: 8,

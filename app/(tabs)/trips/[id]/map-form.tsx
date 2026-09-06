@@ -1,4 +1,5 @@
 import ConfirmDialog from "@/src/components/ConfirmDialog";
+import { isAxiosError } from "axios";
 import { AppToast } from "@/src/components/AppToast";
 import { CommonHeader } from "@/src/components/layout/CommonHeader";
 import { useAppPalette } from "@/src/hook/useAppPalette";
@@ -9,7 +10,7 @@ import {
   type PlacePrediction,
   searchGooglePlaces,
 } from "@/src/services/googleMaps";
-import { ENV } from "@/src/constants/env";
+
 import { useAuthStore } from "@/src/store/auth.store";
 import type { RouteData, TripRoute } from "@/src/type/map";
 import { COLORS } from "@/src/utils/constants";
@@ -54,24 +55,6 @@ type LocatedUser = LatLng & {
   hasLocation: boolean;
   lastUpdated: number;
 };
-
-interface DirectionsResponse {
-  status: string;
-  routes?: {
-    overview_polyline: { points: string };
-    legs: { distance?: { value: number }; duration?: { value: number } }[];
-  }[];
-  error_message?: string;
-}
-
-interface OsrmResponse {
-  code: string;
-  routes?: {
-    distance: number;
-    duration: number;
-    geometry: { coordinates: [number, number][] };
-  }[];
-}
 
 const DEFAULT_REGION = {
   latitude: 21.0285,
@@ -189,6 +172,8 @@ export default function NativeMapScreen() {
   const palette = useAppPalette();
   const paperTheme = useTheme();
   const mapRef = useRef<MapView>(null);
+  const mapReady = useRef(false);
+  const pendingMapPoints = useRef<LatLng[]>([]);
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
   const previousOffRouteUsers = useRef<Set<string>>(new Set());
   const { id, mapId } = useLocalSearchParams<{ id: string; mapId?: string }>();
@@ -211,8 +196,12 @@ export default function NativeMapScreen() {
   const [travelMode, setTravelMode] = useState<TravelMode>("DRIVING");
   const [distance, setDistance] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [traffic, setTraffic] = useState<{ trafficAware: boolean; calculatedAt: string } | null>(null);
+  const [routing, setRouting] = useState(false);
+  const routingRequest = useRef(0);
   const [isLeader, setIsLeader] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [routeLoadError, setRouteLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [panelOpen, setPanelOpen] = useState(!mapId);
   const [deleteRecord, setDeleteRecord] = useState<TripRoute | null>(null);
@@ -229,7 +218,8 @@ export default function NativeMapScreen() {
 
   const fitPoints = useCallback((items: LatLng[]) => {
     const validItems = items.filter(isValidLatLng);
-    if (validItems.length) {
+    pendingMapPoints.current = validItems;
+    if (mapReady.current && validItems.length) {
       mapRef.current?.fitToCoordinates(validItems, {
         edgePadding: { top: 90, right: 55, bottom: 220, left: 55 },
         animated: true,
@@ -240,91 +230,65 @@ export default function NativeMapScreen() {
   const calculateRoute = useCallback(
     async (waypoints: LatLng[], mode: TravelMode) => {
       if (waypoints.length < 2) throw new Error("Cần ít nhất 2 điểm");
-      const calculateWithOsrm = async () => {
-        const coordinates = waypoints
-          .map((point) => `${point.longitude},${point.latitude}`)
-          .join(";");
-        const response = await fetch(
-          `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=false`,
-        );
-        const data = (await response.json()) as OsrmResponse;
-        const route = data.routes?.[0];
-        if (!response.ok || data.code !== "Ok" || !route) {
-          throw new Error("Không tìm được tuyến đường");
-        }
-        const path = route.geometry.coordinates.map(([longitude, latitude]) => ({
-          latitude,
-          longitude,
-        }));
-        setRoutePath(path);
-        setDistance(route.distance);
-        setDuration(route.duration);
-        fitPoints(path);
-        return { path, distance: route.distance, duration: route.duration };
-      };
-
-      if (!ENV.GOOGLE_MAPS_API_KEY) return calculateWithOsrm();
-      const origin = waypoints[0];
-      const destination = waypoints[waypoints.length - 1];
-      const middle = waypoints
-        .slice(1, -1)
-        .map((point) => `${point.latitude},${point.longitude}`)
-        .join("|");
-      const params = new URLSearchParams({
-        origin: `${origin.latitude},${origin.longitude}`,
-        destination: `${destination.latitude},${destination.longitude}`,
-        mode: "driving",
-        alternatives: middle ? "false" : "true",
-        key: ENV.GOOGLE_MAPS_API_KEY,
-      });
-      if (middle) params.set("waypoints", middle);
-      if (mode === "MOTORCYCLE") params.set("avoid", "highways|tolls");
-      const response = await fetch(
-        `https://maps.googleapis.com/maps/api/directions/json?${params}`,
-      );
-      const data = (await response.json()) as DirectionsResponse;
-      if (!response.ok || data.status !== "OK" || !data.routes?.length)
-        return calculateWithOsrm();
-      const best = [...data.routes].sort(
-        (a, b) =>
-          a.legs.reduce((sum, leg) => sum + (leg.duration?.value || 0), 0) -
-          b.legs.reduce((sum, leg) => sum + (leg.duration?.value || 0), 0),
-      )[0];
-      const nextPath = decodePolyline(best.overview_polyline.points);
-      const nextDistance = best.legs.reduce(
-        (sum, leg) => sum + (leg.distance?.value || 0),
-        0,
-      );
-      const nextDuration = best.legs.reduce(
-        (sum, leg) => sum + (leg.duration?.value || 0),
-        0,
-      );
-      setRoutePath(nextPath);
-      setDistance(nextDistance);
-      setDuration(nextDuration);
-      fitPoints(nextPath);
-      return { path: nextPath, distance: nextDistance, duration: nextDuration };
+      const request = ++routingRequest.current;
+      const { data } = await api.post<{
+        encodedPolyline: string; distance: number; duration: number;
+        trafficAware: boolean; calculatedAt: string;
+      }>(`/maps/trip/${id}/compute-route`, { points: waypoints, travelMode: mode }, { timeout: 25000 });
+      const path = decodePolyline(data.encodedPolyline);
+      if (request !== routingRequest.current) throw new Error("Điểm hoặc phương tiện đã thay đổi. Vui lòng tìm lại tuyến.");
+      setRoutePath(path);
+      setDistance(data.distance);
+      setDuration(data.duration);
+      setTraffic({ trafficAware: data.trafficAware, calculatedAt: data.calculatedAt });
+      fitPoints(path);
+      return { path, distance: data.distance, duration: data.duration };
     },
-    [fitPoints],
+    [fitPoints, id],
   );
+
+  const refreshRoute = async () => {
+    if (routing || busy || points.length < 2) return;
+    setRouting(true);
+    try { await calculateRoute(points, travelMode); }
+    catch { showError("Không thể cập nhật tuyến đường. Vui lòng thử lại."); }
+    finally { setRouting(false); }
+  };
 
   const loadRouteFile = useCallback(
     async (record: TripRoute) => {
+      routingRequest.current += 1;
       setBusy(true);
+      setRouteLoadError(null);
       try {
         let route: RouteData;
         try {
-          const response = await fetch(record.routerFileName);
-          if (!response.ok) throw new Error("Không tải được file tuyến đường");
-          route = (await response.json()) as RouteData;
-        } catch {
+          let response: Response;
+          try {
+            response = await fetch(record.routerFileName, { signal: AbortSignal.timeout(15000) });
+          } catch {
+            throw new Error("Không kết nối được nơi lưu file tuyến đường. Kiểm tra mạng rồi thử lại.");
+          }
+          if (!response.ok) throw new Error(`Không tải được file tuyến đường (HTTP ${response.status}).`);
+          try {
+            route = (await response.json()) as RouteData;
+          } catch {
+            throw new Error("File tuyến đường không đúng định dạng JSON.");
+          }
+        } catch (error) {
           const localPath = await getOfflineMapPath(id, record.id);
-          if (!localPath) throw new Error("Tuyến đường này chưa được lưu offline");
+          if (!localPath) throw error;
           route = JSON.parse(await FileSystem.readAsStringAsync(localPath)) as RouteData;
+        }
+        if (!route || !Array.isArray(route.waypoints) || (route.path != null && !Array.isArray(route.path))) {
+          throw new Error("File tuyến đường thiếu danh sách tọa độ hợp lệ.");
         }
         const nativePoints = (route.waypoints || [])
           .map(toNativePoint)
           .filter(isValidLatLng);
+        let nextDistance = route.distance || 0;
+        let nextDuration = route.duration || 0;
+        setTraffic(null);
         let nativePath = (route.path || [])
           .map(toNativePoint)
           .filter(isValidLatLng);
@@ -335,6 +299,8 @@ export default function NativeMapScreen() {
               route.travelMode || "DRIVING",
             );
             nativePath = calculated.path;
+            nextDistance = calculated.distance;
+            nextDuration = calculated.duration;
           } catch {
             nativePath = nativePoints;
           }
@@ -344,11 +310,15 @@ export default function NativeMapScreen() {
         setPoints(nativePoints);
         setRoutePath(nativePath);
         setTravelMode(route.travelMode || "DRIVING");
-        setDistance(route.distance || 0);
-        setDuration(route.duration || 0);
+        setDistance(nextDistance);
+        setDuration(nextDuration);
         fitPoints(nativePath.length ? nativePath : nativePoints);
-      } catch {
-        showError("Không thể tải tuyến đường");
+      } catch (error) {
+        const message = error instanceof Error && !isAxiosError(error)
+          ? error.message
+          : "Không thể đọc dữ liệu tuyến đường.";
+        setRouteLoadError(message);
+        showError(message);
       } finally {
         setBusy(false);
       }
@@ -358,7 +328,9 @@ export default function NativeMapScreen() {
 
   const loadRecords = useCallback(async () => {
     try {
+      mapReady.current = false;
       setLoading(true);
+      setRouteLoadError(null);
       if (mapId) {
         const response = await api.get<TripRoute & { tripId: string }>(
           `/maps/${mapId}`,
@@ -378,12 +350,22 @@ export default function NativeMapScreen() {
       const initial =
         nextRecords.find((record) => record.active) || nextRecords[0];
       if (initial) await loadRouteFile(initial);
+    } catch (error) {
+      const status = isAxiosError(error) ? error.response?.status : undefined;
+      const message = status === 403 ? "Bạn không có quyền truy cập tuyến đường này."
+        : status === 404 ? "Tuyến đường không tồn tại hoặc không còn hoạt động."
+        : status ? `Không tải được thông tin tuyến đường từ máy chủ (HTTP ${status}).`
+        : "Không kết nối được máy chủ để tải tuyến đường. Kiểm tra mạng và địa chỉ API.";
+      setRouteLoadError(message);
+      showError(message);
     } finally {
       setLoading(false);
     }
   }, [id, loadRouteFile, mapId]);
 
   useEffect(() => {
+    // Loading reflects the route request started when trip/map changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadRecords();
   }, [loadRecords]);
 
@@ -535,15 +517,21 @@ export default function NativeMapScreen() {
     previousOffRouteUsers.current = currentOffRoute;
   }, [isViewMode, offRouteMembers]);
 
+  const clearCalculatedRoute = useCallback(() => {
+    setRoutePath([]);
+    setDistance(0);
+    setDuration(0);
+    setTraffic(null);
+    routingRequest.current += 1;
+  }, []);
+
   const startDraft = useCallback(() => {
     setSelectedRecord(null);
     setSavedRoute(null);
     setPoints([]);
-    setRoutePath([]);
+    clearCalculatedRoute();
     setRouteName("");
-    setDistance(0);
-    setDuration(0);
-  }, []);
+  }, [clearCalculatedRoute]);
 
   const onMapPress = (event: MapPressEvent) => {
     if (!allowEdit) return;
@@ -555,9 +543,8 @@ export default function NativeMapScreen() {
     } else {
       setPoints((current) => [...current, coordinate]);
     }
-    setRoutePath([]);
-    setDistance(0);
-    setDuration(0);
+    clearCalculatedRoute();
+
   };
 
   const findPlaces = async () => {
@@ -588,7 +575,7 @@ export default function NativeMapScreen() {
       } else {
         setPoints((current) => [...current, point]);
       }
-      setRoutePath([]);
+      clearCalculatedRoute();
       mapRef.current?.animateCamera({ center: point, zoom: 15 });
       setSearch(prediction.description);
       setSuggestions([]);
@@ -624,9 +611,8 @@ export default function NativeMapScreen() {
       } else {
         setPoints((current) => [...current, point]);
       }
-      setRoutePath([]);
-      setDistance(0);
-      setDuration(0);
+      clearCalculatedRoute();
+
       mapRef.current?.animateCamera({ center: point, zoom: 16 });
       setShowSuggestions(false);
     } catch {
@@ -710,7 +696,7 @@ export default function NativeMapScreen() {
       setSavedRoute(null);
       setSelectedRecord(null);
       setPoints([]);
-      setRoutePath([]);
+      clearCalculatedRoute();
       await loadRecords();
       showSuccess("Đã xóa lộ trình");
     } finally {
@@ -735,12 +721,22 @@ export default function NativeMapScreen() {
       edges={["bottom"]}
     >
       <CommonHeader title="Bản đồ chuyến đi" fallbackHref={fallbackHref} />
+      {routeLoadError && <View style={{ padding: 12, backgroundColor: palette.errorLight }}>
+        <Text style={{ color: palette.textPrimary }}>{routeLoadError}</Text>
+        <Pressable accessibilityRole="button" disabled={busy} onPress={() => void loadRecords()} style={{ paddingVertical: 8 }}>
+          <Text style={{ color: palette.primary, fontWeight: "700" }}>Thử tải lại tuyến đường</Text>
+        </Pressable>
+      </View>}
       <View style={styles.mapWrap}>
         <MapView
           ref={mapRef}
           provider={PROVIDER_GOOGLE}
           style={StyleSheet.absoluteFill}
           initialRegion={DEFAULT_REGION}
+          onMapReady={() => {
+            mapReady.current = true;
+            fitPoints(pendingMapPoints.current);
+          }}
           onPress={onMapPress}
           showsUserLocation
           showsMyLocationButton={false}
@@ -876,6 +872,12 @@ export default function NativeMapScreen() {
               {duration ? formatDuration(duration) : "—"} ·{" "}
               {travelMode === "DRIVING" ? "Ô tô" : "Xe máy"}
             </Text>
+            <Text style={[styles.routeMeta, { color: palette.textSecondary }]}>
+              {traffic ? (traffic.trafficAware ? "Đã tính giao thông" : "Chưa tính giao thông") + " · " + new Date(traffic.calculatedAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "Tuyến đã lưu · Chưa cập nhật giao thông"}
+            </Text>
+            <Pressable disabled={busy || routing || points.length < 2} onPress={() => void refreshRoute()} accessibilityRole="button" style={{ paddingVertical: 8 }}>
+              <Text style={{ color: palette.primary, fontWeight: "700" }}>{routing ? "Đang cập nhật..." : "Cập nhật tuyến đường"}</Text>
+            </Pressable>
           </View>
         )}
         {isViewMode && !!offRouteMembers.length && (
@@ -1022,7 +1024,7 @@ export default function NativeMapScreen() {
                 </View>
               )}
               <Pressable
-                disabled={busy}
+                disabled={busy || routing}
                 onPress={() => void addMyLocation()}
                 style={[
                   styles.myLocationButton,
@@ -1053,7 +1055,7 @@ export default function NativeMapScreen() {
                     key={mode}
                     onPress={() => {
                       setTravelMode(mode);
-                      setRoutePath([]);
+                      clearCalculatedRoute();
                     }}
                     style={[
                       styles.mode,
@@ -1102,7 +1104,7 @@ export default function NativeMapScreen() {
                   <Pressable
                     onPress={() => {
                       setPoints([]);
-                      setRoutePath([]);
+                      clearCalculatedRoute();
                     }}
                   >
                     <Text style={[styles.clear, { color: errorColor }]}>
@@ -1135,7 +1137,7 @@ export default function NativeMapScreen() {
                   <Pressable
                     onPress={() => {
                       setPoints((current) => current.filter((_, position) => position !== index));
-                      setRoutePath([]);
+                      clearCalculatedRoute();
                     }}
                   >
                     <Ionicons
@@ -1148,8 +1150,8 @@ export default function NativeMapScreen() {
               ))}
 
               <Pressable
-                disabled={busy || points.length < 2}
-                onPress={() => void calculateRoute(points, travelMode)}
+                disabled={busy || routing || points.length < 2}
+                onPress={() => void refreshRoute()}
                 style={[
                   styles.outlineButton,
                   { borderColor: paperTheme.colors.primary },

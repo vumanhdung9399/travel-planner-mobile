@@ -57,7 +57,7 @@ const ConfirmDialog = ({
         return {
           icon: "alert-circle",
           iconBgColor: palette.errorLight,
-          iconColor: COLORS.error,
+          iconColor: palette.error,
           defaultConfirmColor: COLORS.error,
           gradientColors: [COLORS.error, "#B94B3B"] as const,
         };
@@ -65,7 +65,7 @@ const ConfirmDialog = ({
         return {
           icon: "warning",
           iconBgColor: palette.warningLight,
-          iconColor: COLORS.warning,
+          iconColor: palette.warning,
           defaultConfirmColor: COLORS.warning,
           gradientColors: [COLORS.warning, "#C98928"] as const,
         };
@@ -73,7 +73,7 @@ const ConfirmDialog = ({
         return {
           icon: "checkmark-circle",
           iconBgColor: palette.successLight,
-          iconColor: COLORS.success,
+          iconColor: palette.success,
           defaultConfirmColor: COLORS.success,
           gradientColors: [COLORS.success, COLORS.primaryDark] as const,
         };
@@ -82,7 +82,7 @@ const ConfirmDialog = ({
         return {
           icon: "information-circle",
           iconBgColor: palette.primaryLight,
-          iconColor: COLORS.info,
+          iconColor: palette.info,
           defaultConfirmColor: COLORS.primary,
           gradientColors: COLORS.primaryGradient as readonly [string, string],
         };

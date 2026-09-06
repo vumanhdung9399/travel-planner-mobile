@@ -1,3 +1,4 @@
+import { useAppPalette } from "@/src/hook/useAppPalette";
 import { COLORS } from "@/src/utils/constants";
 import { getNameFirstLetterUpper } from "@/src/utils/helper";
 import { Ionicons } from "@expo/vector-icons";
@@ -25,6 +26,7 @@ export const AvatarPicker = ({
   loading = false,
   name = "",
 }: AvatarPickerProps) => {
+  const palette = useAppPalette();
   return (
     <View style={styles.container}>
       <TouchableOpacity
@@ -35,9 +37,9 @@ export const AvatarPicker = ({
       >
         {/* Avatar Image hoặc Placeholder */}
         {uri ? (
-          <Image source={{ uri }} style={styles.avatar} />
+          <Image source={{ uri }} style={[styles.avatar, { borderColor: palette.surface }]} />
         ) : (
-          <View style={styles.avatarPlaceholder}>
+          <View style={[styles.avatarPlaceholder, { borderColor: palette.surface }]}>
             <Text style={styles.avatarPlaceholderText}>
               {getNameFirstLetterUpper(name || "U")}
             </Text>
@@ -45,7 +47,7 @@ export const AvatarPicker = ({
         )}
 
         {/* Loading Indicator hoặc Camera Button */}
-        <View style={styles.cameraButton}>
+        <View style={[styles.cameraButton, { borderColor: palette.surface, backgroundColor: palette.primaryLight }]}>
           {loading ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
@@ -63,7 +65,7 @@ export const AvatarPicker = ({
 
       {/* Hint text */}
       <TouchableOpacity onPress={onPickImage} disabled={loading}>
-        <Text style={styles.hint}>
+        <Text style={[styles.hint, { color: palette.primary }]}>
           {loading ? "Đang tải lên..." : "Thay đổi ảnh đại diện"}
         </Text>
       </TouchableOpacity>

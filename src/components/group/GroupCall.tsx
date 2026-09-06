@@ -598,7 +598,7 @@ export default function GroupCall({
             </TouchableOpacity>
             <TouchableOpacity
               accessibilityLabel={cameraOn ? "Tắt camera" : "Bật camera"}
-              disabled={!local.current?.getVideoTracks().length}
+              disabled={!localStream?.getVideoTracks().length}
               onPress={() => {
                 const enabled = !cameraOn;
                 local.current?.getVideoTracks().forEach((track) => { track.enabled = enabled; });
@@ -607,14 +607,14 @@ export default function GroupCall({
               style={[
                 styles.controlButton,
                 compactControls && styles.controlButtonCompact,
-                !local.current?.getVideoTracks().length && styles.disabledButton,
+                !localStream?.getVideoTracks().length && styles.disabledButton,
               ]}
             >
               <Ionicons name={cameraOn ? "videocam" : "videocam-off"} size={25} color="#fff" />
             </TouchableOpacity>
             <TouchableOpacity
               accessibilityLabel="Đổi camera trước/sau"
-              disabled={!local.current?.getVideoTracks().length}
+              disabled={!localStream?.getVideoTracks().length}
               onPress={() => {
                 const videoTrack = local.current?.getVideoTracks()[0] as unknown as
                   | { _switchCamera?: () => void }
@@ -626,7 +626,7 @@ export default function GroupCall({
               style={[
                 styles.controlButton,
                 compactControls && styles.controlButtonCompact,
-                !local.current?.getVideoTracks().length && styles.disabledButton,
+                !localStream?.getVideoTracks().length && styles.disabledButton,
               ]}
             >
               <Ionicons name="camera-reverse" size={25} color="#fff" />

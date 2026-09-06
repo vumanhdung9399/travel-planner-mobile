@@ -4,7 +4,7 @@ import { AppToast } from "@src/components/AppToast";
 import type { Notification } from "@src/type/notification";
 import type { ChatMessage } from "@/src/type/chat";
 import * as Haptics from "expo-haptics";
-import * as Notifications from "expo-notifications";
+import { getNativeNotifications } from "@/src/services/native-notifications";
 import { useEffect } from "react";
 import { AppState, NativeModules, Platform } from "react-native";
 import { useAuthStore } from "../store/auth.store";
@@ -28,6 +28,8 @@ const playMessageAlert = async (data: ChatNotification) => {
     return;
   }
 
+  const Notifications = getNativeNotifications();
+  if (!Notifications) return;
   await Notifications.scheduleNotificationAsync({
     content: {
       title: data.message?.sender?.name || "Tin nhắn mới",
@@ -64,9 +66,10 @@ export const useSocket = () => {
       });
 
       const appState = AppState.currentState;
-      if (appState !== "active") {
+      const Notifications = getNativeNotifications();
+      if (appState !== "active" && Notifications) {
         // 👉 push local
-        Notifications.scheduleNotificationAsync({
+        void Notifications.scheduleNotificationAsync({
           content: {
             title: data.title,
             body: data.content,
@@ -79,7 +82,7 @@ export const useSocket = () => {
             repeats: false,
             channelId: MESSAGE_NOTIFICATION_CHANNEL_ID,
           },
-        });
+        }).catch((error) => console.warn("[Notifications] Scheduling failed:", error));
       }
     };
 

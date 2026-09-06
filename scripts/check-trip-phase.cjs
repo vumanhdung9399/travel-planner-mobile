@@ -1,0 +1,23 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const ts = require('typescript');
+const vm = require('node:vm');
+
+const source = fs.readFileSync(path.join(__dirname, '../src/utils/tripPhase.ts'), 'utf8');
+const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } });
+const context = { exports: {}, Date };
+vm.runInNewContext(compiled.outputText, context);
+const { getTripPhase, calendarDate } = context.exports;
+const now = new Date(2026, 8, 5, 12).getTime();
+const phase = (startDate, isCloseTrip = false) => getTripPhase({ startDate, isCloseTrip }, now);
+assert.equal(phase('2026-09-06'), 'upcoming');
+assert.equal(phase('2026-09-05'), 'current');
+assert.equal(phase('2026-01-01'), 'current');
+assert.equal(phase('2026-01-01', true), 'past');
+assert.equal(phase('2027-01-01', true), 'past');
+assert.equal(phase('invalid'), 'upcoming');
+assert.equal(phase('2026-09-05T23:59:00Z'), 'current');
+assert.equal(calendarDate('2026-09-05T23:59:00Z'), new Date(2026, 8, 5).getTime());
+assert.equal(getTripPhase({ startDate: '2026-09-05', isCloseTrip: false }, new Date(2026, 8, 4, 23, 59).getTime()), 'upcoming');
+console.log('Trip phase: 9 checks passed');

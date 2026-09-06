@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   titleContainer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: "center",
     alignItems: "center",
     zIndex: 0,

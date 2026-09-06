@@ -1,3 +1,4 @@
+import { TripContentFlatList } from '@/src/components/trip/TripDetailContent';
 import { useAppPalette } from "@/src/hook/useAppPalette";
 import { api } from "@/src/services/api";
 import { useAuthStore } from "@/src/store/auth.store";
@@ -158,6 +159,8 @@ const BalanceList = ({
 
   useEffect(() => {
     if (!trip.id) return;
+    // Refresh server-backed settlement inputs for this trip/revision.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void getExpenses();
     void getMember();
     void getTripFunds();
@@ -485,7 +488,7 @@ const BalanceList = ({
 
   return (
     <View style={[styles.container, { backgroundColor: palette.background }]}>
-      <FlatList
+      <TripContentFlatList
         data={validBalances}
         keyExtractor={(item) => item.userId}
         renderItem={({ item }) => {
@@ -538,7 +541,7 @@ const BalanceList = ({
             style={[
               styles.header,
               {
-                backgroundColor: palette.surface,
+                backgroundColor: "transparent",
                 borderColor: palette.border,
                 shadowColor: palette.isDark ? "#000000" : "#3D4E62",
               },
@@ -741,6 +744,7 @@ const BalanceList = ({
                 </Text>
               )}
             </View>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 12, paddingHorizontal: 4 }}><Text style={{ fontSize: 14, fontWeight: "600" }}>Chi tiết thành viên</Text><Text style={{ fontSize: 10, color: palette.textSecondary }}>{validBalances.length} người · cần thu {formatMoney(Math.round(finalBalances.filter(item => item.finalBalance < 0).reduce((sum, item) => sum - item.finalBalance, 0)))}</Text></View>
           </Surface>
         }
         ListEmptyComponent={
@@ -862,19 +866,18 @@ const styles = StyleSheet.create({
   },
   transferAmountWrap: { flex: 1, alignItems: "flex-end" },
   missingBank: { marginTop: 5, fontSize: 9, maxWidth: 120, textAlign: "right" },
-  summaryTitle: { fontSize: 18, fontWeight: "800", marginBottom: 12 },
+  summaryTitle: { fontSize: 16, fontWeight: "800", marginBottom: 12 },
   groupPaymentButton: {
     minHeight: 50,
     marginTop: 16,
     borderRadius: 25,
-    backgroundColor: "#0875D1",
+    backgroundColor: COLORS.primary,
     alignItems: "center",
     justifyContent: "center",
   },
   groupPaymentButtonText: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
   paymentPlan: {
-    marginTop: 16,
-    borderRadius: 16,
+    marginTop: 12, borderRadius: 12,
     borderWidth: 1,
     overflow: "hidden",
   },
@@ -896,7 +899,7 @@ const styles = StyleSheet.create({
   },
   paymentPlanText: { flex: 1, minWidth: 0 },
   paymentPlanEyebrow: { fontSize: 10, marginBottom: 2 },
-  paymentPlanTitle: { fontSize: 15, fontWeight: "800" },
+  paymentPlanTitle: { fontSize: 13, fontWeight: "800" },
   paymentPlanAction: {
     flexShrink: 0,
     flexDirection: "row",
@@ -989,14 +992,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   header: {
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 8,
-    borderWidth: 1,
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 5 },
-    elevation: 1,
+    padding: 0, borderWidth: 0, shadowOpacity: 0,
   },
   leaderRow: {
     flexDirection: "row",
@@ -1028,8 +1024,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 9,
-    padding: 14,
-    borderRadius: 16,
+    paddingHorizontal: 8, paddingVertical: 12, borderRadius: 12,
   },
   statIcon: {
     width: 38,
@@ -1040,11 +1035,11 @@ const styles = StyleSheet.create({
   },
   statContent: { flex: 1, minWidth: 0 },
   statLabel: {
-    fontSize: 12,
+    fontSize: 10, textTransform: "uppercase",
     marginBottom: 4,
   },
   statValue: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: "700",
   },
   statDivider: {

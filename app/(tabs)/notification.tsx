@@ -48,7 +48,7 @@ export default function NotificationScreen() {
     if (!loading) return null;
     return (
       <View style={{ paddingVertical: 20 }}>
-        <ActivityIndicator size="small" color={COLORS.primary} />
+        <ActivityIndicator size="small" color={palette.primary} />
       </View>
     );
   };
@@ -97,14 +97,14 @@ export default function NotificationScreen() {
       </View>
       {count > 0 ? (
         <TouchableOpacity onPress={handleReadAll} style={[styles.readAllButton, { backgroundColor: palette.primaryLight }]}>
-          <MaterialCommunityIcons name="check-all" size={17} color={COLORS.primary} />
-          <Text style={styles.readAllBtn}>Đã đọc</Text>
+          <MaterialCommunityIcons name="check-all" size={17} color={palette.primary} />
+          <Text style={[styles.readAllBtn, { color: palette.primary }]}>Đã đọc</Text>
         </TouchableOpacity>
       ) : null}
     </View>
   );
 
-  const EmptyState = () => (
+  const emptyState = (
     <View style={styles.emptyContainer}>
       <MaterialCommunityIcons
         name="bell-off-outline"
@@ -121,12 +121,12 @@ export default function NotificationScreen() {
   const getIcon = (type: string, isRead: boolean) => {
     const appearance =
       {
-        [NOTIFICATION_TYPE.EXPENSE]: { color: COLORS.coral, bg: palette.orangeLight },
-        [NOTIFICATION_TYPE.TIMELINE]: { color: COLORS.info, bg: palette.primaryLight },
-        [NOTIFICATION_TYPE.INVITE]: { color: COLORS.success, bg: palette.successLight },
-        [NOTIFICATION_TYPE.TRIP]: { color: COLORS.warning, bg: palette.warningLight },
+        [NOTIFICATION_TYPE.EXPENSE]: { color: palette.coral, bg: palette.orangeLight },
+        [NOTIFICATION_TYPE.TIMELINE]: { color: palette.info, bg: palette.infoLight },
+        [NOTIFICATION_TYPE.INVITE]: { color: palette.success, bg: palette.successLight },
+        [NOTIFICATION_TYPE.TRIP]: { color: palette.warning, bg: palette.warningLight },
         [NOTIFICATION_TYPE.BALANCE]: { color: "#846FE8", bg: palette.purpleLight },
-      }[type] || { color: COLORS.primary, bg: palette.primaryLight };
+      }[type] || { color: palette.primary, bg: palette.primaryLight };
     const color = isRead ? palette.textLight : appearance.color;
     const bg = isRead ? palette.surfaceMuted : appearance.bg;
     let iconName: any = "bell-outline";
@@ -172,8 +172,8 @@ export default function NotificationScreen() {
           }
         }}
         onEndReachedThreshold={0.5}
-        ListFooterComponent={renderFooter}
-        ListEmptyComponent={!loading ? <EmptyState /> : null}
+        ListFooterComponent={renderFooter()}
+        ListEmptyComponent={!loading ? emptyState : null}
         renderItem={({ item }) => (
           <TouchableOpacity
             activeOpacity={0.7}

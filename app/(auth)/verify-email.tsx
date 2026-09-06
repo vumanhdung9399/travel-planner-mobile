@@ -5,7 +5,7 @@ import { COLORS } from "@/src/utils/constants";
 import { showError, showSuccess } from "@/src/utils/errorHandler";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -25,12 +25,8 @@ export default function VerifyEmailScreen() {
     email?: string;
     expiresAt?: string;
   }>();
-  const initialExpiry = useMemo(
-    () => expiresAt || new Date(Date.now() + 120_000).toISOString(),
-    [expiresAt],
-  );
   const [code, setCode] = useState("");
-  const [expiry, setExpiry] = useState(initialExpiry);
+  const [expiry, setExpiry] = useState(() => expiresAt || new Date(Date.now() + 120_000).toISOString());
   const [remaining, setRemaining] = useState(120);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
@@ -164,7 +160,7 @@ const styles = StyleSheet.create({
   card: { width: "100%", maxWidth: 390, padding: 28, borderWidth: 1, borderRadius: 14 },
   iconBox: { width: 68, height: 68, borderRadius: 12, alignSelf: "center", alignItems: "center", justifyContent: "center", marginBottom: 16 },
   center: { textAlign: "center" },
-  title: { marginTop: 6 },
+  title: { fontFamily: "DMSerifDisplay", fontWeight: "400", marginTop: 6 },
   subtitle: { marginTop: 8, color: COLORS.textSecondary },
   code: {
     marginTop: 32,

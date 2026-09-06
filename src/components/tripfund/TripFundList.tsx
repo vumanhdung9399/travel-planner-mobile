@@ -1,8 +1,8 @@
+import { TripContentScrollView } from '@/src/components/trip/TripDetailContent';
 import * as Haptics from "expo-haptics";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  FlatList,
   RefreshControl,
   StyleSheet,
   View,
@@ -10,7 +10,7 @@ import {
 import { Avatar, IconButton, Surface, Text } from "react-native-paper";
 
 import { api } from "@/src/services/api";
-import { useAuthStore } from "@/src/store/auth.store";
+import { useTripStore } from "@/src/store/trip.store";
 import type { Trip } from "@/src/type/trip";
 import { COLORS } from "@/src/utils/constants";
 import { formatMoney, getNameFirstLetterUpper } from "@/src/utils/helper";
@@ -51,7 +51,7 @@ const TripFundList = ({
   onSummaryChange,
 }: TripFundListProps) => {
   const palette = useAppPalette();
-  const { user: currentUser } = useAuthStore();
+  const markContentChanged = useTripStore(state => state.markContentChanged);
 
   const [funds, setFunds] = useState<TripFund[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,11 +62,7 @@ const TripFundList = ({
 
   const isLeader = trip.isLeader;
 
-  useEffect(() => {
-    void getFunds();
-  }, [refreshKey, trip.id]);
-
-  const getFunds = async () => {
+  const getFunds = useCallback(async () => {
     try {
       setLoading(true);
       const res = await api.get<TripFund[]>(`/trips/${trip.id}/funds`);
@@ -77,7 +73,13 @@ const TripFundList = ({
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [trip.id]);
+
+  useEffect(() => {
+    // Reload the remote contributions when this trip's content changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void getFunds();
+  }, [getFunds, refreshKey]);
 
   // Tính toán thống kê
   const stats = useMemo(() => {
@@ -109,6 +111,7 @@ const TripFundList = ({
       await api.delete(`/trips/${trip.id}/funds/${selectedFund.user.id}`);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await getFunds();
+      markContentChanged();
     } catch (error) {
       console.error(error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -119,83 +122,14 @@ const TripFundList = ({
     }
   };
 
-  const renderFundCard = ({ item }: { item: TripFund }) => {
-    const isMine = item.user.id === currentUser?.id;
-
-    return (
-      <Surface
-        style={[
-          styles.fundCard,
-          {
-            backgroundColor: palette.surface,
-            borderColor: palette.border,
-            shadowOpacity: palette.isDark ? 0 : 0.035,
-          },
-        ]}
-        elevation={0}
-      >
-        <View style={styles.fundHeader}>
-          {item.user.avatar ? (
-            <Avatar.Image
-              source={{ uri: item.user.avatar }}
-              size={48}
-              style={styles.userAvatar}
-            />
-          ) : (
-            <View
-              style={[
-                styles.userAvatarFallback,
-                { backgroundColor: palette.primaryLight },
-              ]}
-            >
-              <Text style={styles.userAvatarText}>
-                {getNameFirstLetterUpper(item.user.name)}
-              </Text>
-            </View>
-          )}
-
-          <View style={styles.fundInfo}>
-            <View style={styles.nameRow}>
-              <Text style={[styles.userName, { color: palette.textPrimary }]}>
-                {item.user.name}
-              </Text>
-              {isMine && (
-                <View style={styles.youBadge}>
-                  <Text style={styles.youBadgeText}>Bạn</Text>
-                </View>
-              )}
-            </View>
-            <Text style={[styles.userEmail, { color: palette.textSecondary }]}>
-              {item.user.phone}
-            </Text>
-          </View>
-
-          <View style={styles.fundRight}>
-            <Text style={styles.fundAmount}>{formatMoney(item.amount)}</Text>
-            {isLeader && !trip.isCloseTrip && (
-              <IconButton
-                icon="delete"
-                size={18}
-                iconColor={COLORS.error}
-                onPress={() => handleDelete(item)}
-                style={styles.deleteButton}
-              />
-            )}
-          </View>
-        </View>
-
-        {item.note && (
-          <View
-            style={[styles.noteContainer, { borderTopColor: palette.border }]}
-          >
-            <Text style={[styles.noteText, { color: palette.textSecondary }]}>
-              {item.note}
-            </Text>
-          </View>
-        )}
-      </Surface>
-    );
-  };
+  const renderFundCard = (item: TripFund, index: number) => <View key={item.id || item.user.id} style={{ paddingVertical: 12, borderBottomWidth: index < funds.length - 1 ? StyleSheet.hairlineWidth : 0, borderBottomColor: palette.border }}>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+      {item.user.avatar ? <Avatar.Image source={{ uri: item.user.avatar }} size={38} /> : <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: COLORS.primary, alignItems: "center", justifyContent: "center" }}><Text style={{ fontSize: 10, fontWeight: "700", color: "white" }}>{getNameFirstLetterUpper(item.user.name)}</Text></View>}
+      <View style={{ flex: 1 }}><Text style={{ fontSize: 12, fontWeight: "600", color: palette.textPrimary }}>{item.user.name}</Text><Text style={{ fontSize: 10, color: palette.textSecondary, marginTop: 2 }}>{item.user.phone}</Text></View>
+      <View style={{ alignItems: "flex-end" }}><Text style={{ fontSize: 13, fontWeight: "600", color: palette.textPrimary }}>{formatMoney(item.amount)}</Text>{isLeader && !trip.isCloseTrip && <IconButton icon="delete" size={16} iconColor={COLORS.error} onPress={() => handleDelete(item)} style={{ margin: 0, width: 26, height: 26 }} />}</View>
+    </View>
+    {!!item.note && <View style={{ marginTop: 12, paddingTop: 8, borderTopWidth: 1, borderStyle: "dashed", borderTopColor: palette.border }}><Text style={{ fontSize: 10, color: palette.textSecondary }}>{item.note}</Text></View>}
+  </View>;
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
@@ -211,7 +145,7 @@ const TripFundList = ({
       >
         <Text style={styles.emptyEmoji}>💰</Text>
         <Text style={[styles.emptyTitle, { color: palette.textPrimary }]}>
-          Chưa có quỹ nào
+          Chưa có khoản đóng góp nào
         </Text>
         <Text style={[styles.emptySubtext, { color: palette.textSecondary }]}>
           {isLeader
@@ -234,90 +168,10 @@ const TripFundList = ({
 
   return (
     <View style={[styles.container, { backgroundColor: palette.background }]}>
-      <FlatList
-        data={funds}
-        keyExtractor={(item) => item.id}
-        renderItem={renderFundCard}
-        contentContainerStyle={[styles.listContent, { paddingTop: contentInsetTop + 14 }]}
-        showsVerticalScrollIndicator={false}
-        onScroll={(event) =>
-          onScrollOffsetChange?.(event.nativeEvent.contentOffset.y)
-        }
-        scrollEventThrottle={16}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => {
-              setRefreshing(true);
-              getFunds();
-            }}
-            tintColor={COLORS.primary}
-          />
-        }
-        ListHeaderComponent={
-          stats.count > 0 ? (
-            <Surface
-              style={[
-                styles.statsCard,
-                {
-                  backgroundColor: palette.surface,
-                  borderColor: palette.border,
-                  shadowOpacity: palette.isDark ? 0 : 0.04,
-                },
-              ]}
-              elevation={0}
-            >
-              <View style={styles.statsRow}>
-                <View style={styles.statItem}>
-                  <Text
-                    style={[styles.statLabel, { color: palette.textSecondary }]}
-                  >
-                    Tổng quỹ
-                  </Text>
-                  <Text style={styles.statValue}>
-                    {formatMoney(stats.total)}
-                  </Text>
-                </View>
-
-                <View
-                  style={[
-                    styles.statDivider,
-                    { backgroundColor: palette.border },
-                  ]}
-                />
-
-                <View style={styles.statItem}>
-                  <Text
-                    style={[styles.statLabel, { color: palette.textSecondary }]}
-                  >
-                    Trung bình
-                  </Text>
-                  <Text style={styles.statValue}>
-                    {formatMoney(stats.average)}
-                  </Text>
-                </View>
-
-                <View
-                  style={[
-                    styles.statDivider,
-                    { backgroundColor: palette.border },
-                  ]}
-                />
-
-                <View style={styles.statItem}>
-                  <Text
-                    style={[styles.statLabel, { color: palette.textSecondary }]}
-                  >
-                    Người
-                  </Text>
-                  <Text style={styles.statValue}>{stats.count}</Text>
-                </View>
-              </View>
-            </Surface>
-          ) : null
-        }
-        ListEmptyComponent={renderEmptyState()}
-      />
+      <TripContentScrollView contentContainerStyle={[styles.listContent, { paddingTop: contentInsetTop + 14 }]} onScroll={event => onScrollOffsetChange?.(event.nativeEvent.contentOffset.y)} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void getFunds(); }} />}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 4, marginBottom: 10 }}><Text style={{ fontSize: 14, fontWeight: "600" }}>Đóng góp thành viên</Text><Text style={{ fontSize: 10, color: palette.textSecondary }}>{funds.length}/{trip.group.members.length} đã đóng</Text></View>
+        {funds.length ? <View style={{ paddingHorizontal: 14, borderWidth: 1, borderColor: palette.border, borderRadius: 12, backgroundColor: palette.surface }}>{funds.map(renderFundCard)}</View> : renderEmptyState()}
+      </TripContentScrollView>
 
       {/* Delete Confirm Dialog */}
       <ConfirmDialog

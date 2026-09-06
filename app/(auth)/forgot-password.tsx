@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   center: { textAlign: "center" },
-  title: { marginTop: 6 },
+  title: { fontFamily: "DMSerifDisplay", fontWeight: "400", marginTop: 6 },
   subtitle: { marginTop: 8, marginBottom: 24 },
   otpInput: {
     textAlign: "center",

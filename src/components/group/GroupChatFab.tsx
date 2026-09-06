@@ -12,12 +12,10 @@ import GroupCall from "./GroupCall";
 
 export default function GroupChatFab({
   groupId,
-  side = "right",
-  minimizedBottom = 12,
+  bottom = 82,
 }: {
   groupId: string;
-  side?: "left" | "right";
-  minimizedBottom?: number;
+  bottom?: number;
 }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const activeGroupId = useGroupChatWidgetStore((state) => state.activeGroupId);
@@ -65,7 +63,7 @@ export default function GroupChatFab({
     {!open && <TouchableOpacity
       style={[
         styles.fab,
-        side === "left" ? styles.fabLeft : styles.fabRight,
+        { right: 16, bottom },
       ]}
       activeOpacity={0.85}
       accessibilityLabel="Mở trò chuyện nhóm"
@@ -138,7 +136,7 @@ export default function GroupChatFab({
       <View
         style={[
           styles.minimizedBar,
-          { bottom: minimizedBottom },
+          { bottom },
           { backgroundColor: palette.surface, borderColor: palette.border },
         ]}
       >
@@ -178,7 +176,7 @@ export default function GroupChatFab({
 const styles = StyleSheet.create({
   fab: {
     position: "absolute",
-    bottom: 98,
+
     width: 54,
     height: 54,
     borderRadius: 27,
@@ -192,8 +190,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 5 },
     zIndex: 20,
   },
-  fabLeft: { left: 18 },
-  fabRight: { right: 18 },
   badge: {
     position: "absolute",
     top: -11,
@@ -201,7 +197,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#EF4444",
     color: "#fff",
   },
-  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(3,8,18,.58)" },
+  overlay: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(3,8,18,.58)" },
   chatWindow: {
     position: "absolute",
     left: 10,

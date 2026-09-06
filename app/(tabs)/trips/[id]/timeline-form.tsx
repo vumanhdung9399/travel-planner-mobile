@@ -2,7 +2,8 @@ import TripDetailFormSheet from "@/src/components/trip/TripDetailFormSheet";
 import { useAppPalette } from "@/src/hook/useAppPalette";
 import { api } from "@/src/services/api";
 import { useTripStore } from "@/src/store/trip.store";
-import type { TimelineItemType } from "@/src/type/trip";
+import type { TimelineItemType, TimelineType } from "@/src/type/trip";
+import { TIMELINE_TYPE_OPTIONS } from "@/src/utils/travelOptions";
 import { COLORS } from "@/src/utils/constants";
 import dayjs from "dayjs";
 import * as Haptics from "expo-haptics";
@@ -20,7 +21,7 @@ import {
   View,
 } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
-import { Text } from "react-native-paper";
+import { Chip, Text } from "react-native-paper";
 
 const parseTripDate = (value: string) => dayjs(String(value).slice(0, 10));
 
@@ -76,6 +77,7 @@ const TimelineFormScreen = () => {
       : new Date(),
   );
   const [notify, setNotify] = useState(false);
+  const [activityType, setActivityType] = useState<TimelineType>("other");
   const [day, setDay] = useState(1);
   const [errors, setErrors] = useState({
     title: "",
@@ -98,6 +100,7 @@ const TimelineFormScreen = () => {
       );
       setTime(boundedTime.toDate());
       setNotify(item.notify || false);
+      setActivityType(item.type || "other");
       setDay(getDayIndexFromDate(trip.startDate, boundedTime.toDate()));
     } catch (err) {
       console.error(err);
@@ -121,10 +124,12 @@ const TimelineFormScreen = () => {
         trip.startDate,
         trip.endDate,
       );
+      // Initialize the form once the asynchronously loaded trip boundaries arrive.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTime(defaultTime.toDate());
       setDay(getDayIndexFromDate(trip.startDate, defaultTime.toDate()));
     }
-  }, [trip, isEditMode]);
+  }, [trip.id, trip.startDate, trip.endDate, isEditMode]);
 
   const handleConfirmDateTime = (selectedDate: Date) => {
     setShowDateTimePicker(false);
@@ -179,6 +184,7 @@ const TimelineFormScreen = () => {
         time: dayjs(time).format("YYYY-MM-DD HH:mm"),
         day,
         notify,
+        type: activityType,
         tripId,
       };
 
@@ -244,6 +250,12 @@ const TimelineFormScreen = () => {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          <View style={styles.field}>
+            <Text style={[styles.label, { color: palette.textPrimary }]}>Loại hoạt động</Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              {TIMELINE_TYPE_OPTIONS.map((option) => <Chip key={option.value} selected={activityType === option.value} disabled={loading} onPress={() => setActivityType(option.value)}>{option.icon} {option.label}</Chip>)}
+            </View>
+          </View>
           {/* Tiêu đề */}
           <View style={styles.field}>
             <Text style={[styles.label, { color: palette.textPrimary }]}>

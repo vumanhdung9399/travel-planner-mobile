@@ -7,12 +7,13 @@ import {
   DarkTheme as NavigationDarkTheme,
   DefaultTheme as NavigationDefaultTheme,
   ThemeProvider as NavigationThemeProvider,
-} from "@react-navigation/native";
+} from "expo-router/react-navigation";
 import { useSocket } from "@src/hook/useSocket";
-import * as Notifications from "expo-notifications";
+import { getNativeNotifications } from "@/src/services/native-notifications";
 import { useRouter } from "expo-router";
 import { Drawer } from "expo-router/drawer";
 import * as SplashScreen from "expo-splash-screen";
+import { useFonts } from "expo-font";
 import { useEffect, useMemo, useRef } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { PaperProvider } from "react-native-paper";
@@ -31,6 +32,8 @@ import {
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 const initNotification = async () => {
+  const Notifications = getNativeNotifications();
+  if (!Notifications) return;
   try {
     await Notifications.setNotificationChannelAsync("default", {
       name: "default",
@@ -65,6 +68,10 @@ const initNotification = async () => {
 };
 
 export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts({
+    Manrope: require("@/assets/fonts/Manrope.ttf"),
+    DMSerifDisplay: require("@/assets/fonts/DMSerifDisplay.ttf"),
+  });
   const router = useRouter();
   const darkMode = useSettingsStore((state) => state.darkMode);
   const notificationsEnabled = useSettingsStore((state) => state.notificationsEnabled);
@@ -89,7 +96,7 @@ export default function RootLayout() {
   }, [darkMode, paperTheme]);
 
   useEffect(() => {
-    if (!hasHydrated) return;
+    if (!hasHydrated || (!fontsLoaded && !fontError)) return;
 
     let cancelled = false;
 
@@ -112,7 +119,7 @@ export default function RootLayout() {
     return () => {
       cancelled = true;
     };
-  }, [darkMode, hasHydrated, paperTheme.colors.background]);
+  }, [darkMode, hasHydrated, paperTheme.colors.background, fontsLoaded, fontError]);
 
   usePushNotification();
   useCallPermissions(hasHydrated);
@@ -126,6 +133,8 @@ export default function RootLayout() {
       void initNotification();
       return;
     }
+    const Notifications = getNativeNotifications();
+    if (!Notifications) return;
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
         shouldPlaySound: false,
@@ -138,6 +147,8 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (!hasHydrated || !notificationsEnabled) return;
+    const Notifications = getNativeNotifications();
+    if (!Notifications) return;
     const sub = Notifications.addNotificationResponseReceivedListener(
       (response) => {
         const data = response.notification.request.content.data as any;

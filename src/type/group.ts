@@ -10,6 +10,7 @@ export interface Group {
   description: string;
   coverImage: string | null;
   isCreate: boolean;
+  canCreateTrip?: boolean;
   canManageCover: boolean;
   members: Member[];
   trips: Trip[];

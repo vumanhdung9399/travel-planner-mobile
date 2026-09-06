@@ -437,7 +437,6 @@ const AddMembersScreen = () => {
             onPress={handleAddAll}
             loading={submitting}
             disabled={submitting}
-            buttonColor={COLORS.primary}
             contentStyle={styles.addButtonContent}
             style={styles.addButton}
           >

@@ -1,7 +1,18 @@
-import Toast from "react-native-toast-message";
+import Toast, { BaseToast, ErrorToast, type ToastConfig } from "react-native-toast-message";
+import { useAppPalette } from "@/src/hook/useAppPalette";
 
 export const AppToastContainer = () => {
-  return <Toast />;
+  const palette = useAppPalette();
+  const textStyles = {
+    text1Style: { color: palette.textPrimary },
+    text2Style: { color: palette.textSecondary },
+  };
+  const config: ToastConfig = {
+    success: (props) => <BaseToast {...props} {...textStyles} style={{ backgroundColor: palette.surfaceRaised, borderLeftColor: palette.success }} />,
+    error: (props) => <ErrorToast {...props} {...textStyles} style={{ backgroundColor: palette.surfaceRaised, borderLeftColor: palette.error }} />,
+    info: (props) => <BaseToast {...props} {...textStyles} style={{ backgroundColor: palette.surfaceRaised, borderLeftColor: palette.info }} />,
+  };
+  return <Toast config={config} />;
 };
 
 export const AppToast = {

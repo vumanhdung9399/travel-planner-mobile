@@ -1,3 +1,4 @@
+import { expenseMutationData } from "./expense-idempotency";
 import { useAuthStore } from "@/src/store/auth.store";
 import { ENV } from "@src/constants/env";
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
@@ -66,7 +67,7 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${accessToken}`;
     }
     if (config.method?.toLowerCase() === 'post' && /\/expenses\/[^/]+$/.test(config.url || '') && config.data && !(config.data instanceof FormData)) {
-      config.data = { ...config.data, clientMutationId: config.data.clientMutationId || `${Date.now()}-${Math.random().toString(36).slice(2)}` };
+      config.data = expenseMutationData(config.data, () => `${Date.now()}-${Math.random().toString(36).slice(2)}`);
     }
 
     return config;
